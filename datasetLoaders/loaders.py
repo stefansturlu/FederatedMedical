@@ -35,8 +35,7 @@ class DatasetInterface(Dataset):
 
     def getInputSize(self):
         raise Exception(
-            "Method should be implemented by subclasses where "
-            "models requires input size update (based on dataset)."
+            "Method should be implemented by subclasses where " "models requires input size update (based on dataset)."
         )
 
     def zeroLabels(self):
@@ -48,8 +47,7 @@ class DatasetLoader:
 
     def getDatasets(self, percUsers, labels, size=(None, None)):
         raise Exception(
-            "LoadData method should be override by child class, "
-            "specific to the loaded dataset strategy."
+            "LoadData method should be override by child class, " "specific to the loaded dataset strategy."
         )
 
     @staticmethod
@@ -64,15 +62,10 @@ class DatasetLoader:
         percUsers = percUsers / percUsers.sum()
 
         dataSplitCount = (percUsers * len(trainDataframe)).floor().numpy()
-        _, *dataSplitIndex = [
-            int(sum(dataSplitCount[range(i)])) for i in range(len(dataSplitCount))
-        ]
+        _, *dataSplitIndex = [int(sum(dataSplitCount[range(i)])) for i in range(len(dataSplitCount))]
 
         trainDataframes = np.split(trainDataframe, indices_or_sections=dataSplitIndex)
-        clientDatasets = [
-            DatasetType(clientDataframe.reset_index(drop=True))
-            for clientDataframe in trainDataframes
-        ]
+        clientDatasets = [DatasetType(clientDataframe.reset_index(drop=True)) for clientDataframe in trainDataframes]
         return clientDatasets
 
     @staticmethod
@@ -146,9 +139,7 @@ class DatasetLoader:
 
     #     return anonClientDatasets, clientSyntacticMappings, allColumns
 
-    def _anonymizeTestDataset(
-        self, testDataset, clientSyntacticMappings, columns, generalizedColumns
-    ):
+    def _anonymizeTestDataset(self, testDataset, clientSyntacticMappings, columns, generalizedColumns):
 
         datasetClass = testDataset.__class__
         dataframe = pd.DataFrame(list(testDataset.dataframe["data"]), columns=columns)
@@ -164,17 +155,13 @@ class DatasetLoader:
             legitMappings = []
             for clientMappings in clientSyntacticMappings:
                 legitMappings += [
-                    mapping
-                    for mapping in clientMappings
-                    if self.__legitMapping(dataframe.iloc[i], mapping)
+                    mapping for mapping in clientMappings if self.__legitMapping(dataframe.iloc[i], mapping)
                 ]
             if legitMappings:
                 # leastGeneralMapping = reduce(self.__leastGeneral, legitMappings)
                 leastGeneralMapping = legitMappings[0]
                 for legitMapping in legitMappings[1:]:
-                    leastGeneralMapping = self.__leastGeneral(
-                        leastGeneralMapping, legitMapping, domainsSize
-                    )
+                    leastGeneralMapping = self.__leastGeneral(leastGeneralMapping, legitMapping, domainsSize)
 
                 for col in leastGeneralMapping:
                     generalisedDataframe[col][i] = leastGeneralMapping[col]
@@ -185,11 +172,7 @@ class DatasetLoader:
         generalisedDataframe = pd.get_dummies(generalisedDataframe)
         ungeneralisedDataframe = dataframe.iloc[ungeneralisedIndex]
 
-        resultDataframe = (
-            pd.concat([ungeneralisedDataframe, generalisedDataframe])
-            .fillna(0)
-            .sort_index()
-        )
+        resultDataframe = pd.concat([ungeneralisedDataframe, generalisedDataframe]).fillna(0).sort_index()
         for col in generalizedColumns - set(resultDataframe.columns.values):
             resultDataframe[col] = 0
 
@@ -221,9 +204,7 @@ class DatasetLoader:
                 if entry[col] != mapping[col]:
                     return False
             else:
-                interval = np.array(
-                    re.findall(r"\d+.\d+", mapping[col]), dtype=np.float
-                )
+                interval = np.array(re.findall(r"\d+.\d+", mapping[col]), dtype=np.float)
                 if interval[0] < entry[col] or entry[col] >= interval[1]:
                     return False
         return True
@@ -235,17 +216,13 @@ class DatasetLoaderMNIST(DatasetLoader):
         self._setRandomSeeds()
         data = self.__loadMNISTData()
         trainDataframe, testDataframe = self._filterDataByLabel(labels, *data)
-        clientDatasets = self._splitTrainDataIntoClientDatasets(
-            percUsers, trainDataframe, self.MNISTDataset
-        )
+        clientDatasets = self._splitTrainDataIntoClientDatasets(percUsers, trainDataframe, self.MNISTDataset)
         testDataset = self.MNISTDataset(testDataframe)
         return clientDatasets, testDataset
 
     @staticmethod
     def __loadMNISTData():
-        trans = transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))]
-        )
+        trans = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))])
 
         # if not exist, download mnist dataset
         trainSet = datasets.MNIST("data", train=True, transform=trans, download=True)
@@ -273,9 +250,7 @@ class DatasetLoaderMNIST(DatasetLoader):
 
     class MNISTDataset(DatasetInterface):
         def __init__(self, dataframe):
-            self.data = torch.stack(
-                [torch.from_numpy(data) for data in dataframe["data"].values], dim=0
-            )
+            self.data = torch.stack([torch.from_numpy(data) for data in dataframe["data"].values], dim=0)
             super().__init__(dataframe["labels"].values)
 
         def __len__(self):
@@ -299,18 +274,13 @@ class DatasetLoaderCOVIDx(DatasetLoader):
         self._setRandomSeeds()
         data = self.__loadCOVIDxData(*size)
         trainDataframe, testDataframe = self._filterDataByLabel(labels, *data)
-        clientDatasets = self._splitTrainDataIntoClientDatasets(
-            percUsers, trainDataframe, self.COVIDxDataset
-        )
+        clientDatasets = self._splitTrainDataIntoClientDatasets(percUsers, trainDataframe, self.COVIDxDataset)
         testDataset = self.COVIDxDataset(testDataframe, isTestDataset=True)
         return clientDatasets, testDataset
 
     def __loadCOVIDxData(self, trainSize, testSize):
         if self.__datasetNotFound():
-            logPrint(
-                "Can't find train|test split .txt files or "
-                "/train, /test files not populated accordingly."
-            )
+            logPrint("Can't find train|test split .txt files or " "/train, /test files not populated accordingly.")
             if not self.assembleDatasets:
                 sys.exit(0)
 
@@ -344,9 +314,7 @@ class DatasetLoaderCOVIDx(DatasetLoader):
             header=None,
             usecols=[1, 2],
         )
-        dataFrame["labels"] = dataFrame["labels"].map(
-            lambda label: self.COVIDxLabelsDict[label]
-        )
+        dataFrame["labels"] = dataFrame["labels"].map(lambda label: self.COVIDxLabelsDict[label])
         return dataFrame.head(size)
 
     def __joinDatasets(self):
@@ -381,9 +349,7 @@ class DatasetLoaderCOVIDx(DatasetLoader):
 
         # Path to https://www.kaggle.com/c/rsna-pneumonia-detection-challenge
         kaggle_dataPath = self.dataPath + "/rsna-kaggle-dataset"
-        kaggle_csvname = (
-            "stage_2_detailed_class_info.csv"  # get all the normal from here
-        )
+        kaggle_csvname = "stage_2_detailed_class_info.csv"  # get all the normal from here
         kaggle_csvname2 = "stage_2_train_labels.csv"  # get all the 1s from here since 1 indicate pneumonia
         kaggle_imgPath = "stage_2_train_images"
 
@@ -496,12 +462,8 @@ class DatasetLoaderCOVIDx(DatasetLoader):
         # add normal and rest of pneumonia cases from https://www.kaggle.com/c/rsna-pneumonia-detection-challenge
 
         print(kaggle_dataPath)
-        csv_normal = pd.read_csv(
-            os.path.join(kaggle_dataPath, kaggle_csvname), nrows=None
-        )
-        csv_pneu = pd.read_csv(
-            os.path.join(kaggle_dataPath, kaggle_csvname2), nrows=None
-        )
+        csv_normal = pd.read_csv(os.path.join(kaggle_dataPath, kaggle_csvname), nrows=None)
+        csv_pneu = pd.read_csv(os.path.join(kaggle_dataPath, kaggle_csvname2), nrows=None)
         patients = {"normal": [], "pneumonia": []}
 
         for index, row in csv_normal.iterrows():
@@ -525,9 +487,7 @@ class DatasetLoaderCOVIDx(DatasetLoader):
             )  # random.sample(list(arr), num_test)
             # np.save('rsna_test_patients_{}.npy'.format(key), np.array(test_patients))
             for patient in arr:
-                ds = dicom.dcmread(
-                    os.path.join(kaggle_dataPath, kaggle_imgPath, patient + ".dcm")
-                )
+                ds = dicom.dcmread(os.path.join(kaggle_dataPath, kaggle_imgPath, patient + ".dcm"))
                 pixel_array_numpy = ds.pixel_array
                 imgname = patient + ".png"
                 if patient in test_patients:
@@ -597,9 +557,7 @@ class DatasetLoaderCOVIDx(DatasetLoader):
             transform = transforms.Compose(
                 [
                     transforms.ToTensor(),
-                    transforms.Normalize(
-                        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                    ),
+                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                 ]
             )
             # if(imageTensor.size(0)>1):

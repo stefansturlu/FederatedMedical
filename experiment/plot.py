@@ -72,9 +72,7 @@ class ExpResult:
         self.duration = duration
 
     def __str__(self):
-        return "Experiment {} took {}; errors for 30 rounds: {}".format(
-            self.name, self.duration, self.errors
-        )
+        return "Experiment {} took {}; errors for 30 rounds: {}".format(self.name, self.duration, self.errors)
 
 
 # OUTPUT LOG PARSING
@@ -88,14 +86,10 @@ def parseLogFile(fileName):
     currentBlocked = []
     for line in file:
         if "TRAINING" in line:
-            currentName = (
-                line.split(": ")[1].replace("TRAINING ", "").replace("...", "")
-            )
+            currentName = line.split(": ")[1].replace("TRAINING ", "").replace("...", "")
         elif "Round..." in line:
             if "Round...  0" in line:
-                currentStart = datetime.strptime(
-                    line.split(": ")[0], "%d/%m/%Y,%H:%M:%S"
-                )
+                currentStart = datetime.strptime(line.split(": ")[0], "%d/%m/%Y,%H:%M:%S")
                 currentRound = 0
             else:
                 currentRound += 1
@@ -131,9 +125,7 @@ def plotResults(filteredResults, experimentToPlot):
         clipValues = {0.01, 0.0001}
         needClip = {False, True}
         needNormalise = {False, True}
-        aggregators = [
-            a.__name__.replace("Aggregator", "") for a in default.aggregators
-        ]
+        aggregators = [a.__name__.replace("Aggregator", "") for a in default.aggregators]
 
         DPconfigs = list(
             product(
@@ -217,9 +209,7 @@ def plotResults(filteredResults, experimentToPlot):
                 configName += "Blocked:"
                 for blockRound, client in exp.blocked:
                     configName += "{};".format(client)
-                    hoverText[blockRound] = "{} blocked {} at round {}".format(
-                        exp.name, blockRound, client
-                    )
+                    hoverText[blockRound] = "{} blocked {} at round {}".format(exp.name, blockRound, client)
                     markerColors[blockRound] = "firebrick"
 
             plot = go.Scatter(
@@ -243,9 +233,7 @@ def plotResults(filteredResults, experimentToPlot):
                 y=1.05,
                 xanchor="left",
                 yanchor="bottom",
-                text="{} DP configurations; no Byzantine clients".format(
-                    len(experiments)
-                ),
+                text="{} DP configurations; no Byzantine clients".format(len(experiments)),
                 font=dict(family="Arial", size=30, color="rgba(20,20,20,0.5)"),
                 showarrow=False,
             )
@@ -264,9 +252,7 @@ def plotResults(filteredResults, experimentToPlot):
         filteredResults = list(filter(__filtering, filteredResults))
         # Add traces, one for each slider step
         for exp in filteredResults[len(filteredResults) - 4 :]:
-            exp.name = exp.name.replace(
-                "altered:1_malicious", "altered:1_faulty,2_malicious"
-            )
+            exp.name = exp.name.replace("altered:1_malicious", "altered:1_faulty,2_malicious")
 
         for exp in filteredResults:
             print(exp)
@@ -278,9 +264,7 @@ def plotResults(filteredResults, experimentToPlot):
                 configName += "blocked:"
                 for blockRound, client in exp.blocked:
                     configName += "{};".format(client)
-                    hoverText[blockRound] = "{} blocked {} at round {}".format(
-                        exp.name, blockRound, client
-                    )
+                    hoverText[blockRound] = "{} blocked {} at round {}".format(exp.name, blockRound, client)
                     markerColors[blockRound] = "firebrick"
 
             plot = go.Scatter(
@@ -304,9 +288,7 @@ def plotResults(filteredResults, experimentToPlot):
                 y=1.05,
                 xanchor="left",
                 yanchor="bottom",
-                text=(experimentToPlot["name"] + " Experiment count: {}").format(
-                    len(filteredResults)
-                ),
+                text=(experimentToPlot["name"] + " Experiment count: {}").format(len(filteredResults)),
                 font=dict(family="Arial", size=30, color="rgba(20,20,20,0.5)"),
                 showarrow=False,
             )

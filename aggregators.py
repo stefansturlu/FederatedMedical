@@ -26,12 +26,11 @@ class Aggregator:
         self.maliciousBlocked = []
         # List of benign users blocked
         self.benignBlocked = []
+        # List of faulty users blocked
+        self.faultyBlocked = []
 
     def trainAndTest(self, testDataset):
-        raise Exception(
-            "Train method should be override by child class, "
-            "specific to the aggregation strategy."
-        )
+        raise Exception("Train method should be override by child class, " "specific to the aggregation strategy.")
 
     def _shareModelAndTrainOnClients(self):
         if self.useAsyncClients:
@@ -64,9 +63,7 @@ class Aggregator:
     def test(self, testDataset):
         dataLoader = DataLoader(testDataset, shuffle=False)
         with torch.no_grad():
-            predLabels, testLabels = zip(
-                *[(self.predict(self.model, x), y) for x, y in dataLoader]
-            )
+            predLabels, testLabels = zip(*[(self.predict(self.model, x), y) for x, y in dataLoader])
         predLabels = torch.tensor(predLabels, dtype=torch.long)
         testLabels = torch.tensor(testLabels, dtype=torch.long)
         # Confusion matrix and normalized confusion matrix
@@ -90,16 +87,18 @@ class Aggregator:
         paramsOrig = mOrig.named_parameters()
         for name1, param1 in paramsOrig:
             if name1 in dictParamsDest:
-                weightedSum = (
-                    alphaOrig * param1.data + alphaDest * dictParamsDest[name1].data
-                )
+                weightedSum = alphaOrig * param1.data + alphaDest * dictParamsDest[name1].data
                 dictParamsDest[name1].data.copy_(weightedSum)
 
     def handle_blocked(self, client: Client, round: int):
         logPrint("USER ", client.id, " BLOCKED!!!")
         client.p = 0
-        if client.byz:
-            self.maliciousBlocked.append((client.id, round))
+        client.blocked = True
+        if client.byz or client.flip:
+            if client.byz:
+                self.faultyBlocked.append((client.id, round))
+            if client.flip:
+                self.maliciousBlocked.append((client.id, round))
         else:
             self.benignBlocked.append((client.id, round))
 
@@ -414,16 +413,12 @@ class FedMGDAAggregatorPlus(Aggregator):
     def __init__(self, clients, model, rounds, device, useAsyncClients=False):
         super().__init__(clients, model, rounds, device, useAsyncClients)
         self.numOfClients = len(clients)
-        self.lambdaModel = nn.Parameter(
-            torch.rand(self.numOfClients), requires_grad=True
-        )
+        self.lambdaModel = nn.Parameter(torch.rand(self.numOfClients), requires_grad=True)
         for client in self.clients:
             self.lambdaModel[client.id - 1].data = torch.tensor(1.0)
         # self.learningRate = 0.0001
         self.learningRate = 0.001
-        self.lambdatOpt =torch.optim.SGD(
-            [self.lambdaModel], lr=self.learningRate, momentum=0.5
-        )
+        self.lambdatOpt = torch.optim.SGD([self.lambdaModel], lr=self.learningRate, momentum=0.5)
         # self.delta is going to store the values of the g_i according to the paper FedMGDA
         self.delta = copy.deepcopy(model) if model else False
 
@@ -434,9 +429,7 @@ class FedMGDAAggregatorPlus(Aggregator):
             self._shareModelAndTrainOnClients()
             sentClientModels = self._retrieveClientModelsDict()
 
-            self.previousGlobalModel = (
-                copy.deepcopy(self.model) if self.model else False
-            )
+            self.previousGlobalModel = copy.deepcopy(self.model) if self.model else False
 
             paramsDelta = self.delta.named_parameters()
             deltaParams = dict(paramsDelta)
@@ -452,25 +445,19 @@ class FedMGDAAggregatorPlus(Aggregator):
                 # compute the delta which is the difference between each client parameter and previous global model
                 for name, paramPreviousGlobal in paramsUntrained:
                     if name in deltaParams:
-                        deltaParams[name].data.copy_(
-                            clientParams[name].cpu().data
-                            - paramPreviousGlobal.cpu().data
-                        )
+                        deltaParams[name].data.copy_(clientParams[name].cpu().data - paramPreviousGlobal.cpu().data)
 
                 # compute the loss = labda_i * delta_i for each client i
-                if not(self.lambdaModel[client.id - 1] == 0):
+                if not (self.lambdaModel[client.id - 1] == 0):
                     loss += torch.norm(
                         torch.mul(
-                            nn.utils.parameters_to_vector(
-                                self.delta.cpu().parameters()
-                            ),
+                            nn.utils.parameters_to_vector(self.delta.cpu().parameters()),
                             self.lambdaModel[client.id - 1],
                         )
                     )
 
                 else:
-                    blocked = [id for (id, _) in self.maliciousBlocked + self.benignBlocked]
-                    if client.id not in blocked:
+                    if not client.blocked:
                         self.handle_blocked(client, r)
 
                 #
@@ -513,7 +500,6 @@ class FedMGDAAggregatorPlus(Aggregator):
         #     logPrint("Client ", client.id, " MU ", client.lambdaList)
 
         return roundsError
-
 
 
 # class FedMGDAAggregator(Aggregator):

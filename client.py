@@ -46,10 +46,8 @@ class Client:
 
         self.model = model
         self.trainDataset = trainDataset
-        self.dataLoader = DataLoader(
-            self.trainDataset, batch_size=batchSize, shuffle=True
-        )
-        self.n = len(trainDataset)  # Number of training points provided
+        self.dataLoader = DataLoader(self.trainDataset, batch_size=batchSize, shuffle=True)
+        self.n: int = len(trainDataset)  # Number of training points provided
         self.p = p  # Contribution to the overall model
         self.id = idx  # ID for the user
         self.byz: bool = byzantine  # Boolean indicating whether the user is faulty or not
@@ -65,18 +63,18 @@ class Client:
         self.Loss = Loss
         self.Optimizer = Optimizer
         self.pEpoch = None
-        self.badUpdate = False
-        self.epochs = epochs
-        self.batchSize = batchSize
+        self.badUpdate: bool = False
+        self.epochs: int = epochs
+        self.batchSize: int = batchSize
 
-        self.learningRate = learningRate
-        self.momentum = 0.9
+        self.learningRate: float = learningRate
+        self.momentum: float = 0.9
 
         # AFA Client params
         self.alpha = alpha
         self.beta = beta
         self.score = alpha / beta
-        self.blocked = False
+        self.blocked: bool = False
 
         # DP parameters
         self.useDifferentialPrivacy = useDifferentialPrivacy
@@ -87,15 +85,13 @@ class Client:
         self.needNormalization = needNormalization
         self.releaseProportion = releaseProportion
 
-        # FedMGDA params
+        # FedMGDA+ params
         self.lambdaList = []
 
     def updateModel(self, model):
         self.model = model.to("cpu")
         if self.Optimizer == optim.SGD:
-            self.opt = self.Optimizer(
-                self.model.parameters(), lr=self.learningRate, momentum=self.momentum
-            )
+            self.opt = self.Optimizer(self.model.parameters(), lr=self.learningRate, momentum=self.momentum)
         else:
             self.opt = self.Optimizer(self.model.parameters(), lr=self.learningRate)
         self.loss = self.Loss()
@@ -166,9 +162,7 @@ class Client:
 
         # The gradients of the model parameters
         paramArr = nn.utils.parameters_to_vector(self.model.parameters())
-        untrainedParamArr = nn.utils.parameters_to_vector(
-            self.untrainedModel.parameters()
-        )
+        untrainedParamArr = nn.utils.parameters_to_vector(self.untrainedModel.parameters())
 
         paramNo = len(paramArr)
         shareParamsNo = int(Q * paramNo)
@@ -207,9 +201,7 @@ class Client:
 
         filteredChanges = paramChanges[releaseIndex]
 
-        answerNoise = laplace.rvs(
-            scale=(shareParamsNo * s / e3), size=torch.sum(releaseIndex).cpu()
-        )
+        answerNoise = laplace.rvs(scale=(shareParamsNo * s / e3), size=torch.sum(releaseIndex).cpu())
         answerNoise = torch.tensor(answerNoise).to(self.device)
         if needClip:
             noisyFilteredChanges = clip(filteredChanges + answerNoise, -gamma, gamma)

@@ -21,6 +21,39 @@ import random
 import torch
 import time
 
+PERC_USERS = [
+    0.1,
+    0.15,
+    0.2,
+    0.2,
+    0.1,
+    0.15,
+    0.1,
+    0.15,
+    0.2,
+    0.2,
+    0.1,
+    0.15,
+    0.2,
+    0.2,
+    0.1,
+    0.15,
+    0.1,
+    0.15,
+    0.2,
+    0.2,
+    0.1,
+    0.15,
+    0.2,
+    0.2,
+    0.1,
+    0.15,
+    0.1,
+    0.15,
+    0.2,
+    0.2,
+]
+
 
 def __experimentOnMNIST(config: DefaultExperimentConfiguration, title="", filename=""):
     dataLoader = DatasetLoaderMNIST().getDatasets
@@ -55,7 +88,13 @@ def __experimentOnCONVIDx(config, model="COVIDNet"):
 #     __experimentSetup(config, dataLoader, classifier)
 
 
-def __experimentSetup(config: DefaultExperimentConfiguration, datasetLoader, classifier, title: str, filename: str):
+def __experimentSetup(
+    config: DefaultExperimentConfiguration,
+    datasetLoader,
+    classifier,
+    title: str,
+    filename: str,
+):
     print(title)
     print(filename)
     errorsDict = dict()
@@ -67,9 +106,7 @@ def __experimentSetup(config: DefaultExperimentConfiguration, datasetLoader, cla
         name += ":" + config.name if config.name else ""
         logPrint("TRAINING {}".format(name))
         if config.privacyPreserve is not None:
-            errors, block = __runExperiment(
-                config, datasetLoader, classifier, aggregator, config.privacyPreserve
-            )
+            errors, block = __runExperiment(config, datasetLoader, classifier, aggregator, config.privacyPreserve)
         else:
             errors, block = __runExperiment(
                 config,
@@ -91,7 +128,7 @@ def __experimentSetup(config: DefaultExperimentConfiguration, datasetLoader, cla
         blocked[name] = block
 
     # Writing the blocked lists to json file for later inspection
-    with open(f"mnist_experiments/json/{filename}.json", 'w') as outfile:
+    with open(f"mnist_experiments/json/{filename}.json", "w") as outfile:
         json.dump(blocked, outfile)
 
     if config.plotResults:
@@ -113,19 +150,15 @@ def __experimentSetup(config: DefaultExperimentConfiguration, datasetLoader, cla
             plt.plot(err.numpy(), color=colors[i])
             i += 1
         plt.legend(errorsDict.keys())
-        plt.xlabel("Epochs")
+        plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
         plt.ylabel("Error Rate (%)")
         plt.title(title, loc="center", wrap=True)
         plt.ylim(0, 1.0)
         plt.savefig(f"mnist_experiments/graphs/{filename}.png", dpi=300)
 
 
-def __runExperiment(
-    config, datasetLoader, classifier, aggregator, useDifferentialPrivacy
-):
-    trainDatasets, testDataset = datasetLoader(
-        config.percUsers, config.labels, config.datasetSize
-    )
+def __runExperiment(config, datasetLoader, classifier, aggregator, useDifferentialPrivacy):
+    trainDatasets, testDataset = datasetLoader(config.percUsers, config.labels, config.datasetSize)
     clients = __initClients(config, trainDatasets, useDifferentialPrivacy)
     # Requires model input size update due to dataset generalisation and categorisation
     if config.requireDatasetAnonymization:
@@ -138,9 +171,10 @@ def __runExperiment(
 
     errors = aggregator.trainAndTest(testDataset)
     blocked: Dict[str, List] = {
-            "benign": aggregator.benignBlocked,
-            "malicious": aggregator.maliciousBlocked
-        }
+        "benign": aggregator.benignBlocked,
+        "malicious": aggregator.maliciousBlocked,
+        "faulty": aggregator.faultyBlocked,
+    }
     return errors, blocked
 
 
@@ -260,9 +294,7 @@ def withDP_withByzClient_onMNIST():
     configuration.malicious = [1]
     configuration.privacyPreserve = True
 
-    __experimentOnMNIST(
-        configuration, "MNIST - Byzantine Clients with DP", "mnist_byz_dp"
-    )
+    __experimentOnMNIST(configuration, "MNIST - Byzantine Clients with DP", "mnist_byz_dp")
 
 
 @experiment
@@ -280,40 +312,7 @@ def withDP_fewNotByzClient_onMNIST():
 def noDP_30notByzClients_onMNIST():
     configuration = DefaultExperimentConfiguration()
 
-    configuration.percUsers = torch.tensor(
-        [
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-        ]
-    )
+    configuration.percUsers = torch.tensor(PERC_USERS)
 
     __experimentOnMNIST(configuration)
 
@@ -322,40 +321,7 @@ def noDP_30notByzClients_onMNIST():
 def withDP_30Clients_onMNIST():
     configuration = DefaultExperimentConfiguration()
 
-    configuration.percUsers = torch.tensor(
-        [
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-        ]
-    )
+    configuration.percUsers = torch.tensor(PERC_USERS)
     configuration.privacyPreserve = True
 
     __experimentOnMNIST(configuration)
@@ -365,40 +331,7 @@ def withDP_30Clients_onMNIST():
 def withAndWithoutDP_30notByzClients_onMNIST():
     configuration = DefaultExperimentConfiguration()
 
-    configuration.percUsers = torch.tensor(
-        [
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-        ]
-    )
+    configuration.percUsers = torch.tensor(PERC_USERS)
     configuration.privacyPreserve = None
 
     __experimentOnMNIST(configuration)
@@ -408,40 +341,7 @@ def withAndWithoutDP_30notByzClients_onMNIST():
 def withAndWithoutDP_30withByzClients_onMNIST():
     configuration = DefaultExperimentConfiguration()
 
-    configuration.percUsers = torch.tensor(
-        [
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            10,
-            0.2,
-            0.2,
-        ]
-    )
+    configuration.percUsers = torch.tensor(PERC_USERS)
     configuration.faulty = [2, 10, 13]
     configuration.malicious = [15, 18]
     configuration.privacyPreserve = None
@@ -467,40 +367,7 @@ def withMultipleDPconfigsAndWithout_30notByzClients_onMNIST():
     needClip = {False, True}
     needNormalise = {False, True}
 
-    percUsers = torch.tensor(
-        [
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-        ]
-    )
+    percUsers = torch.tensor(PERC_USERS)
     # Without DP
     noDPconfig = DefaultExperimentConfiguration()
     noDPconfig.aggregators = agg.allAggregators()
@@ -508,9 +375,7 @@ def withMultipleDPconfigsAndWithout_30notByzClients_onMNIST():
     __experimentOnMNIST(noDPconfig)
 
     # With DP
-    for config in product(
-        needClip, clipValues, epsilon1, epsilon3, needNormalise, releaseProportion
-    ):
+    for config in product(needClip, clipValues, epsilon1, epsilon3, needNormalise, releaseProportion):
         (
             needClip,
             clipValues,
@@ -555,40 +420,7 @@ def withMultipleDPandByzConfigsAndWithout_30ByzClients_onMNIST():
         ),
     ]
 
-    percUsers = torch.tensor(
-        [
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-        ]
-    )
+    percUsers = torch.tensor(PERC_USERS)
 
     # Without DP without attacks
     noDPconfig = DefaultExperimentConfiguration()
@@ -650,40 +482,7 @@ def byz_FedMGDA_MNIST():
     config = DefaultExperimentConfiguration()
     config.rounds = 70
 
-    config.percUsers = torch.tensor(
-        [
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-        ]
-    )
+    config.percUsers = torch.tensor(PERC_USERS)
 
     attacks = [
         ([len(config.percUsers) - (2 * i + 1) for i in range(1)], [], "1_faulty"),
@@ -702,10 +501,7 @@ def byz_FedMGDA_MNIST():
         ),
     ]
     config.aggregators = [agg.FedMGDAAggregatorPlus]
-    __experimentOnMNIST(config,
-            title=f"MNIST - 30 Clients, MGDA+",
-            filename=f"mnist_30_MGDA+"
-        )
+    __experimentOnMNIST(config, title=f"MNIST - 30 Clients, MGDA+", filename=f"mnist_30_MGDA+")
 
     for scenario in attacks:
         faulty, malicious, attackName = scenario
@@ -717,9 +513,10 @@ def byz_FedMGDA_MNIST():
 
         config.name += " FedMGDA"
 
-        __experimentOnMNIST(config,
+        __experimentOnMNIST(
+            config,
             title=f"MNIST - Byzantine Clients 30 Clients, MGDA+, With Attacks ({attackName})",
-            filename=f"mnist_byz_30_MGDA+_attacks_{attackName}"
+            filename=f"mnist_byz_30_MGDA+_attacks_{attackName}",
         )
 
 
@@ -789,40 +586,7 @@ def withAndWithoutDP_AFA_30ByzAndNotClients_onMNIST():
         ),
     ]
 
-    percUsers = torch.tensor(
-        [
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-        ]
-    )
+    percUsers = torch.tensor(PERC_USERS)
 
     # Without DP without attacks
     noDPconfig = DefaultExperimentConfiguration()
@@ -886,11 +650,7 @@ def withAndWithoutDP_manyAlphaBetaAFA_30ByzAndNotClients_onMNIST():
             [2 * i + 2 for i in range(1)],
             "1_faulty,1_malicious",
         ),
-        (
-            [2 * i + 1 for i in range(4)],
-            [2 * i + 2 for i in range(4)],
-            "4_faulty,4_malicious",
-        ),
+        ([2 * i + 1 for i in range(4)], [2 * i + 2 for i in range(4)], "4_faulty,4_malicious"),
     ]
 
     # # Workaround to run experiments in parallel runs:
@@ -900,40 +660,7 @@ def withAndWithoutDP_manyAlphaBetaAFA_30ByzAndNotClients_onMNIST():
 
     alphaBetas = [(2, 2), (2, 3), (3, 2), (3, 3), (3, 4), (4, 3), (4, 4)]
 
-    percUsers = torch.tensor(
-        [
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-        ]
-    )
+    percUsers = torch.tensor(PERC_USERS)
 
     # Without DP without attacks
     for alphaBeta in alphaBetas:
@@ -1058,40 +785,7 @@ def withAndWithoutDP_manyXisAFA_30ByzAndNotClients_onMNIST():
         (3, 0.75),
     ]
 
-    percUsers = torch.tensor(
-        [
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-        ]
-    )
+    percUsers = torch.tensor(PERC_USERS)
 
     # Only run the vanilla experiment once
     if not e:
@@ -1163,44 +857,9 @@ def withLowAndHighAndWithoutDP_30ByzClients_onMNIST():
     privacyBudget = [(0.1, 0.0001, 0.0001, "low"), (0.4, 1, 1, "high")]
 
     # Attacks: Malicious/Flipping - flips labels to 0; Faulty/Byzantine - noisy
-    attacks = [
-        ([1, 3, 5, 7, 9, 11, 13], [2, 4, 6, 8, 10, 12, 14], "7_faulty,7_malicious")
-    ]
+    attacks = [([1, 3, 5, 7, 9, 11, 13], [2, 4, 6, 8, 10, 12, 14], "7_faulty,7_malicious")]
 
-    percUsers = torch.tensor(
-        [
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-            0.1,
-            0.15,
-            0.1,
-            0.15,
-            0.2,
-            0.2,
-        ]
-    )
+    percUsers = torch.tensor(PERC_USERS)
 
     # Without DP
     for scenario in attacks:
