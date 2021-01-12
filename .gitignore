@@ -147,3 +147,6 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# MedMNIST datasets as they are too large
+MedMNIST_Datasets/

@@ -16,25 +16,48 @@ from logger import logPrint
 class Client:
     """ An internal representation of a client """
 
-    def __init__(self, epochs, batchSize, learningRate, trainDataset, p, idx, useDifferentialPrivacy,
-                 releaseProportion, epsilon1, epsilon3, needClip, clipValue, device, Optimizer, Loss,
-                 needNormalization, byzantine=None, flipping=None, model=None, alpha=3.0, beta=3.0):
+    def __init__(
+        self,
+        epochs,
+        batchSize,
+        learningRate,
+        trainDataset,
+        p,
+        idx,
+        useDifferentialPrivacy,
+        releaseProportion,
+        epsilon1,
+        epsilon3,
+        needClip,
+        clipValue,
+        device,
+        Optimizer,
+        Loss,
+        needNormalization,
+        byzantine=None,
+        flipping=None,
+        model=None,
+        alpha=3.0,
+        beta=3.0,
+    ):
 
-        self.name = "client" + str(idx)
+        self.name: str = "client" + str(idx)
         self.device = device
 
         self.model = model
         self.trainDataset = trainDataset
-        self.dataLoader = DataLoader(self.trainDataset, batch_size=batchSize, shuffle=True)
+        self.dataLoader = DataLoader(
+            self.trainDataset, batch_size=batchSize, shuffle=True
+        )
         self.n = len(trainDataset)  # Number of training points provided
         self.p = p  # Contribution to the overall model
         self.id = idx  # ID for the user
-        self.byz = byzantine  # Boolean indicating whether the user is faulty or not
-        self.flip = flipping  # Boolean indicating whether the user is malicious or not (label flipping attack)
+        self.byz: bool = byzantine  # Boolean indicating whether the user is faulty or not
+        self.flip: bool = flipping  # Boolean indicating whether the user is malicious or not (label flipping attack)
 
         # Used for computing dW, i.e. the change in model before
         # and after client local training, when DP is used
-        self.untrainedModel = copy.deepcopy(model).to('cpu') if model else False
+        self.untrainedModel = copy.deepcopy(model).to("cpu") if model else False
 
         self.opt = None
         self.sim = None
@@ -64,14 +87,19 @@ class Client:
         self.needNormalization = needNormalization
         self.releaseProportion = releaseProportion
 
+        # FedMGDA params
+        self.lambdaList = []
+
     def updateModel(self, model):
-        self.model = model.to('cpu')
+        self.model = model.to("cpu")
         if self.Optimizer == optim.SGD:
-            self.opt = self.Optimizer(self.model.parameters(), lr=self.learningRate, momentum=self.momentum)
+            self.opt = self.Optimizer(
+                self.model.parameters(), lr=self.learningRate, momentum=self.momentum
+            )
         else:
             self.opt = self.Optimizer(self.model.parameters(), lr=self.learningRate)
         self.loss = self.Loss()
-        self.untrainedModel = copy.deepcopy(model).to('cpu')
+        self.untrainedModel = copy.deepcopy(model).to("cpu")
         torch.cuda.empty_cache()
 
     # Function to train the model for a specific user
@@ -85,7 +113,7 @@ class Client:
             # logPrint("Client:{}; Epoch{}; Batch:{}; \tError:{}"
             #          "".format(self.id, i + 1, iBatch + 1, err))
         torch.cuda.empty_cache()
-        self.model = self.model.to('cpu')
+        self.model = self.model.to("cpu")
         return err, pred
 
     # Function to train the classifier
@@ -118,11 +146,18 @@ class Client:
         params = self.model.named_parameters()
         for name, param in params:
             noise = alpha * torch.randn(param.data.size()).to(self.device)
-            param.data.copy_(param.data + noise)
+            param.data.copy_(param.data.to(self.device) + noise)
 
     # Procedure for implementing differential privacy
-    def __privacyPreserve(self, eps1=100, eps3=100, clipValue=0.1, releaseProportion=0.1,
-                          needClip=False, needNormalization=False):
+    def __privacyPreserve(
+        self,
+        eps1=100,
+        eps3=100,
+        clipValue=0.1,
+        releaseProportion=0.1,
+        needClip=False,
+        needNormalization=False,
+    ):
         # logPrint("Privacy preserving for client{} in process..".format(self.id))
 
         gamma = clipValue  # gradient clipping value
@@ -131,7 +166,9 @@ class Client:
 
         # The gradients of the model parameters
         paramArr = nn.utils.parameters_to_vector(self.model.parameters())
-        untrainedParamArr = nn.utils.parameters_to_vector(self.untrainedModel.parameters())
+        untrainedParamArr = nn.utils.parameters_to_vector(
+            self.untrainedModel.parameters()
+        )
 
         paramNo = len(paramArr)
         shareParamsNo = int(Q * paramNo)
@@ -170,7 +207,9 @@ class Client:
 
         filteredChanges = paramChanges[releaseIndex]
 
-        answerNoise = laplace.rvs(scale=(shareParamsNo * s / e3), size=torch.sum(releaseIndex).cpu())
+        answerNoise = laplace.rvs(
+            scale=(shareParamsNo * s / e3), size=torch.sum(releaseIndex).cpu()
+        )
         answerNoise = torch.tensor(answerNoise).to(self.device)
         if needClip:
             noisyFilteredChanges = clip(filteredChanges + answerNoise, -gamma, gamma)
@@ -196,5 +235,3 @@ class Client:
 
         paramArr = untrainedParamArr
         paramArr[releaseIndex][:shareParamsNo] += noisyFilteredChanges[:shareParamsNo]
-
-

@@ -1,3 +1,4 @@
+from client import Client
 import copy
 import sys
 import numpy as np
@@ -7,6 +8,7 @@ from logger import logPrint
 from threading import Thread
 from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
+from typing import List
 
 import torch
 
@@ -20,9 +22,16 @@ class Aggregator:
         self.device = device
         self.useAsyncClients = useAsyncClients
 
+        # List of malicious users blocked in tuple of client_id and iteration
+        self.maliciousBlocked = []
+        # List of benign users blocked
+        self.benignBlocked = []
+
     def trainAndTest(self, testDataset):
-        raise Exception("Train method should be override by child class, "
-                        "specific to the aggregation strategy.")
+        raise Exception(
+            "Train method should be override by child class, "
+            "specific to the aggregation strategy."
+        )
 
     def _shareModelAndTrainOnClients(self):
         if self.useAsyncClients:
@@ -55,7 +64,9 @@ class Aggregator:
     def test(self, testDataset):
         dataLoader = DataLoader(testDataset, shuffle=False)
         with torch.no_grad():
-            predLabels, testLabels = zip(*[(self.predict(self.model, x), y) for x, y in dataLoader])
+            predLabels, testLabels = zip(
+                *[(self.predict(self.model, x), y) for x, y in dataLoader]
+            )
         predLabels = torch.tensor(predLabels, dtype=torch.long)
         testLabels = torch.tensor(testLabels, dtype=torch.long)
         # Confusion matrix and normalized confusion matrix
@@ -79,13 +90,24 @@ class Aggregator:
         paramsOrig = mOrig.named_parameters()
         for name1, param1 in paramsOrig:
             if name1 in dictParamsDest:
-                weightedSum = alphaOrig * param1.data \
-                              + alphaDest * dictParamsDest[name1].data
+                weightedSum = (
+                    alphaOrig * param1.data + alphaDest * dictParamsDest[name1].data
+                )
                 dictParamsDest[name1].data.copy_(weightedSum)
+
+    def handle_blocked(self, client: Client, round: int):
+        logPrint("USER ", client.id, " BLOCKED!!!")
+        client.p = 0
+        if client.byz:
+            self.maliciousBlocked.append((client.id, round))
+        else:
+            self.benignBlocked.append((client.id, round))
 
 
 # FEDERATED AVERAGING AGGREGATOR
 class FAAggregator(Aggregator):
+    def __init__(self, clients, model, rounds, device, useAsyncClients=False):
+        super().__init__(clients, model, rounds, device, useAsyncClients)
 
     def trainAndTest(self, testDataset):
         roundsError = torch.zeros(self.rounds)
@@ -96,7 +118,12 @@ class FAAggregator(Aggregator):
             # Merge models
             comb = 0.0
             for client in self.clients:
-                self._mergeModels(models[client].to(self.device), self.model.to(self.device), client.p, comb)
+                self._mergeModels(
+                    models[client].to(self.device),
+                    self.model.to(self.device),
+                    client.p,
+                    comb,
+                )
                 comb = 1.0
 
             roundsError[r] = self.test(testDataset)
@@ -106,6 +133,8 @@ class FAAggregator(Aggregator):
 
 # ROBUST AGGREGATION ALGORITHM - computes the median of the clients updates
 class COMEDAggregator(Aggregator):
+    def __init__(self, clients, model, rounds, device, useAsyncClients=False):
+        super().__init__(clients, model, rounds, device, useAsyncClients)
 
     def trainAndTest(self, testDataset):
         roundsError = torch.zeros(self.rounds)
@@ -144,6 +173,8 @@ class COMEDAggregator(Aggregator):
 
 
 class MKRUMAggregator(Aggregator):
+    def __init__(self, clients, model, rounds, device, useAsyncClients=False):
+        super().__init__(clients, model, rounds, device, useAsyncClients)
 
     def trainAndTest(self, testDataset):
         userNo = len(self.clients)
@@ -166,21 +197,28 @@ class MKRUMAggregator(Aggregator):
                 distances = torch.zeros((userNo, userNo))
                 for client2 in self.clients:
                     if client.id != client2.id:
-                        distance = self.__computeModelDistance(models[client].to(self.device),
-                                                               models[client2].to(self.device))
+                        distance = self.__computeModelDistance(
+                            models[client].to(self.device),
+                            models[client2].to(self.device),
+                        )
                         distances[client.id - 1][client2.id - 1] = distance
                 dd = distances[client.id - 1][:].sort()[0]
                 dd = dd.cumsum(0)
                 scores[client.id - 1] = dd[th]
 
             _, idx = scores.sort()
-            selected_users = idx[:mk - 1] + 1
+            selected_users = idx[: mk - 1] + 1
             # logPrint("Selected users: ", selected_users)
 
             comb = 0.0
             for client in self.clients:
                 if client.id in selected_users:
-                    self._mergeModels(models[client].to(self.device), self.model.to(self.device), 1 / mk, comb)
+                    self._mergeModels(
+                        models[client].to(self.device),
+                        self.model.to(self.device),
+                        1 / mk,
+                        comb,
+                    )
                     comb = 1.0
 
             roundsError[r] = self.test(testDataset)
@@ -203,22 +241,12 @@ class MKRUMAggregator(Aggregator):
 
 # ADAPTIVE FEDERATED AVERAGING
 class AFAAggregator(Aggregator):
-
     def __init__(self, clients, model, rounds, device, useAsyncClients=False):
         super().__init__(clients, model, rounds, device, useAsyncClients)
         self.xi = 2
         self.deltaXi = 0.5
 
     def trainAndTest(self, testDataset):
-        # List of malicious users blocked
-        maliciousBlocked = []
-        # List with the iteration where a malicious user was blocked
-        maliciousBlockedIt = []
-        # List of benign users blocked
-        benignBlocked = []
-        # List with the iteration where a benign user was blocked
-        benignBlockedIt = []
-
         roundsError = torch.zeros(self.rounds)
 
         for r in range(self.rounds):
@@ -249,8 +277,12 @@ class AFAAggregator(Aggregator):
                 comb = 0.0
                 for client in self.clients:
                     if self.notBlockedNorBadUpdate(client):
-                        self._mergeModels(models[client].to(self.device), self.model.to(self.device), client.pEpoch,
-                                          comb)
+                        self._mergeModels(
+                            models[client].to(self.device),
+                            self.model.to(self.device),
+                            client.pEpoch,
+                            comb,
+                        )
                         comb = 1.0
 
                 sim = []
@@ -295,14 +327,7 @@ class AFAAggregator(Aggregator):
                     self.updateUserScore(client)
                     client.blocked = self.checkBlockedUser(client.alpha, client.beta)
                     if client.blocked:
-                        logPrint("USER ", client.id, " BLOCKED!!!")
-                        client.p = 0
-                        if client.byz:
-                            maliciousBlocked.append(client.id)
-                            maliciousBlockedIt.append(r)
-                        else:
-                            benignBlocked.append(client.id)
-                            benignBlockedIt.append(r)
+                        self.handle_blocked(client, r)
                     else:
                         client.p = client.n * client.score
                         pT = pT + client.p
@@ -325,7 +350,12 @@ class AFAAggregator(Aggregator):
             comb = 0.0
             for client in self.clients:
                 if self.notBlockedNorBadUpdate(client):
-                    self._mergeModels(models[client].to(self.device), self.model.to(self.device), client.pEpoch, comb)
+                    self._mergeModels(
+                        models[client].to(self.device),
+                        self.model.to(self.device),
+                        client.pEpoch,
+                        comb,
+                    )
                     comb = 1.0
 
             # Reset badUpdate variable
@@ -380,10 +410,283 @@ class AFAAggregator(Aggregator):
         return client.blocked == False | client.badUpdate == False
 
 
-def allAggregators():
+class FedMGDAAggregatorPlus(Aggregator):
+    def __init__(self, clients, model, rounds, device, useAsyncClients=False):
+        super().__init__(clients, model, rounds, device, useAsyncClients)
+        self.numOfClients = len(clients)
+        self.lambdaModel = nn.Parameter(
+            torch.rand(self.numOfClients), requires_grad=True
+        )
+        for client in self.clients:
+            self.lambdaModel[client.id - 1].data = torch.tensor(1.0)
+        # self.learningRate = 0.0001
+        self.learningRate = 0.001
+        self.lambdatOpt =torch.optim.SGD(
+            [self.lambdaModel], lr=self.learningRate, momentum=0.5
+        )
+        # self.delta is going to store the values of the g_i according to the paper FedMGDA
+        self.delta = copy.deepcopy(model) if model else False
+
+    def trainAndTest(self, testDataset):
+        roundsError = torch.zeros(self.rounds)
+        for r in range(self.rounds):
+            logPrint("Round... ", r)
+            self._shareModelAndTrainOnClients()
+            sentClientModels = self._retrieveClientModelsDict()
+
+            self.previousGlobalModel = (
+                copy.deepcopy(self.model) if self.model else False
+            )
+
+            paramsDelta = self.delta.named_parameters()
+            deltaParams = dict(paramsDelta)
+
+            loss = 0.0
+            # reset the gradients
+            self.lambdatOpt.zero_grad()
+
+            for client in self.clients:
+                clientModel = sentClientModels[client].named_parameters()
+                clientParams = dict(clientModel)
+                paramsUntrained = self.previousGlobalModel.named_parameters()
+                # compute the delta which is the difference between each client parameter and previous global model
+                for name, paramPreviousGlobal in paramsUntrained:
+                    if name in deltaParams:
+                        deltaParams[name].data.copy_(
+                            clientParams[name].cpu().data
+                            - paramPreviousGlobal.cpu().data
+                        )
+
+                # compute the loss = labda_i * delta_i for each client i
+                if not(self.lambdaModel[client.id - 1] == 0):
+                    loss += torch.norm(
+                        torch.mul(
+                            nn.utils.parameters_to_vector(
+                                self.delta.cpu().parameters()
+                            ),
+                            self.lambdaModel[client.id - 1],
+                        )
+                    )
+
+                else:
+                    blocked = [id for (id, _) in self.maliciousBlocked + self.benignBlocked]
+                    if client.id not in blocked:
+                        self.handle_blocked(client, r)
+
+                #
+                # print(client.id)
+                # print(torch.norm(nn.utils.parameters_to_vector(self.delta.parameters())))
+
+                # print(torch.norm(torch.mul(nn.utils.parameters_to_vector(self.delta.parameters()),
+                #                              self.lambdaModel[client.id - 1])))
+                # print(self.lambdaModel[client.id - 1])
+
+            loss.backward()
+            # print(self.lambdaModel.grad)
+            # print(self.lambdaModel)
+            self.lambdatOpt.step()
+            for g in self.lambdatOpt.param_groups:
+                g["lr"] = g["lr"] * 0.7
+
+            comb = 0.0
+            extractedVectors = np.array(list(self.lambdaModel.data))
+            extractedVectors[extractedVectors < 0.001] = 0
+            extractedVectors /= np.sum(extractedVectors)
+            # print(extractedVectors)
+
+            self.lambdaModel.data = torch.tensor(extractedVectors)
+
+            for client in self.clients:
+                self._mergeModels(
+                    sentClientModels[client].to(self.device),
+                    self.model.to(self.device),
+                    extractedVectors[client.id - 1],
+                    comb,
+                )
+                client.lambdaList.append(extractedVectors[client.id - 1])
+
+                comb = 1.0
+
+            roundsError[r] = self.test(testDataset)
+
+        # for client in self.clients:
+        #     logPrint("Client ", client.id, " MU ", client.lambdaList)
+
+        return roundsError
+
+
+
+# class FedMGDAAggregator(Aggregator):
+#     def __init__(self, clients, model, rounds, device, useAsyncClients=False):
+#         super().__init__(clients, model, rounds, device, useAsyncClients)
+#         self.numOfClients = len(clients)
+#         self.lambdaModel = nn.Parameter(
+#             torch.rand(self.numOfClients), requires_grad=True
+#         )
+#         for client in self.clients:
+#             self.lambdaModel[client.id - 1].data = torch.tensor(1.0 / self.numOfClients)
+#         self.lambdatOpt = torch.optim.SGD([self.lambdaModel], lr=0.001)
+
+#     def trainAndTest(self, testDataset):
+#         roundsError = torch.zeros(self.rounds)
+#         for r in range(self.rounds):
+#             logPrint("Round... ", r)
+#             self._shareModelAndTrainOnClients()
+#             sentClientModels = self._retrieveClientModelsDict()
+
+#             self.previousGlobalModel = (
+#                 copy.deepcopy(self.model).to(self.device) if self.model else False
+#             )
+
+#             for client in self.clients:
+#                 paramsDelta = client.delta.named_parameters()
+#                 deltaParams = dict(paramsDelta)
+#                 paramsClient = sentClientModels[client].named_parameters()
+#                 clientParams = dict(paramsClient)
+#                 paramsUntrained = self.previousGlobalModel.named_parameters()
+#                 for name, paramGlobalModel in paramsUntrained:
+#                     if name in deltaParams:
+#                         deltaParams[name].data.copy_(
+#                             clientParams[name].data - paramGlobalModel.data
+#                         )
+
+#             # Do normalization step
+#             for client in self.clients:
+#                 normDelta = torch.norm(
+#                     nn.utils.parameters_to_vector(client.delta.parameters()), p=1
+#                 )
+#                 print("Norm")
+#                 print(normDelta)
+
+#                 paramsDelta = client.delta.named_parameters()
+#                 deltaParams = dict(paramsDelta)
+#                 paramsUntrained = self.previousGlobalModel.named_parameters()
+
+#                 for name, param in paramsUntrained:
+#                     if name in deltaParams:
+#                         deltaParams[name].data.copy_(
+#                             torch.div(deltaParams[name], normDelta)
+#                         )
+
+#             loss = 0.0
+#             self.lambdatOpt.zero_grad()
+#             for client in self.clients:
+#                 loss += torch.norm(
+#                     torch.mul(
+#                         nn.utils.parameters_to_vector(client.delta.parameters()),
+#                         self.lambdaModel[client.id - 1],
+#                     )
+#                 )
+
+#             loss.backward()
+#             print("Lambda Grad")
+#             print(self.lambdaModel.grad)
+#             self.lambdatOpt.step()
+
+#             print("Model after optimization")
+#             print(self.lambdaModel)
+
+#             comb = 0.0
+#             for client in self.clients:
+#                 self._mergeModels(
+#                     sentClientModels[client].to(self.device),
+#                     self.model.to(self.device),
+#                     self.lambdaModel[client.id - 1].data,
+#                     comb,
+#                 )
+
+#                 comb = 1.0
+
+#             roundsError[r] = self.test(testDataset)
+
+#         return roundsError
+
+
+# class FedMGDAAggregatorPlusP(Aggregator):
+#     def __init__(self, clients, model, rounds, device, useAsyncClients=False):
+#         super().__init__(clients, model, rounds, device, useAsyncClients)
+#         self.numOfClients = len(clients)
+#         self.lambdaModel = nn.Parameter(
+#             torch.rand(self.numOfClients), requires_grad=True
+#         )
+#         for client in self.clients:
+#             self.lambdaModel[client.id - 1].data = torch.tensor(client.p)
+#         self.lambdatOpt = torch.optim.SGD([self.lambdaModel], lr=0.001)
+#         # self.delta is going to store the values of the g_i according to the paper FedMGDA
+#         self.delta = copy.deepcopy(model).to(self.device) if model else False
+
+#     def trainAndTest(self, testDataset):
+#         roundsError = torch.zeros(self.rounds)
+#         for r in range(self.rounds):
+#             logPrint("Round... ", r)
+#             self._shareModelAndTrainOnClients()
+#             sentClientModels = self._retrieveClientModelsDict()
+
+#             self.previousGlobalModel = (
+#                 copy.deepcopy(self.model).to(self.device) if self.model else False
+#             )
+
+#             paramsDelta = self.delta.named_parameters()
+#             deltaParams = dict(paramsDelta)
+
+#             loss = 0.0
+#             # reset the gradients
+#             self.lambdatOpt.zero_grad()
+
+#             for client in self.clients:
+#                 clientModel = (
+#                     sentClientModels[client].to(self.device).named_parameters()
+#                 )
+#                 clientParams = dict(clientModel)
+#                 paramsUntrained = self.previousGlobalModel.named_parameters()
+#                 # compute the delta which is the difference between each client parameter and previous global model
+#                 for name, paramPreviousGlobal in paramsUntrained:
+#                     if name in deltaParams:
+#                         deltaParams[name].data.copy_(
+#                             clientParams[name].data - paramPreviousGlobal.data
+#                         )
+
+#                 loss += torch.norm(
+#                     torch.mul(
+#                         nn.utils.parameters_to_vector(self.delta.parameters()),
+#                         self.lambdaModel[client.id - 1].to(self.device),
+#                     )
+#                 )
+
+#             loss.backward()
+#             print(self.lambdaModel.grad)
+#             self.lambdatOpt.step()
+
+#             comb = 0.0
+#             extractedVectors = np.array(list(self.lambdaModel.data.cpu()))
+#             extractedVectors[extractedVectors < 0.05] = 0
+#             extractedVectors /= np.sum(extractedVectors)
+
+#             self.lambdaModel = torch.tensor(extractedVectors)
+
+#             for client in self.clients:
+#                 self._mergeModels(
+#                     sentClientModels[client].to(self.device),
+#                     self.model.to(self.device),
+#                     extractedVectors[client.id - 1],
+#                     comb,
+#                 )
+#                 client.lambdaList.append(extractedVectors[client.id - 1])
+
+#                 comb = 1.0
+
+#             roundsError[r] = self.test(testDataset)
+
+#         for client in self.clients:
+#             logPrint("Client ", client.id, " MU ", client.lambdaList)
+
+#         return roundsError
+
+
+def allAggregators() -> List[Aggregator]:
     return Aggregator.__subclasses__()
 
 
 # FederatedAveraging and Adaptive Federated Averaging
-def FAandAFA():
+def FAandAFA() -> List[Aggregator]:
     return [FAAggregator, AFAAggregator]
