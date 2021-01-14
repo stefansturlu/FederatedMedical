@@ -1,5 +1,4 @@
 from typing import Dict, List
-from torchsummary import summary
 import json
 
 from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration
@@ -12,7 +11,6 @@ from datasetLoaders.loaders import (
 from classifiers import MNIST, CovidNet, CNN, Diabetes, HeartDisease
 from logger import logPrint
 from client import Client
-import aggregators as agg
 
 import matplotlib.pyplot as plt
 from itertools import product
@@ -20,6 +18,11 @@ import numpy as np
 import random
 import torch
 import time
+
+from aggregators.Aggregator import allAggregators
+from aggregators.AFA import AFAAggregator
+from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
+
 
 PERC_USERS = [
     0.1,
@@ -165,7 +168,7 @@ def __runExperiment(config, datasetLoader, classifier, aggregator, useDifferenti
         classifier.inputSize = testDataset.getInputSize()
     model = classifier().to(config.device)
     aggregator = aggregator(clients, model, config.rounds, config.device)
-    if isinstance(aggregator, agg.AFAAggregator) and hasattr(config, "xi"):
+    if isinstance(aggregator, AFAAggregator) and hasattr(config, "xi"):
         aggregator.xi = config.xi
         aggregator.deltaXi = config.deltaXi
 
@@ -370,7 +373,7 @@ def withMultipleDPconfigsAndWithout_30notByzClients_onMNIST():
     percUsers = torch.tensor(PERC_USERS)
     # Without DP
     noDPconfig = DefaultExperimentConfiguration()
-    noDPconfig.aggregators = agg.allAggregators()
+    noDPconfig.aggregators = allAggregators()
     noDPconfig.percUsers = percUsers
     __experimentOnMNIST(noDPconfig)
 
@@ -387,7 +390,7 @@ def withMultipleDPconfigsAndWithout_30notByzClients_onMNIST():
 
         expConfig = DefaultExperimentConfiguration()
         expConfig.percUsers = percUsers
-        expConfig.aggregators = agg.allAggregators()
+        expConfig.aggregators = allAggregators()
 
         expConfig.privacyPreserve = True
         expConfig.releaseProportion = releaseProportion
@@ -424,7 +427,7 @@ def withMultipleDPandByzConfigsAndWithout_30ByzClients_onMNIST():
 
     # Without DP without attacks
     noDPconfig = DefaultExperimentConfiguration()
-    noDPconfig.aggregators = agg.allAggregators()
+    noDPconfig.aggregators = allAggregators()
     noDPconfig.percUsers = percUsers
     __experimentOnMNIST(
         noDPconfig,
@@ -436,7 +439,7 @@ def withMultipleDPandByzConfigsAndWithout_30ByzClients_onMNIST():
     for scenario in attacks:
         faulty, malicious, attackName = scenario
         noDPconfig = DefaultExperimentConfiguration()
-        noDPconfig.aggregators = agg.allAggregators()
+        noDPconfig.aggregators = allAggregators()
         noDPconfig.percUsers = percUsers
 
         noDPconfig.faulty = faulty
@@ -456,7 +459,7 @@ def withMultipleDPandByzConfigsAndWithout_30ByzClients_onMNIST():
 
         expConfig = DefaultExperimentConfiguration()
         expConfig.percUsers = percUsers
-        expConfig.aggregators = agg.allAggregators()
+        expConfig.aggregators = allAggregators()
 
         expConfig.privacyPreserve = True
         expConfig.releaseProportion = releaseProportion
@@ -500,12 +503,12 @@ def byz_FedMGDA_MNIST():
             "2_faulty, 2_malicious",
         ),
     ]
-    config.aggregators = [agg.FedMGDAAggregatorPlus]
+    config.aggregators = [FedMGDAPlusAggregator]
     __experimentOnMNIST(config, title=f"MNIST - 30 Clients, MGDA+", filename=f"mnist_30_MGDA+")
 
     for scenario in attacks:
         faulty, malicious, attackName = scenario
-        config.aggregators = [agg.FedMGDAAggregatorPlus]
+        config.aggregators = [FedMGDAPlusAggregator]
 
         config.faulty = faulty
         config.malicious = malicious
@@ -590,7 +593,7 @@ def withAndWithoutDP_AFA_30ByzAndNotClients_onMNIST():
 
     # Without DP without attacks
     noDPconfig = DefaultExperimentConfiguration()
-    noDPconfig.aggregators = [agg.AFAAggregator]
+    noDPconfig.aggregators = [AFAAggregator]
     noDPconfig.percUsers = percUsers
     __experimentOnMNIST(noDPconfig)
 
@@ -598,7 +601,7 @@ def withAndWithoutDP_AFA_30ByzAndNotClients_onMNIST():
     for scenario in attacks:
         faulty, malicious, attackName = scenario
         noDPconfig = DefaultExperimentConfiguration()
-        noDPconfig.aggregators = [agg.AFAAggregator]
+        noDPconfig.aggregators = [AFAAggregator]
         noDPconfig.percUsers = percUsers
 
         noDPconfig.faulty = faulty
@@ -614,7 +617,7 @@ def withAndWithoutDP_AFA_30ByzAndNotClients_onMNIST():
 
         expConfig = DefaultExperimentConfiguration()
         expConfig.percUsers = percUsers
-        expConfig.aggregators = [agg.AFAAggregator]
+        expConfig.aggregators = [AFAAggregator]
 
         expConfig.privacyPreserve = True
         expConfig.releaseProportion = releaseProportion
@@ -650,7 +653,11 @@ def withAndWithoutDP_manyAlphaBetaAFA_30ByzAndNotClients_onMNIST():
             [2 * i + 2 for i in range(1)],
             "1_faulty,1_malicious",
         ),
-        ([2 * i + 1 for i in range(4)], [2 * i + 2 for i in range(4)], "4_faulty,4_malicious"),
+        (
+            [2 * i + 1 for i in range(4)],
+            [2 * i + 2 for i in range(4)],
+            "4_faulty,4_malicious",
+        ),
     ]
 
     # # Workaround to run experiments in parallel runs:
@@ -667,7 +674,7 @@ def withAndWithoutDP_manyAlphaBetaAFA_30ByzAndNotClients_onMNIST():
         alpha, beta = alphaBeta
 
         noDPconfig = DefaultExperimentConfiguration()
-        noDPconfig.aggregators = [agg.AFAAggregator]
+        noDPconfig.aggregators = [AFAAggregator]
         noDPconfig.percUsers = percUsers
 
         noDPconfig.alpha = alpha
@@ -682,7 +689,7 @@ def withAndWithoutDP_manyAlphaBetaAFA_30ByzAndNotClients_onMNIST():
         faulty, malicious, attackName = attack
         alpha, beta = alphaBeta
         noDPconfig = DefaultExperimentConfiguration()
-        noDPconfig.aggregators = [agg.AFAAggregator]
+        noDPconfig.aggregators = [AFAAggregator]
         noDPconfig.percUsers = percUsers
 
         noDPconfig.alpha = alpha
@@ -703,7 +710,7 @@ def withAndWithoutDP_manyAlphaBetaAFA_30ByzAndNotClients_onMNIST():
 
         expConfig = DefaultExperimentConfiguration()
         expConfig.percUsers = percUsers
-        expConfig.aggregators = [agg.AFAAggregator]
+        expConfig.aggregators = [AFAAggregator]
 
         expConfig.privacyPreserve = True
         expConfig.releaseProportion = releaseProportion
@@ -794,7 +801,7 @@ def withAndWithoutDP_manyXisAFA_30ByzAndNotClients_onMNIST():
             xi, deltaXi = xiTuple
 
             noDPconfig = DefaultExperimentConfiguration()
-            noDPconfig.aggregators = [agg.AFAAggregator]
+            noDPconfig.aggregators = [AFAAggregator]
             noDPconfig.percUsers = percUsers
 
             noDPconfig.xi = xi
@@ -809,7 +816,7 @@ def withAndWithoutDP_manyXisAFA_30ByzAndNotClients_onMNIST():
         faulty, malicious, attackName = attack
         xi, deltaXi = xiTuple
         noDPconfig = DefaultExperimentConfiguration()
-        noDPconfig.aggregators = [agg.AFAAggregator]
+        noDPconfig.aggregators = [AFAAggregator]
         noDPconfig.percUsers = percUsers
 
         noDPconfig.xi = xi
@@ -830,7 +837,7 @@ def withAndWithoutDP_manyXisAFA_30ByzAndNotClients_onMNIST():
 
         expConfig = DefaultExperimentConfiguration()
         expConfig.percUsers = percUsers
-        expConfig.aggregators = [agg.AFAAggregator]
+        expConfig.aggregators = [AFAAggregator]
 
         expConfig.privacyPreserve = True
         expConfig.releaseProportion = releaseProportion
@@ -865,7 +872,7 @@ def withLowAndHighAndWithoutDP_30ByzClients_onMNIST():
     for scenario in attacks:
         faulty, malicious, attackName = scenario
         noDPconfig = DefaultExperimentConfiguration()
-        noDPconfig.aggregators = agg.allAggregators()
+        noDPconfig.aggregators = allAggregators()
         noDPconfig.percUsers = percUsers
 
         noDPconfig.faulty = faulty
@@ -881,7 +888,7 @@ def withLowAndHighAndWithoutDP_30ByzClients_onMNIST():
 
         expConfig = DefaultExperimentConfiguration()
         expConfig.percUsers = percUsers
-        expConfig.aggregators = agg.allAggregators()
+        expConfig.aggregators = allAggregators()
 
         expConfig.privacyPreserve = True
         expConfig.releaseProportion = releaseProportion
@@ -912,7 +919,7 @@ def withAndWithoutDP_withAndWithoutByz_10ByzClients_onCOVIDx():
 
     # Without DP without attacks
     noDPconfig = DefaultExperimentConfiguration()
-    noDPconfig.aggregators = agg.allAggregators()
+    noDPconfig.aggregators = allAggregators()
     noDPconfig.learningRate = learningRate
     noDPconfig.batchSize = batchSize
     noDPconfig.rounds = rounds
@@ -923,7 +930,7 @@ def withAndWithoutDP_withAndWithoutByz_10ByzClients_onCOVIDx():
 
     # With DP without attacks
     DPconfig = DefaultExperimentConfiguration()
-    DPconfig.aggregators = agg.allAggregators()
+    DPconfig.aggregators = allAggregators()
     DPconfig.learningRate = learningRate
     DPconfig.batchSize = batchSize
     DPconfig.rounds = rounds
@@ -940,7 +947,7 @@ def withAndWithoutDP_withAndWithoutByz_10ByzClients_onCOVIDx():
 
     # With DP with one attacker
     DPconfig = DefaultExperimentConfiguration()
-    DPconfig.aggregators = agg.allAggregators()
+    DPconfig.aggregators = allAggregators()
     DPconfig.learningRate = learningRate
     DPconfig.batchSize = batchSize
     DPconfig.rounds = rounds
@@ -960,7 +967,7 @@ def withAndWithoutDP_withAndWithoutByz_10ByzClients_onCOVIDx():
 
     # With DP with more attackers
     DPbyzConfig = DefaultExperimentConfiguration()
-    DPbyzConfig.aggregators = agg.allAggregators()
+    DPbyzConfig.aggregators = allAggregators()
     DPbyzConfig.learningRate = learningRate
     DPbyzConfig.batchSize = batchSize
     DPbyzConfig.rounds = rounds
@@ -995,7 +1002,7 @@ def withAndWithoutDP_withAndWithoutByz_5ByzClients_resnet_onCOVIDx():
 
     # With DP without attacks
     DPconfig = DefaultExperimentConfiguration()
-    DPconfig.aggregators = agg.allAggregators()
+    DPconfig.aggregators = allAggregators()
     DPconfig.learningRate = learningRate
     DPconfig.batchSize = batchSize
     DPconfig.rounds = rounds
@@ -1012,7 +1019,7 @@ def withAndWithoutDP_withAndWithoutByz_5ByzClients_resnet_onCOVIDx():
 
     # With DP with one attacker
     DPconfig = DefaultExperimentConfiguration()
-    DPconfig.aggregators = agg.allAggregators()
+    DPconfig.aggregators = allAggregators()
     DPconfig.learningRate = learningRate
     DPconfig.batchSize = batchSize
     DPconfig.rounds = rounds
@@ -1032,7 +1039,7 @@ def withAndWithoutDP_withAndWithoutByz_5ByzClients_resnet_onCOVIDx():
 
     # With DP with more attackers
     DPbyzConfig = DefaultExperimentConfiguration()
-    DPbyzConfig.aggregators = agg.allAggregators()
+    DPbyzConfig.aggregators = allAggregators()
     DPbyzConfig.learningRate = learningRate
     DPbyzConfig.batchSize = batchSize
     DPbyzConfig.rounds = rounds
@@ -1054,7 +1061,7 @@ def withAndWithoutDP_withAndWithoutByz_5ByzClients_resnet_onCOVIDx():
 
     # Without DP without attacks
     noDPconfig = DefaultExperimentConfiguration()
-    noDPconfig.aggregators = agg.allAggregators()
+    noDPconfig.aggregators = allAggregators()
     noDPconfig.learningRate = learningRate
     noDPconfig.batchSize = batchSize
     noDPconfig.rounds = rounds
@@ -1086,7 +1093,7 @@ def noDP_singleClient_onCOVIDx_100train11test():
 # @experiment
 # def noDP_noByz_onDiabetes():
 #     configuration = DefaultExperimentConfiguration()
-#     configuration.aggregators = agg.allAggregators()
+#     configuration.aggregators = allAggregators()
 #     configuration.batchSize = 10
 #     configuration.learningRate = 0.001
 #     configuration.Optimizer = torch.optim.Adam
@@ -1109,7 +1116,7 @@ def noDP_singleClient_onCOVIDx_100train11test():
 
 #     # Vanilla
 #     noDPconfig = DefaultExperimentConfiguration()
-#     noDPconfig.aggregators = agg.allAggregators()
+#     noDPconfig.aggregators = allAggregators()
 #     noDPconfig.Optimizer = torch.optim.Adam
 #     noDPconfig.learningRate = learningRate
 #     noDPconfig.batchSize = batchSize
@@ -1121,7 +1128,7 @@ def noDP_singleClient_onCOVIDx_100train11test():
 #     # With DP
 #     DPconfig = DefaultExperimentConfiguration()
 #     DPconfig.Optimizer = torch.optim.Adam
-#     DPconfig.aggregators = agg.allAggregators()
+#     DPconfig.aggregators = allAggregators()
 #     DPconfig.learningRate = learningRate
 #     DPconfig.batchSize = batchSize
 #     DPconfig.epochs = epochs
@@ -1137,7 +1144,7 @@ def noDP_singleClient_onCOVIDx_100train11test():
 #     # With k-anonymity
 #     kAnonConfig = DefaultExperimentConfiguration()
 #     kAnonConfig.Optimizer = torch.optim.Adam
-#     kAnonConfig.aggregators = agg.allAggregators()
+#     kAnonConfig.aggregators = allAggregators()
 #     kAnonConfig.learningRate = learningRate
 #     kAnonConfig.batchSize = batchSize
 #     kAnonConfig.epochs = epochs
@@ -1150,7 +1157,7 @@ def noDP_singleClient_onCOVIDx_100train11test():
 #     # With DP with one attacker
 #     DPconfig = DefaultExperimentConfiguration()
 #     DPconfig.Optimizer = torch.optim.Adam
-#     DPconfig.aggregators = agg.allAggregators()
+#     DPconfig.aggregators = allAggregators()
 #     DPconfig.learningRate = learningRate
 #     DPconfig.batchSize = batchSize
 #     DPconfig.epochs = epochs
@@ -1171,7 +1178,7 @@ def noDP_singleClient_onCOVIDx_100train11test():
 #     # With k-anonymity with one attacker
 #     kAnonByzConfig = DefaultExperimentConfiguration()
 #     kAnonByzConfig.Optimizer = torch.optim.Adam
-#     kAnonByzConfig.aggregators = agg.allAggregators()
+#     kAnonByzConfig.aggregators = allAggregators()
 #     kAnonByzConfig.learningRate = learningRate
 #     kAnonByzConfig.batchSize = batchSize
 #     kAnonByzConfig.rounds = rounds
@@ -1190,7 +1197,7 @@ def noDP_singleClient_onCOVIDx_100train11test():
 #     # With DP with more attackers
 #     DPbyzConfig = DefaultExperimentConfiguration()
 #     DPbyzConfig.Optimizer = torch.optim.Adam
-#     DPbyzConfig.aggregators = agg.allAggregators()
+#     DPbyzConfig.aggregators = allAggregators()
 #     DPbyzConfig.learningRate = learningRate
 #     DPbyzConfig.batchSize = batchSize
 #     DPbyzConfig.epochs = epochs
@@ -1213,7 +1220,7 @@ def noDP_singleClient_onCOVIDx_100train11test():
 #     # With k-anonymity with more attackers
 #     kAnonByzConfig = DefaultExperimentConfiguration()
 #     kAnonByzConfig.Optimizer = torch.optim.Adam
-#     kAnonByzConfig.aggregators = agg.allAggregators()
+#     kAnonByzConfig.aggregators = allAggregators()
 #     kAnonByzConfig.learningRate = learningRate
 #     kAnonByzConfig.batchSize = batchSize
 #     kAnonByzConfig.epochs = epochs
@@ -1246,7 +1253,7 @@ def noDP_singleClient_onCOVIDx_100train11test():
 
 #     # Vanilla
 #     noDPconfig = DefaultExperimentConfiguration()
-#     noDPconfig.aggregators = agg.allAggregators()
+#     noDPconfig.aggregators = allAggregators()
 #     noDPconfig.Optimizer = torch.optim.Adam
 #     noDPconfig.learningRate = learningRate
 #     noDPconfig.batchSize = batchSize
@@ -1258,7 +1265,7 @@ def noDP_singleClient_onCOVIDx_100train11test():
 #     # With DP
 #     DPconfig = DefaultExperimentConfiguration()
 #     DPconfig.Optimizer = torch.optim.Adam
-#     DPconfig.aggregators = agg.allAggregators()
+#     DPconfig.aggregators = allAggregators()
 #     DPconfig.learningRate = learningRate
 #     DPconfig.batchSize = batchSize
 #     DPconfig.epochs = epochs
@@ -1274,7 +1281,7 @@ def noDP_singleClient_onCOVIDx_100train11test():
 #     # With k-anonymity
 #     kAnonConfig = DefaultExperimentConfiguration()
 #     kAnonConfig.Optimizer = torch.optim.Adam
-#     kAnonConfig.aggregators = agg.allAggregators()
+#     kAnonConfig.aggregators = allAggregators()
 #     kAnonConfig.learningRate = learningRate
 #     kAnonConfig.batchSize = batchSize
 #     kAnonConfig.epochs = epochs
@@ -1287,7 +1294,7 @@ def noDP_singleClient_onCOVIDx_100train11test():
 #     # With DP with one attacker
 #     DPconfig = DefaultExperimentConfiguration()
 #     DPconfig.Optimizer = torch.optim.Adam
-#     DPconfig.aggregators = agg.allAggregators()
+#     DPconfig.aggregators = allAggregators()
 #     DPconfig.learningRate = learningRate
 #     DPconfig.batchSize = batchSize
 #     DPconfig.epochs = epochs
@@ -1309,7 +1316,7 @@ def noDP_singleClient_onCOVIDx_100train11test():
 #     # With k-anonymity with one attacker
 #     kAnonByzConfig = DefaultExperimentConfiguration()
 #     kAnonByzConfig.Optimizer = torch.optim.Adam
-#     kAnonByzConfig.aggregators = agg.allAggregators()
+#     kAnonByzConfig.aggregators = allAggregators()
 #     kAnonByzConfig.learningRate = learningRate
 #     kAnonByzConfig.batchSize = batchSize
 #     kAnonByzConfig.rounds = rounds
@@ -1328,7 +1335,7 @@ def noDP_singleClient_onCOVIDx_100train11test():
 #     # With DP with more attackers
 #     DPbyzConfig = DefaultExperimentConfiguration()
 #     DPbyzConfig.Optimizer = torch.optim.Adam
-#     DPbyzConfig.aggregators = agg.allAggregators()
+#     DPbyzConfig.aggregators = allAggregators()
 #     DPbyzConfig.learningRate = learningRate
 #     DPbyzConfig.batchSize = batchSize
 #     DPbyzConfig.epochs = epochs
@@ -1351,7 +1358,7 @@ def noDP_singleClient_onCOVIDx_100train11test():
 #     # With k-anonymity with more attackers
 #     kAnonByzConfig = DefaultExperimentConfiguration()
 #     kAnonByzConfig.Optimizer = torch.optim.Adam
-#     kAnonByzConfig.aggregators = agg.allAggregators()
+#     kAnonByzConfig.aggregators = allAggregators()
 #     kAnonByzConfig.learningRate = learningRate
 #     kAnonByzConfig.batchSize = batchSize
 #     kAnonByzConfig.epochs = epochs
@@ -1382,7 +1389,7 @@ def __groupedExperiments_SyntacticVsDP(
 ):
     # Vanilla
     noDPconfig = DefaultExperimentConfiguration()
-    noDPconfig.aggregators = agg.allAggregators()
+    noDPconfig.aggregators = allAggregators()
     noDPconfig.Optimizer = torch.optim.Adam
     noDPconfig.learningRate = learningRate
     noDPconfig.batchSize = batchSize
@@ -1394,7 +1401,7 @@ def __groupedExperiments_SyntacticVsDP(
     # With DP
     DPconfig = DefaultExperimentConfiguration()
     DPconfig.Optimizer = torch.optim.Adam
-    DPconfig.aggregators = agg.allAggregators()
+    DPconfig.aggregators = allAggregators()
     DPconfig.learningRate = learningRate
     DPconfig.batchSize = batchSize
     DPconfig.epochs = epochs
@@ -1410,7 +1417,7 @@ def __groupedExperiments_SyntacticVsDP(
     # With k-anonymity
     kAnonConfig = DefaultExperimentConfiguration()
     kAnonConfig.Optimizer = torch.optim.Adam
-    kAnonConfig.aggregators = agg.allAggregators()
+    kAnonConfig.aggregators = allAggregators()
     kAnonConfig.learningRate = learningRate
     kAnonConfig.batchSize = batchSize
     kAnonConfig.epochs = epochs
@@ -1423,7 +1430,7 @@ def __groupedExperiments_SyntacticVsDP(
     # With DP with one attacker
     DPconfig = DefaultExperimentConfiguration()
     DPconfig.Optimizer = torch.optim.Adam
-    DPconfig.aggregators = agg.allAggregators()
+    DPconfig.aggregators = allAggregators()
     DPconfig.learningRate = learningRate
     DPconfig.batchSize = batchSize
     DPconfig.epochs = epochs
@@ -1444,7 +1451,7 @@ def __groupedExperiments_SyntacticVsDP(
     # With k-anonymity with one attacker
     kAnonByzConfig = DefaultExperimentConfiguration()
     kAnonByzConfig.Optimizer = torch.optim.Adam
-    kAnonByzConfig.aggregators = agg.allAggregators()
+    kAnonByzConfig.aggregators = allAggregators()
     kAnonByzConfig.learningRate = learningRate
     kAnonByzConfig.batchSize = batchSize
     kAnonByzConfig.rounds = rounds
@@ -1462,7 +1469,7 @@ def __groupedExperiments_SyntacticVsDP(
     # With DP with more attackers
     DPbyzConfig = DefaultExperimentConfiguration()
     DPbyzConfig.Optimizer = torch.optim.Adam
-    DPbyzConfig.aggregators = agg.allAggregators()
+    DPbyzConfig.aggregators = allAggregators()
     DPbyzConfig.learningRate = learningRate
     DPbyzConfig.batchSize = batchSize
     DPbyzConfig.epochs = epochs
@@ -1485,7 +1492,7 @@ def __groupedExperiments_SyntacticVsDP(
     # With k-anonymity with more attackers
     kAnonByzConfig = DefaultExperimentConfiguration()
     kAnonByzConfig.Optimizer = torch.optim.Adam
-    kAnonByzConfig.aggregators = agg.allAggregators()
+    kAnonByzConfig.aggregators = allAggregators()
     kAnonByzConfig.learningRate = learningRate
     kAnonByzConfig.batchSize = batchSize
     kAnonByzConfig.epochs = epochs
@@ -1534,7 +1541,7 @@ def __groupedExperiments_SyntacticVsDP(
 
 #     # Vanilla
 #     noDPconfig = DefaultExperimentConfiguration()
-#     noDPconfig.aggregators = agg.allAggregators()
+#     noDPconfig.aggregators = allAggregators()
 #     noDPconfig.Optimizer = torch.optim.Adam
 #     noDPconfig.learningRate = learningRate
 #     noDPconfig.batchSize = batchSize
@@ -1546,7 +1553,7 @@ def __groupedExperiments_SyntacticVsDP(
 #     # With DP
 #     DPconfig = DefaultExperimentConfiguration()
 #     DPconfig.Optimizer = torch.optim.Adam
-#     DPconfig.aggregators = agg.allAggregators()
+#     DPconfig.aggregators = allAggregators()
 #     DPconfig.learningRate = learningRate
 #     DPconfig.batchSize = batchSize
 #     DPconfig.epochs = epochs
@@ -1562,7 +1569,7 @@ def __groupedExperiments_SyntacticVsDP(
 #     # With k-anonymity
 #     kAnonConfig = DefaultExperimentConfiguration()
 #     kAnonConfig.Optimizer = torch.optim.Adam
-#     kAnonConfig.aggregators = agg.allAggregators()
+#     kAnonConfig.aggregators = allAggregators()
 #     kAnonConfig.learningRate = learningRate
 #     kAnonConfig.batchSize = batchSize
 #     kAnonConfig.epochs = epochs
@@ -1575,7 +1582,7 @@ def __groupedExperiments_SyntacticVsDP(
 #     # With DP with one attacker
 #     DPconfig = DefaultExperimentConfiguration()
 #     DPconfig.Optimizer = torch.optim.Adam
-#     DPconfig.aggregators = agg.allAggregators()
+#     DPconfig.aggregators = allAggregators()
 #     DPconfig.learningRate = learningRate
 #     DPconfig.batchSize = batchSize
 #     DPconfig.epochs = epochs
@@ -1597,7 +1604,7 @@ def __groupedExperiments_SyntacticVsDP(
 #     # With k-anonymity with one attacker
 #     kAnonByzConfig = DefaultExperimentConfiguration()
 #     kAnonByzConfig.Optimizer = torch.optim.Adam
-#     kAnonByzConfig.aggregators = agg.allAggregators()
+#     kAnonByzConfig.aggregators = allAggregators()
 #     kAnonByzConfig.learningRate = learningRate
 #     kAnonByzConfig.batchSize = batchSize
 #     kAnonByzConfig.rounds = rounds
@@ -1616,7 +1623,7 @@ def __groupedExperiments_SyntacticVsDP(
 #     # With DP with more attackers
 #     DPbyzConfig = DefaultExperimentConfiguration()
 #     DPbyzConfig.Optimizer = torch.optim.Adam
-#     DPbyzConfig.aggregators = agg.allAggregators()
+#     DPbyzConfig.aggregators = allAggregators()
 #     DPbyzConfig.learningRate = learningRate
 #     DPbyzConfig.batchSize = batchSize
 #     DPbyzConfig.epochs = epochs
@@ -1639,7 +1646,7 @@ def __groupedExperiments_SyntacticVsDP(
 #     # With k-anonymity with more attackers
 #     kAnonByzConfig = DefaultExperimentConfiguration()
 #     kAnonByzConfig.Optimizer = torch.optim.Adam
-#     kAnonByzConfig.aggregators = agg.allAggregators()
+#     kAnonByzConfig.aggregators = allAggregators()
 #     kAnonByzConfig.learningRate = learningRate
 #     kAnonByzConfig.batchSize = batchSize
 #     kAnonByzConfig.epochs = epochs

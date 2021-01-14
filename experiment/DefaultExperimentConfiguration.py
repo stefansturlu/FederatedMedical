@@ -1,5 +1,5 @@
 import torch
-import aggregators as agg
+from aggregators.Aggregator import Aggregator, allAggregators
 from typing import List
 
 
@@ -41,7 +41,7 @@ class DefaultExperimentConfiguration:
         # Anonymization of datasets for k-anonymity
         self.requireDatasetAnonymization: bool = False
 
-        self.aggregators: List[agg.Aggregator] = agg.allAggregators()  # Aggregation strategies
+        self.aggregators: List[Aggregator] = allAggregators()  # Aggregation strategies
 
         self.plotResults: bool = True
 
