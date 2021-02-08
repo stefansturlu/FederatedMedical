@@ -5,6 +5,7 @@ import copy
 import numpy as np
 from aggregators.Aggregator import Aggregator
 from torch import nn
+from scipy.stats import beta
 
 # ADAPTIVE FEDERATED AVERAGING
 class AFAAggregator(Aggregator):

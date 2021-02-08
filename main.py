@@ -1,3 +1,4 @@
+import os
 from typing import Dict, List
 import json
 
@@ -58,10 +59,10 @@ PERC_USERS = [
 ]
 
 
-def __experimentOnMNIST(config: DefaultExperimentConfiguration, title="", filename=""):
+def __experimentOnMNIST(config: DefaultExperimentConfiguration, title="", filename="", folder="DEFAULT"):
     dataLoader = DatasetLoaderMNIST().getDatasets
     classifier = MNIST.Classifier
-    __experimentSetup(config, dataLoader, classifier, title, filename)
+    return __experimentSetup(config, dataLoader, classifier, title, filename, folder)
 
 
 def __experimentOnCONVIDx(config, model="COVIDNet"):
@@ -95,8 +96,9 @@ def __experimentSetup(
     config: DefaultExperimentConfiguration,
     datasetLoader,
     classifier,
-    title: str,
-    filename: str,
+    title: str = "DEFAULT_TITLE",
+    filename: str = "DEFAULT_NAME",
+    folder: str ="DEFAULT_FOLDER"
 ):
     print(title)
     print(filename)
@@ -131,7 +133,13 @@ def __experimentSetup(
         blocked[name] = block
 
     # Writing the blocked lists to json file for later inspection
-    with open(f"mnist_experiments/json/{filename}.json", "w") as outfile:
+    if not os.path.isdir(folder):
+        os.mkdir(folder)
+    if not os.path.isdir(f"{folder}/json"):
+        os.mkdir(f"{folder}/json")
+    if not os.path.isdir(f"{folder}/graphs"):
+        os.mkdir(f"{folder}/graphs")
+    with open(f"{folder}/json/{filename}.json", "w") as outfile:
         json.dump(blocked, outfile)
 
     if config.plotResults:
@@ -157,7 +165,9 @@ def __experimentSetup(
         plt.ylabel("Error Rate (%)")
         plt.title(title, loc="center", wrap=True)
         plt.ylim(0, 1.0)
-        plt.savefig(f"mnist_experiments/graphs/{filename}.png", dpi=300)
+        plt.savefig(f"{folder}/graphs/{filename}.png", dpi=400)
+
+    return errorsDict
 
 
 def __runExperiment(config, datasetLoader, classifier, aggregator, useDifferentialPrivacy):
@@ -168,7 +178,7 @@ def __runExperiment(config, datasetLoader, classifier, aggregator, useDifferenti
         classifier.inputSize = testDataset.getInputSize()
     model = classifier().to(config.device)
     aggregator = aggregator(clients, model, config.rounds, config.device)
-    if isinstance(aggregator, AFAAggregator) and hasattr(config, "xi"):
+    if isinstance(aggregator, AFAAggregator):
         aggregator.xi = config.xi
         aggregator.deltaXi = config.deltaXi
 
@@ -404,6 +414,135 @@ def withMultipleDPconfigsAndWithout_30notByzClients_onMNIST():
 
 
 @experiment
+def AFA_Testing_MNIST():
+    attacks = [
+        # ([1, 3, 5, 7, 9], [2, 4, 6, 8, 10], "5_faulty, 5_malicious"),
+        # ([1, 3, 5, 7, 9, 11, 13, 15, 17, 19], [], "10_faulty"),
+        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20], "10_malicious"),
+    ]
+
+    percUsers = torch.tensor(PERC_USERS)
+
+    config = DefaultExperimentConfiguration()
+    config.aggregators = [AFAAggregator]
+    config.percUsers = percUsers
+
+    alphaBetas = [(2, 2), (2, 3), (3, 2), (3, 3), (3, 4), (4, 3), (4, 4)]
+    xis = [
+        (1, 0.25),
+        (1, 0.5),
+        (1, 0.75),
+        (2, 0.25),
+        (2, 0.5),
+        (2, 0.75),
+        (3, 0.25),
+        (3, 0.5),
+        (3, 0.75),
+    ]
+
+
+    for scenario in attacks:
+        faulty, malicious, attackName = scenario
+
+        config.faulty = faulty
+        config.malicious = malicious
+        config.plotResults = False
+
+        totalErrorsDict = {}
+
+        for (xi, deltaXi) in xis:
+            config.xi = xi
+            config.deltaXi = deltaXi
+            errorsDict = {}
+
+            for (alpha, beta) in alphaBetas:
+                config.alpha = alpha
+                config.beta = beta
+
+                errors = __experimentOnMNIST(
+                    config,
+                    title=f"AFA Test MNIST - Attacks: {attackName}, Xi: ({xi}, {deltaXi}), Alpha: {alpha}, Beta: {beta}",
+                    filename=f"afa_xi({xi}_{deltaXi})_alpha({alpha})_beta({beta})_test_mnist_{attackName}",
+                    folder="AFA_tests/test"
+                )
+                errorsDict[f"alpha: {alpha}, beta: {beta}"] = errors["AFA"]
+                totalErrorsDict[f"xi: {xi}, deltaXi: {deltaXi}, alpha: {alpha}, beta: {beta}"] = errors["AFA"].numpy()
+
+            plt.figure()
+            i = 0
+            colors = [
+                "tab:blue",
+                "tab:orange",
+                "tab:green",
+                "tab:red",
+                "tab:cyan",
+                "tab:purple",
+                "tab:pink",
+                "tab:olive",
+                "tab:brown",
+                "tab:gray",
+            ]
+            for name, err in errorsDict.items():
+                plt.plot(err, color=colors[i], alpha=0.6)
+                i += 1
+            plt.legend(errorsDict.keys())
+            plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
+            plt.ylabel("Error Rate (%)")
+            plt.title(f"AFA Total Test MNIST - Attacks: {attackName}, Xi: ({xi}, {deltaXi})", loc="center", wrap=True)
+            plt.ylim(0, 1.0)
+            plt.savefig(f"AFA_tests/test/graphs/total_xi({xi}_{deltaXi})_{attackName}.png", dpi=400)
+
+        # with open(f'totalErrors_{attackName}.json', 'w') as fp:
+        #     json.dump(totalErrorsDict, fp)
+
+
+    for scenario in attacks:
+        faulty, malicious, attackName = scenario
+
+        config.faulty = faulty
+        config.malicious = malicious
+
+        errorsDict = {}
+
+        for (alpha, beta) in alphaBetas:
+            config.alpha = alpha
+            config.beta = beta
+
+            errors = __experimentOnMNIST(
+                config,
+                title=f"AFA AlphaBeta Test MNIST - Attacks: {attackName}",
+                filename=f"afa_alphabeta_test_mnist_{attackName}",
+                folder="AFA_tests/alphabeta"
+            )
+            errorsDict[f"alpha: {alpha}, beta: {beta}"] = errors["AFA"]
+
+        plt.figure()
+        i = 0
+        colors = [
+            "tab:blue",
+            "tab:orange",
+            "tab:green",
+            "tab:red",
+            "tab:cyan",
+            "tab:purple",
+            "tab:pink",
+            "tab:olive",
+            "tab:brown",
+            "tab:gray",
+        ]
+        for name, err in errorsDict.items():
+            plt.plot(err.numpy(), color=colors[i])
+            i += 1
+        plt.legend(errorsDict.keys())
+        plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
+        plt.ylabel("Error Rate (%)")
+        plt.title(f"AFA Total AlphaBeta Test MNIST - Attacks: {attackName}", loc="center", wrap=True)
+        plt.ylim(0, 1.0)
+        plt.savefig(f"AFA_tests/alphabeta/graphs/total.png", dpi=400)
+
+
+
+@experiment
 def withMultipleDPandByzConfigsAndWithout_30ByzClients_onMNIST():
     # Privacy budget = (releaseProportion, epsilon1, epsilon3)
     privacyBudget = [(0.1, 0.0001, 0.0001, "low"), (0.4, 1, 1, "high")]
@@ -433,6 +572,7 @@ def withMultipleDPandByzConfigsAndWithout_30ByzClients_onMNIST():
         noDPconfig,
         title="MNIST - 30 Clients",
         filename="mnist_30",
+        folder="mnist_experiments"
     )
 
     # Without DP
@@ -450,6 +590,7 @@ def withMultipleDPandByzConfigsAndWithout_30ByzClients_onMNIST():
             noDPconfig,
             title=f"MNIST - Byzantine Clients, 30 Clients, With Attacks (Flipping - {attackName})",
             filename=f"mnist_byz_30_attacks_{attackName}",
+            folder="mnist_experiments"
         )
 
     # With DP
@@ -477,6 +618,7 @@ def withMultipleDPandByzConfigsAndWithout_30ByzClients_onMNIST():
             expConfig,
             title=f"MNIST - Byzantine Clients with DP (budget: {budgetName}), 30 Clients, With Attacks ({attackName})",
             filename=f"mnist_byz_dp_budget_{budgetName}_30_attacks_{attackName}",
+            folder="mnist_experiments"
         )
 
 
@@ -1683,5 +1825,7 @@ def __groupedExperiments_SyntacticVsDP(
 # withDP_withByzClient_onMNIST()
 # withoutDP_withByzClient_onMNIST()
 # withDP_noByzClient_onMNIST()
-withMultipleDPandByzConfigsAndWithout_30ByzClients_onMNIST()
+# withMultipleDPandByzConfigsAndWithout_30ByzClients_onMNIST()
 # byz_FedMGDA_MNIST()
+
+AFA_Testing_MNIST()

@@ -28,6 +28,8 @@ class DefaultExperimentConfiguration:
         # AFA Parameters:
         self.alpha = 3
         self.beta = 3
+        self.xi = 2
+        self.deltaXi = 0.5
 
         # Client privacy preserving module setup
         self.privacyPreserve: bool = False  # if None, run with AND without DP
