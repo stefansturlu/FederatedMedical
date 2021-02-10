@@ -31,6 +31,10 @@ class DefaultExperimentConfiguration:
         self.xi = 2
         self.deltaXi = 0.5
 
+        #FedMGDA+ Parameters:
+        self.threshold = 0.001
+        self.innerLR = 0.001
+
         # Client privacy preserving module setup
         self.privacyPreserve: bool = False  # if None, run with AND without DP
         self.releaseProportion: float = 0.1

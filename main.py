@@ -181,6 +181,9 @@ def __runExperiment(config, datasetLoader, classifier, aggregator, useDifferenti
     if isinstance(aggregator, AFAAggregator):
         aggregator.xi = config.xi
         aggregator.deltaXi = config.deltaXi
+    elif isinstance(aggregator, FedMGDAPlusAggregator):
+        aggregator.learningRate = config.innerLR
+        aggregator.threshold = config.threshold
 
     errors = aggregator.trainAndTest(testDataset)
     blocked: Dict[str, List] = {
@@ -539,6 +542,70 @@ def AFA_Testing_MNIST():
         plt.title(f"AFA Total AlphaBeta Test MNIST - Attacks: {attackName}", loc="center", wrap=True)
         plt.ylim(0, 1.0)
         plt.savefig(f"AFA_tests/alphabeta/graphs/total.png", dpi=400)
+
+
+@experiment
+def FedMGDAPlus_Testing_MNIST():
+    attacks = [
+        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20], "10_malicious"),
+    ]
+
+    percUsers = torch.tensor(PERC_USERS)
+
+    config = DefaultExperimentConfiguration()
+    config.aggregators = [FedMGDAPlusAggregator]
+    config.percUsers = percUsers
+
+    lrs = [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]
+    thresholds = [0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05]
+
+
+    for scenario in attacks:
+        faulty, malicious, attackName = scenario
+
+        config.faulty = faulty
+        config.malicious = malicious
+        config.plotResults = False
+
+        for lr in lrs:
+            errorsDict = {}
+            config.innerLR = lr
+
+            for thr in thresholds:
+                config.threshold = thr
+
+                errors = __experimentOnMNIST(
+                    config,
+                    title=f"FedMGDA+ Test MNIST - Attacks: {attackName}, LR: {lr}, Threshold: {thr}",
+                    filename=f"mgdaPlus_lr({lr})_threshold({thr})_test_mnist_{attackName}",
+                    folder="FedMGDAPlus_tests"
+                )
+                errorsDict[f"threshold: {thr}"] = errors["FedMGDA+"]
+
+            plt.figure()
+            i = 0
+            colors = [
+                "tab:blue",
+                "tab:orange",
+                "tab:green",
+                "tab:red",
+                "tab:cyan",
+                "tab:purple",
+                "tab:pink",
+                "tab:olive",
+                "tab:brown",
+                "tab:gray",
+            ]
+            for name, err in errorsDict.items():
+                plt.plot(err, color=colors[i], alpha=0.6)
+                i += 1
+            plt.legend(errorsDict.keys())
+            plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
+            plt.ylabel("Error Rate (%)")
+            plt.title(f"FedMGDA+ Total Test MNIST - Attacks: {attackName}, LR: {lr}", loc="center", wrap=True)
+            plt.ylim(0, 1.0)
+            plt.savefig(f"FedMGDAPlus_tests/graphs/LR({lr})_{attackName}.png", dpi=400)
+
 
 
 
@@ -1828,4 +1895,5 @@ def __groupedExperiments_SyntacticVsDP(
 # withMultipleDPandByzConfigsAndWithout_30ByzClients_onMNIST()
 # byz_FedMGDA_MNIST()
 
-AFA_Testing_MNIST()
+# AFA_Testing_MNIST()
+FedMGDAPlus_Testing_MNIST()

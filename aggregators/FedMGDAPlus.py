@@ -8,17 +8,18 @@ from torch import nn
 
 
 class FedMGDAPlusAggregator(Aggregator):
-    def __init__(self, clients, model, rounds, device, useAsyncClients=False):
+    def __init__(self, clients, model, rounds, device, useAsyncClients=False, learningRate=0.001, threshold=0.001):
         super().__init__(clients, model, rounds, device, useAsyncClients)
         self.numOfClients = len(clients)
         self.lambdaModel = nn.Parameter(torch.rand(self.numOfClients), requires_grad=True)
         for client in self.clients:
             self.lambdaModel[client.id - 1].data = torch.tensor(1.0)
         # self.learningRate = 0.0001
-        self.learningRate = 0.001
+        self.learningRate = learningRate
         self.lambdatOpt = torch.optim.SGD([self.lambdaModel], lr=self.learningRate, momentum=0.5)
         # self.delta is going to store the values of the g_i according to the paper FedMGDA
         self.delta = copy.deepcopy(model) if model else False
+        self.threshold = threshold
 
     def trainAndTest(self, testDataset):
         roundsError = torch.zeros(self.rounds)
@@ -75,7 +76,7 @@ class FedMGDAPlusAggregator(Aggregator):
 
             comb = 0.0
             extractedVectors = np.array(list(self.lambdaModel.data))
-            extractedVectors[extractedVectors < 0.001] = 0
+            extractedVectors[extractedVectors < self.threshold] = 0
             extractedVectors /= np.sum(extractedVectors)
             # print(extractedVectors)
 
