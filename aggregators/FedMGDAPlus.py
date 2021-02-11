@@ -37,6 +37,10 @@ class FedMGDAPlusAggregator(Aggregator):
             # reset the gradients
             self.lambdatOpt.zero_grad()
 
+            # Normalising for loss
+            clientWeights = np.array(list(self.lambdaModel.data))
+            normalisedClientWeights = clientWeights / np.sum(clientWeights)
+
             for client in self.clients:
                 clientModel = sentClientModels[client].named_parameters()
                 clientParams = dict(clientModel)
@@ -47,11 +51,13 @@ class FedMGDAPlusAggregator(Aggregator):
                         deltaParams[name].data.copy_(clientParams[name].cpu().data - paramPreviousGlobal.cpu().data)
 
                 # compute the loss = labda_i * delta_i for each client i
+
+
                 if not (self.lambdaModel[client.id - 1] == 0):
                     loss += torch.norm(
                         torch.mul(
                             nn.utils.parameters_to_vector(self.delta.cpu().parameters()),
-                            self.lambdaModel[client.id - 1],
+                            normalisedClientWeights[client.id - 1],
                         )
                     )
 
@@ -74,22 +80,26 @@ class FedMGDAPlusAggregator(Aggregator):
             for g in self.lambdatOpt.param_groups:
                 g["lr"] = g["lr"] * 0.7
 
-            comb = 0.0
-            extractedVectors = np.array(list(self.lambdaModel.data))
-            extractedVectors[extractedVectors < self.threshold] = 0
-            extractedVectors /= np.sum(extractedVectors)
-            # print(extractedVectors)
+            # Thresholding and Normalisation
+            clientWeights = np.array(list(self.lambdaModel.data))
+            clientWeights[clientWeights < self.threshold] = 0
+            self.lambdaModel.data = torch.tensor(clientWeights)
+            normalisedClientWeights = clientWeights / np.sum(clientWeights)
 
-            self.lambdaModel.data = torch.tensor(extractedVectors)
+            print(normalisedClientWeights) # save to file
+            print(self.lambdaModel.data) # save to file
+
+            # self.lambdaModel.data = torch.tensor(extractedVectors)
+            comb = 0.0
 
             for client in self.clients:
                 self._mergeModels(
                     sentClientModels[client].to(self.device),
                     self.model.to(self.device),
-                    extractedVectors[client.id - 1],
+                    normalisedClientWeights[client.id - 1],
                     comb,
                 )
-                client.lambdaList.append(extractedVectors[client.id - 1])
+                client.lambdaList.append(normalisedClientWeights[client.id - 1])
 
                 comb = 1.0
 
