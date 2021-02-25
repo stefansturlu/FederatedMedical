@@ -24,7 +24,7 @@ from aggregators.Aggregator import allAggregators
 from aggregators.AFA import AFAAggregator
 from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
 
-
+# Determines how much data each client gets (normalised)
 PERC_USERS = [
     0.1,
     0.15,
@@ -58,8 +58,44 @@ PERC_USERS = [
     0.2,
 ]
 
+# Colours used for graphing, add more if necessary
+COLOURS = [
+    "midnightblue",
+    "tab:blue",
+    "tab:orange",
+    "tab:green",
+    "tab:red",
+    "tab:cyan",
+    "tab:purple",
+    "tab:pink",
+    "tab:olive",
+    "tab:brown",
+    "tab:gray",
+    "chartreuse",
+    "lightcoral",
+    "saddlebrown",
+    "blueviolet",
+    "navy",
+    "cornflowerblue",
+    "thistle",
+    "dodgerblue",
+    "crimson",
+    "darkseagreen",
+    "maroon",
+    "mediumspringgreen",
+    "burlywood",
+    "olivedrab",
+    "linen",
+    "mediumorchid",
+    "teal",
+    "black",
+    "gold"
+]
 
-def __experimentOnMNIST(config: DefaultExperimentConfiguration, title="", filename="", folder="DEFAULT"):
+
+def __experimentOnMNIST(
+    config: DefaultExperimentConfiguration, title="", filename="", folder="DEFAULT"
+):
     dataLoader = DatasetLoaderMNIST().getDatasets
     classifier = MNIST.Classifier
     return __experimentSetup(config, dataLoader, classifier, title, filename, folder)
@@ -98,20 +134,23 @@ def __experimentSetup(
     classifier,
     title: str = "DEFAULT_TITLE",
     filename: str = "DEFAULT_NAME",
-    folder: str ="DEFAULT_FOLDER"
+    folder: str = "DEFAULT_FOLDER",
 ):
     print(title)
     print(filename)
     errorsDict = dict()
 
     blocked = {}
+    w = {}
     for aggregator in config.aggregators:
         name = aggregator.__name__.replace("Aggregator", "")
         name = name.replace("Plus", "+")
         name += ":" + config.name if config.name else ""
         logPrint("TRAINING {}".format(name))
         if config.privacyPreserve is not None:
-            errors, block = __runExperiment(config, datasetLoader, classifier, aggregator, config.privacyPreserve)
+            errors, block = __runExperiment(
+                config, datasetLoader, classifier, aggregator, config.privacyPreserve
+            )
         else:
             errors, block = __runExperiment(
                 config,
@@ -142,23 +181,14 @@ def __experimentSetup(
     with open(f"{folder}/json/{filename}.json", "w") as outfile:
         json.dump(blocked, outfile)
 
+    with open(f"{folder}/lambda_check_{filename}.json", "w") as outfile:
+        json.dump(w, outfile)
+
     if config.plotResults:
         plt.figure()
         i = 0
-        colors = [
-            "tab:blue",
-            "tab:orange",
-            "tab:green",
-            "tab:red",
-            "tab:cyan",
-            "tab:purple",
-            "tab:pink",
-            "tab:olive",
-            "tab:brown",
-            "tab:gray",
-        ]
         for name, err in errorsDict.items():
-            plt.plot(err.numpy(), color=colors[i])
+            plt.plot(err.numpy(), color=COLOURS[i])
             i += 1
         plt.legend(errorsDict.keys())
         plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
@@ -391,7 +421,9 @@ def withMultipleDPconfigsAndWithout_30notByzClients_onMNIST():
     __experimentOnMNIST(noDPconfig)
 
     # With DP
-    for config in product(needClip, clipValues, epsilon1, epsilon3, needNormalise, releaseProportion):
+    for config in product(
+        needClip, clipValues, epsilon1, epsilon3, needNormalise, releaseProportion
+    ):
         (
             needClip,
             clipValues,
@@ -443,7 +475,6 @@ def AFA_Testing_MNIST():
         (3, 0.75),
     ]
 
-
     for scenario in attacks:
         faulty, malicious, attackName = scenario
 
@@ -466,38 +497,31 @@ def AFA_Testing_MNIST():
                     config,
                     title=f"AFA Test MNIST - Attacks: {attackName}, Xi: ({xi}, {deltaXi}), Alpha: {alpha}, Beta: {beta}",
                     filename=f"afa_xi({xi}_{deltaXi})_alpha({alpha})_beta({beta})_test_mnist_{attackName}",
-                    folder="AFA_tests/test"
+                    folder="AFA_tests/test",
                 )
                 errorsDict[f"alpha: {alpha}, beta: {beta}"] = errors["AFA"]
-                totalErrorsDict[f"xi: {xi}, deltaXi: {deltaXi}, alpha: {alpha}, beta: {beta}"] = errors["AFA"].numpy()
+                totalErrorsDict[
+                    f"xi: {xi}, deltaXi: {deltaXi}, alpha: {alpha}, beta: {beta}"
+                ] = errors["AFA"].numpy()
 
             plt.figure()
             i = 0
-            colors = [
-                "tab:blue",
-                "tab:orange",
-                "tab:green",
-                "tab:red",
-                "tab:cyan",
-                "tab:purple",
-                "tab:pink",
-                "tab:olive",
-                "tab:brown",
-                "tab:gray",
-            ]
             for name, err in errorsDict.items():
-                plt.plot(err, color=colors[i], alpha=0.6)
+                plt.plot(err, color=COLOURS[i], alpha=0.6)
                 i += 1
             plt.legend(errorsDict.keys())
             plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
             plt.ylabel("Error Rate (%)")
-            plt.title(f"AFA Total Test MNIST - Attacks: {attackName}, Xi: ({xi}, {deltaXi})", loc="center", wrap=True)
+            plt.title(
+                f"AFA Total Test MNIST - Attacks: {attackName}, Xi: ({xi}, {deltaXi})",
+                loc="center",
+                wrap=True,
+            )
             plt.ylim(0, 1.0)
             plt.savefig(f"AFA_tests/test/graphs/total_xi({xi}_{deltaXi})_{attackName}.png", dpi=400)
 
         # with open(f'totalErrors_{attackName}.json', 'w') as fp:
         #     json.dump(totalErrorsDict, fp)
-
 
     for scenario in attacks:
         faulty, malicious, attackName = scenario
@@ -515,31 +539,21 @@ def AFA_Testing_MNIST():
                 config,
                 title=f"AFA AlphaBeta Test MNIST - Attacks: {attackName}",
                 filename=f"afa_alphabeta_test_mnist_{attackName}",
-                folder="AFA_tests/alphabeta"
+                folder="AFA_tests/alphabeta",
             )
             errorsDict[f"alpha: {alpha}, beta: {beta}"] = errors["AFA"]
 
         plt.figure()
         i = 0
-        colors = [
-            "tab:blue",
-            "tab:orange",
-            "tab:green",
-            "tab:red",
-            "tab:cyan",
-            "tab:purple",
-            "tab:pink",
-            "tab:olive",
-            "tab:brown",
-            "tab:gray",
-        ]
         for name, err in errorsDict.items():
-            plt.plot(err.numpy(), color=colors[i])
+            plt.plot(err.numpy(), color=COLOURS[i])
             i += 1
         plt.legend(errorsDict.keys())
         plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
         plt.ylabel("Error Rate (%)")
-        plt.title(f"AFA Total AlphaBeta Test MNIST - Attacks: {attackName}", loc="center", wrap=True)
+        plt.title(
+            f"AFA Total AlphaBeta Test MNIST - Attacks: {attackName}", loc="center", wrap=True
+        )
         plt.ylim(0, 1.0)
         plt.savefig(f"AFA_tests/alphabeta/graphs/total.png", dpi=400)
 
@@ -561,7 +575,6 @@ def FedMGDAPlus_Testing_MNIST():
     lrs = [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]
     thresholds = [0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05]
 
-
     for scenario in attacks:
         faulty, malicious, attackName = scenario
 
@@ -580,31 +593,23 @@ def FedMGDAPlus_Testing_MNIST():
                     config,
                     title=f"FedMGDA+ Test MNIST - Attacks: {attackName}, LR: {lr}, Threshold: {thr}",
                     filename=f"mgdaPlus_lr({lr})_threshold({thr})_test_mnist_{attackName}",
-                    folder="FedMGDAPlus_tests"
+                    folder="FedMGDAPlus_tests",
                 )
                 errorsDict[f"threshold: {thr}"] = errors["FedMGDA+"]
 
             plt.figure()
             i = 0
-            colors = [
-                "tab:blue",
-                "tab:orange",
-                "tab:green",
-                "tab:red",
-                "tab:cyan",
-                "tab:purple",
-                "tab:pink",
-                "tab:olive",
-                "tab:brown",
-                "tab:gray",
-            ]
             for name, err in errorsDict.items():
-                plt.plot(err, color=colors[i], alpha=0.6)
+                plt.plot(err, color=COLOURS[i], alpha=0.6)
                 i += 1
             plt.legend(errorsDict.keys())
             plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
             plt.ylabel("Error Rate (%)")
-            plt.title(f"FedMGDA+ Total Test MNIST - Attacks: {attackName}, LR: {lr}", loc="center", wrap=True)
+            plt.title(
+                f"FedMGDA+ Total Test MNIST - Attacks: {attackName}, LR: {lr}",
+                loc="center",
+                wrap=True,
+            )
             plt.ylim(0, 1.0)
             plt.savefig(f"FedMGDAPlus_tests/graphs/LR({lr})_{attackName}.png", dpi=400)
 
@@ -618,12 +623,22 @@ def FedMGDAPlus_Malicious_Testing_MNIST():
         ([], [2, 4, 6, 8, 10, 12, 14, 16], "8_malicious_even"),
         ([], [2, 4, 6, 8, 10, 12, 14, 16, 18], "9_malicious_even"),
         ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20], "10_malicious_even"),
+        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22], "11_malicious_even"),
+        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24], "12_malicious_even"),
+        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26], "13_malicious_even"),
+        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28], "14_malicious_even"),
+        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30], "15_malicious_even"),
         ([], [1, 3, 5, 7, 9], "5_malicious_odd"),
         ([], [1, 3, 5, 7, 9, 11], "6_malicious_odd"),
         ([], [1, 3, 5, 7, 9, 11, 13], "7_malicious_odd"),
         ([], [1, 3, 5, 7, 9, 11, 13, 15], "8_malicious_odd"),
         ([], [1, 3, 5, 7, 9, 11, 13, 15, 17], "9_malicious_odd"),
         ([], [1, 3, 5, 7, 9, 11, 13, 15, 17, 19], "10_malicious_odd"),
+        ([], [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21], "11_malicious_odd"),
+        ([], [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23], "12_malicious_odd"),
+        ([], [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25], "13_malicious_odd"),
+        ([], [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27], "14_malicious_odd"),
+        ([], [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29], "15_malicious_odd"),
     ]
 
     percUsers = torch.tensor(PERC_USERS)
@@ -644,29 +659,15 @@ def FedMGDAPlus_Malicious_Testing_MNIST():
             config,
             title=f"FedMGDA+ Test MNIST - Attacks: {attackName}",
             filename=f"mgdaPlus_test_mnist_{attackName}",
-            folder="FedMGDAPlus_tests/malicious_levels"
+            folder="FedMGDAPlus_tests/malicious_levels",
         )
 
         errorsDict[f"{attackName}"] = errors["FedMGDA+"]
 
     plt.figure()
     i = 0
-    colors = [
-        "midnightblue",
-        "tab:blue",
-        "tab:orange",
-        "tab:green",
-        "tab:red",
-        "tab:cyan",
-        "tab:purple",
-        "tab:pink",
-        "tab:olive",
-        "tab:brown",
-        "tab:gray",
-        "chartreuse"
-    ]
     for name, err in errorsDict.items():
-        plt.plot(err, color=colors[i], alpha=0.6)
+        plt.plot(err, color=COLOURS[i], alpha=0.6)
         i += 1
     plt.legend(errorsDict.keys())
     plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
@@ -703,10 +704,7 @@ def withMultipleDPandByzConfigsAndWithout_30ByzClients_onMNIST():
     noDPconfig.aggregators = allAggregators()
     noDPconfig.percUsers = percUsers
     __experimentOnMNIST(
-        noDPconfig,
-        title="MNIST - 30 Clients",
-        filename="mnist_30",
-        folder="mnist_experiments"
+        noDPconfig, title="MNIST - 30 Clients", filename="mnist_30", folder="mnist_experiments"
     )
 
     # Without DP
@@ -724,7 +722,7 @@ def withMultipleDPandByzConfigsAndWithout_30ByzClients_onMNIST():
             noDPconfig,
             title=f"MNIST - Byzantine Clients, 30 Clients, With Attacks (Flipping - {attackName})",
             filename=f"mnist_byz_30_attacks_{attackName}",
-            folder="mnist_experiments"
+            folder="mnist_experiments",
         )
 
     # With DP
@@ -752,7 +750,7 @@ def withMultipleDPandByzConfigsAndWithout_30ByzClients_onMNIST():
             expConfig,
             title=f"MNIST - Byzantine Clients with DP (budget: {budgetName}), 30 Clients, With Attacks ({attackName})",
             filename=f"mnist_byz_dp_budget_{budgetName}_30_attacks_{attackName}",
-            folder="mnist_experiments"
+            folder="mnist_experiments",
         )
 
 

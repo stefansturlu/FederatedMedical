@@ -86,12 +86,13 @@ class Client:
         self.releaseProportion = releaseProportion
 
         # FedMGDA+ params
-        self.lambdaList = []
 
     def updateModel(self, model):
         self.model = model.to("cpu")
         if self.Optimizer == optim.SGD:
-            self.opt = self.Optimizer(self.model.parameters(), lr=self.learningRate, momentum=self.momentum)
+            self.opt = self.Optimizer(
+                self.model.parameters(), lr=self.learningRate, momentum=self.momentum
+            )
         else:
             self.opt = self.Optimizer(self.model.parameters(), lr=self.learningRate)
         self.loss = self.Loss()
@@ -201,7 +202,9 @@ class Client:
 
         filteredChanges = paramChanges[releaseIndex]
 
-        answerNoise = laplace.rvs(scale=(shareParamsNo * s / e3), size=torch.sum(releaseIndex).cpu())
+        answerNoise = laplace.rvs(
+            scale=(shareParamsNo * s / e3), size=torch.sum(releaseIndex).cpu()
+        )
         answerNoise = torch.tensor(answerNoise).to(self.device)
         if needClip:
             noisyFilteredChanges = clip(filteredChanges + answerNoise, -gamma, gamma)

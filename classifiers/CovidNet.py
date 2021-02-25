@@ -101,7 +101,9 @@ class Classifier(nn.Module):
         if model == "large":
 
             self.add_module("conv1_1x1", nn.Conv2d(in_channels=64, out_channels=256, kernel_size=1))
-            self.add_module("conv2_1x1", nn.Conv2d(in_channels=256, out_channels=512, kernel_size=1))
+            self.add_module(
+                "conv2_1x1", nn.Conv2d(in_channels=256, out_channels=512, kernel_size=1)
+            )
             self.add_module(
                 "conv3_1x1",
                 nn.Conv2d(in_channels=512, out_channels=1024, kernel_size=1),
@@ -134,13 +136,18 @@ class Classifier(nn.Module):
         out_conv2_1x1 = F.max_pool2d(self.conv2_1x1(pepx12 + pepx11 + pepx13 + out_conv1_1x1), 2)
 
         pepx21 = self.pexp2_1(
-            F.max_pool2d(pepx13, 2) + F.max_pool2d(pepx11, 2) + F.max_pool2d(pepx12, 2) + F.max_pool2d(out_conv1_1x1, 2)
+            F.max_pool2d(pepx13, 2)
+            + F.max_pool2d(pepx11, 2)
+            + F.max_pool2d(pepx12, 2)
+            + F.max_pool2d(out_conv1_1x1, 2)
         )
         pepx22 = self.pexp2_2(pepx21 + out_conv2_1x1)
         pepx23 = self.pexp2_3(pepx22 + pepx21 + out_conv2_1x1)
         pepx24 = self.pexp2_4(pepx23 + pepx21 + pepx22 + out_conv2_1x1)
 
-        out_conv3_1x1 = F.max_pool2d(self.conv3_1x1(pepx22 + pepx21 + pepx23 + pepx24 + out_conv2_1x1), 2)
+        out_conv3_1x1 = F.max_pool2d(
+            self.conv3_1x1(pepx22 + pepx21 + pepx23 + pepx24 + out_conv2_1x1), 2
+        )
 
         pepx31 = self.pexp3_1(
             F.max_pool2d(pepx24, 2)
@@ -185,13 +192,18 @@ class Classifier(nn.Module):
         pepx12 = self.pexp1_2(pepx11)
         pepx13 = self.pexp1_3(pepx12 + pepx11)
 
-        pepx21 = self.pexp2_1(F.max_pool2d(pepx13, 2) + F.max_pool2d(pepx11, 2) + F.max_pool2d(pepx12, 2))
+        pepx21 = self.pexp2_1(
+            F.max_pool2d(pepx13, 2) + F.max_pool2d(pepx11, 2) + F.max_pool2d(pepx12, 2)
+        )
         pepx22 = self.pexp2_2(pepx21)
         pepx23 = self.pexp2_3(pepx22 + pepx21)
         pepx24 = self.pexp2_4(pepx23 + pepx21 + pepx22)
 
         pepx31 = self.pexp3_1(
-            F.max_pool2d(pepx24, 2) + F.max_pool2d(pepx21, 2) + F.max_pool2d(pepx22, 2) + F.max_pool2d(pepx23, 2)
+            F.max_pool2d(pepx24, 2)
+            + F.max_pool2d(pepx21, 2)
+            + F.max_pool2d(pepx22, 2)
+            + F.max_pool2d(pepx23, 2)
         )
         pepx32 = self.pexp3_2(pepx31)
         pepx33 = self.pexp3_3(pepx31 + pepx32)

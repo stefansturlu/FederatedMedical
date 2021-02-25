@@ -1,5 +1,4 @@
 from logger import logPrint
-from typing import List
 import torch
 import copy
 from aggregators.Aggregator import Aggregator
@@ -8,21 +7,32 @@ from torch import nn
 
 
 class FedMGDAPlusAggregator(Aggregator):
-    def __init__(self, clients, model, rounds, device, useAsyncClients=False, learningRate=0.001, threshold=0.001):
+    def __init__(
+        self,
+        clients,
+        model,
+        rounds,
+        device,
+        useAsyncClients=False,
+        # Large learning rate needed for proper differentiation due to small changes for 1 layer
+        learningRate=10,
+        threshold=0.01,
+    ):
         super().__init__(clients, model, rounds, device, useAsyncClients)
         self.numOfClients = len(clients)
-        self.lambdaModel = nn.Parameter(torch.rand(self.numOfClients), requires_grad=True)
-        for client in self.clients:
-            self.lambdaModel[client.id - 1].data = torch.tensor(1.0)
-        # self.learningRate = 0.0001
+        self.lambdaModel = nn.Parameter(torch.ones(self.numOfClients), requires_grad=True)
         self.learningRate = learningRate
         self.lambdatOpt = torch.optim.SGD([self.lambdaModel], lr=self.learningRate, momentum=0.5)
+
         # self.delta is going to store the values of the g_i according to the paper FedMGDA
+        # More accurately, it stores the difference between the previous model params and
+        # the clients' params
         self.delta = copy.deepcopy(model) if model else False
         self.threshold = threshold
 
     def trainAndTest(self, testDataset):
         roundsError = torch.zeros(self.rounds)
+
         for r in range(self.rounds):
             logPrint("Round... ", r)
             self._shareModelAndTrainOnClients()
@@ -30,34 +40,29 @@ class FedMGDAPlusAggregator(Aggregator):
 
             self.previousGlobalModel = copy.deepcopy(self.model) if self.model else False
 
-            paramsDelta = self.delta.named_parameters()
-            deltaParams = dict(paramsDelta)
-
             loss = 0.0
             # reset the gradients
             self.lambdatOpt.zero_grad()
 
-            # Normalising for loss
-            clientWeights = np.array(list(self.lambdaModel.data))
-            normalisedClientWeights = clientWeights / np.sum(clientWeights)
-
             for client in self.clients:
                 clientModel = sentClientModels[client].named_parameters()
                 clientParams = dict(clientModel)
-                paramsUntrained = self.previousGlobalModel.named_parameters()
-                # compute the delta which is the difference between each client parameter and previous global model
-                for name, paramPreviousGlobal in paramsUntrained:
-                    if name in deltaParams:
-                        deltaParams[name].data.copy_(clientParams[name].cpu().data - paramPreviousGlobal.cpu().data)
+                previousGlobalParams = dict(self.previousGlobalModel.named_parameters())
 
-                # compute the loss = labda_i * delta_i for each client i
+                with torch.no_grad():
+                    for name, param in self.delta.named_parameters():
+                        param.copy_(torch.tensor(0))
+                        if name in clientParams:
+                            param.copy_(
+                                torch.abs(clientParams[name].cpu().data - previousGlobalParams[name].cpu().data)
+                            )
 
-
+                # compute the loss = lambda_i * delta_i for each client i
                 if not (self.lambdaModel[client.id - 1] == 0):
                     loss += torch.norm(
                         torch.mul(
                             nn.utils.parameters_to_vector(self.delta.cpu().parameters()),
-                            normalisedClientWeights[client.id - 1],
+                            self.lambdaModel[client.id - 1] / self.lambdaModel.sum()
                         )
                     )
 
@@ -65,17 +70,8 @@ class FedMGDAPlusAggregator(Aggregator):
                     if not client.blocked:
                         self.handle_blocked(client, r)
 
-                #
-                # print(client.id)
-                # print(torch.norm(nn.utils.parameters_to_vector(self.delta.parameters())))
-
-                # print(torch.norm(torch.mul(nn.utils.parameters_to_vector(self.delta.parameters()),
-                #                              self.lambdaModel[client.id - 1])))
-                # print(self.lambdaModel[client.id - 1])
 
             loss.backward()
-            # print(self.lambdaModel.grad)
-            # print(self.lambdaModel)
             self.lambdatOpt.step()
             for g in self.lambdatOpt.param_groups:
                 g["lr"] = g["lr"] * 0.7
@@ -86,10 +82,6 @@ class FedMGDAPlusAggregator(Aggregator):
             self.lambdaModel.data = torch.tensor(clientWeights)
             normalisedClientWeights = clientWeights / np.sum(clientWeights)
 
-            print(normalisedClientWeights) # save to file
-            print(self.lambdaModel.data) # save to file
-
-            # self.lambdaModel.data = torch.tensor(extractedVectors)
             comb = 0.0
 
             for client in self.clients:
@@ -99,13 +91,10 @@ class FedMGDAPlusAggregator(Aggregator):
                     normalisedClientWeights[client.id - 1],
                     comb,
                 )
-                client.lambdaList.append(normalisedClientWeights[client.id - 1])
 
                 comb = 1.0
 
             roundsError[r] = self.test(testDataset)
 
-        # for client in self.clients:
-        #     logPrint("Client ", client.id, " MU ", client.lambdaList)
 
         return roundsError

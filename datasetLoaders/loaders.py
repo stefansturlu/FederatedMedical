@@ -35,7 +35,8 @@ class DatasetInterface(Dataset):
 
     def getInputSize(self):
         raise Exception(
-            "Method should be implemented by subclasses where " "models requires input size update (based on dataset)."
+            "Method should be implemented by subclasses where "
+            "models requires input size update (based on dataset)."
         )
 
     def zeroLabels(self):
@@ -47,7 +48,8 @@ class DatasetLoader:
 
     def getDatasets(self, percUsers, labels, size=(None, None)):
         raise Exception(
-            "LoadData method should be override by child class, " "specific to the loaded dataset strategy."
+            "LoadData method should be override by child class, "
+            "specific to the loaded dataset strategy."
         )
 
     @staticmethod
@@ -62,14 +64,23 @@ class DatasetLoader:
         percUsers = percUsers / percUsers.sum()
 
         dataSplitCount = (percUsers * len(trainDataframe)).floor().numpy()
-        _, *dataSplitIndex = [int(sum(dataSplitCount[range(i)])) for i in range(len(dataSplitCount))]
+        _, *dataSplitIndex = [
+            int(sum(dataSplitCount[range(i)])) for i in range(len(dataSplitCount))
+        ]
 
-        trainDataframes = np.split(trainDataframe, indices_or_sections=dataSplitIndex)
-        clientDatasets = [DatasetType(clientDataframe.reset_index(drop=True)) for clientDataframe in trainDataframes]
+        # Sample and reset_index shuffles the dataset in-place and resets the index
+        trainDataframes = np.split(
+            trainDataframe.sample(frac=1).reset_index(drop=True), indices_or_sections=dataSplitIndex
+        )
+
+        clientDatasets = [
+            DatasetType(clientDataframe.reset_index(drop=True))
+            for clientDataframe in trainDataframes
+        ]
         return clientDatasets
 
     @staticmethod
-    def _setRandomSeeds(seed=0):
+    def _setRandomSeeds(seed=123):
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
@@ -139,7 +150,9 @@ class DatasetLoader:
 
     #     return anonClientDatasets, clientSyntacticMappings, allColumns
 
-    def _anonymizeTestDataset(self, testDataset, clientSyntacticMappings, columns, generalizedColumns):
+    def _anonymizeTestDataset(
+        self, testDataset, clientSyntacticMappings, columns, generalizedColumns
+    ):
 
         datasetClass = testDataset.__class__
         dataframe = pd.DataFrame(list(testDataset.dataframe["data"]), columns=columns)
@@ -155,13 +168,17 @@ class DatasetLoader:
             legitMappings = []
             for clientMappings in clientSyntacticMappings:
                 legitMappings += [
-                    mapping for mapping in clientMappings if self.__legitMapping(dataframe.iloc[i], mapping)
+                    mapping
+                    for mapping in clientMappings
+                    if self.__legitMapping(dataframe.iloc[i], mapping)
                 ]
             if legitMappings:
                 # leastGeneralMapping = reduce(self.__leastGeneral, legitMappings)
                 leastGeneralMapping = legitMappings[0]
                 for legitMapping in legitMappings[1:]:
-                    leastGeneralMapping = self.__leastGeneral(leastGeneralMapping, legitMapping, domainsSize)
+                    leastGeneralMapping = self.__leastGeneral(
+                        leastGeneralMapping, legitMapping, domainsSize
+                    )
 
                 for col in leastGeneralMapping:
                     generalisedDataframe[col][i] = leastGeneralMapping[col]
@@ -172,7 +189,9 @@ class DatasetLoader:
         generalisedDataframe = pd.get_dummies(generalisedDataframe)
         ungeneralisedDataframe = dataframe.iloc[ungeneralisedIndex]
 
-        resultDataframe = pd.concat([ungeneralisedDataframe, generalisedDataframe]).fillna(0).sort_index()
+        resultDataframe = (
+            pd.concat([ungeneralisedDataframe, generalisedDataframe]).fillna(0).sort_index()
+        )
         for col in generalizedColumns - set(resultDataframe.columns.values):
             resultDataframe[col] = 0
 
@@ -216,7 +235,9 @@ class DatasetLoaderMNIST(DatasetLoader):
         self._setRandomSeeds()
         data = self.__loadMNISTData()
         trainDataframe, testDataframe = self._filterDataByLabel(labels, *data)
-        clientDatasets = self._splitTrainDataIntoClientDatasets(percUsers, trainDataframe, self.MNISTDataset)
+        clientDatasets = self._splitTrainDataIntoClientDatasets(
+            percUsers, trainDataframe, self.MNISTDataset
+        )
         testDataset = self.MNISTDataset(testDataframe)
         return clientDatasets, testDataset
 
@@ -250,7 +271,9 @@ class DatasetLoaderMNIST(DatasetLoader):
 
     class MNISTDataset(DatasetInterface):
         def __init__(self, dataframe):
-            self.data = torch.stack([torch.from_numpy(data) for data in dataframe["data"].values], dim=0)
+            self.data = torch.stack(
+                [torch.from_numpy(data) for data in dataframe["data"].values], dim=0
+            )
             super().__init__(dataframe["labels"].values)
 
         def __len__(self):
@@ -274,13 +297,18 @@ class DatasetLoaderCOVIDx(DatasetLoader):
         self._setRandomSeeds()
         data = self.__loadCOVIDxData(*size)
         trainDataframe, testDataframe = self._filterDataByLabel(labels, *data)
-        clientDatasets = self._splitTrainDataIntoClientDatasets(percUsers, trainDataframe, self.COVIDxDataset)
+        clientDatasets = self._splitTrainDataIntoClientDatasets(
+            percUsers, trainDataframe, self.COVIDxDataset
+        )
         testDataset = self.COVIDxDataset(testDataframe, isTestDataset=True)
         return clientDatasets, testDataset
 
     def __loadCOVIDxData(self, trainSize, testSize):
         if self.__datasetNotFound():
-            logPrint("Can't find train|test split .txt files or " "/train, /test files not populated accordingly.")
+            logPrint(
+                "Can't find train|test split .txt files or "
+                "/train, /test files not populated accordingly."
+            )
             if not self.assembleDatasets:
                 sys.exit(0)
 
@@ -350,7 +378,9 @@ class DatasetLoaderCOVIDx(DatasetLoader):
         # Path to https://www.kaggle.com/c/rsna-pneumonia-detection-challenge
         kaggle_dataPath = self.dataPath + "/rsna-kaggle-dataset"
         kaggle_csvname = "stage_2_detailed_class_info.csv"  # get all the normal from here
-        kaggle_csvname2 = "stage_2_train_labels.csv"  # get all the 1s from here since 1 indicate pneumonia
+        kaggle_csvname2 = (
+            "stage_2_train_labels.csv"  # get all the 1s from here since 1 indicate pneumonia
+        )
         kaggle_imgPath = "stage_2_train_images"
 
         # parameters for COVIDx dataset

@@ -26,7 +26,10 @@ class Aggregator:
         self.faultyBlocked = []
 
     def trainAndTest(self, testDataset):
-        raise Exception("Train method should be override by child class, " "specific to the aggregation strategy.")
+        raise Exception(
+            "Train method should be override by child class, "
+            "specific to the aggregation strategy."
+        )
 
     def _shareModelAndTrainOnClients(self):
         if self.useAsyncClients:

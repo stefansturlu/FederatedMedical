@@ -72,7 +72,9 @@ class ExpResult:
         self.duration = duration
 
     def __str__(self):
-        return "Experiment {} took {}; errors for 30 rounds: {}".format(self.name, self.duration, self.errors)
+        return "Experiment {} took {}; errors for 30 rounds: {}".format(
+            self.name, self.duration, self.errors
+        )
 
 
 # OUTPUT LOG PARSING
@@ -209,7 +211,9 @@ def plotResults(filteredResults, experimentToPlot):
                 configName += "Blocked:"
                 for blockRound, client in exp.blocked:
                     configName += "{};".format(client)
-                    hoverText[blockRound] = "{} blocked {} at round {}".format(exp.name, blockRound, client)
+                    hoverText[blockRound] = "{} blocked {} at round {}".format(
+                        exp.name, blockRound, client
+                    )
                     markerColors[blockRound] = "firebrick"
 
             plot = go.Scatter(
@@ -264,7 +268,9 @@ def plotResults(filteredResults, experimentToPlot):
                 configName += "blocked:"
                 for blockRound, client in exp.blocked:
                     configName += "{};".format(client)
-                    hoverText[blockRound] = "{} blocked {} at round {}".format(exp.name, blockRound, client)
+                    hoverText[blockRound] = "{} blocked {} at round {}".format(
+                        exp.name, blockRound, client
+                    )
                     markerColors[blockRound] = "firebrick"
 
             plot = go.Scatter(
@@ -288,7 +294,9 @@ def plotResults(filteredResults, experimentToPlot):
                 y=1.05,
                 xanchor="left",
                 yanchor="bottom",
-                text=(experimentToPlot["name"] + " Experiment count: {}").format(len(filteredResults)),
+                text=(experimentToPlot["name"] + " Experiment count: {}").format(
+                    len(filteredResults)
+                ),
                 font=dict(family="Arial", size=30, color="rgba(20,20,20,0.5)"),
                 showarrow=False,
             )
