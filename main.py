@@ -141,7 +141,6 @@ def __experimentSetup(
     errorsDict = dict()
 
     blocked = {}
-    w = {}
     for aggregator in config.aggregators:
         name = aggregator.__name__.replace("Aggregator", "")
         name = name.replace("Plus", "+")
@@ -178,11 +177,8 @@ def __experimentSetup(
         os.mkdir(f"{folder}/json")
     if not os.path.isdir(f"{folder}/graphs"):
         os.mkdir(f"{folder}/graphs")
-    with open(f"{folder}/json/{filename}.json", "w") as outfile:
+    with open(f"{folder}/json/{filename}.json", "w+") as outfile:
         json.dump(blocked, outfile)
-
-    with open(f"{folder}/lambda_check_{filename}.json", "w") as outfile:
-        json.dump(w, outfile)
 
     if config.plotResults:
         plt.figure()
@@ -212,8 +208,7 @@ def __runExperiment(config, datasetLoader, classifier, aggregator, useDifferenti
         aggregator.xi = config.xi
         aggregator.deltaXi = config.deltaXi
     elif isinstance(aggregator, FedMGDAPlusAggregator):
-        aggregator.learningRate = config.innerLR
-        aggregator.threshold = config.threshold
+        aggregator.reinitialise(config.innerLR, config.threshold)
 
     errors = aggregator.trainAndTest(testDataset)
     blocked: Dict[str, List] = {
@@ -280,7 +275,7 @@ def __setRandomSeeds(seed=0):
 #   EXPERIMENTS
 def experiment(exp):
     def decorator():
-        __setRandomSeeds(2)
+        __setRandomSeeds()
         logPrint("Experiment {} began.".format(exp.__name__))
         begin = time.time()
         exp()
@@ -561,8 +556,8 @@ def AFA_Testing_MNIST():
 @experiment
 def FedMGDAPlus_Testing_MNIST():
     attacks = [
-        # ([1, 3, 5, 7, 9], [2, 4, 6, 8, 10], "5_faulty, 5_malicious"),
-        # ([1, 3, 5, 7, 9, 11, 13, 15, 17, 19], [], "10_faulty"),
+        ([1], [2, 4, 6], "5_faulty, 5_malicious"),
+        ([1, 3, 5, 7, 9, 11, 13, 15, 17, 19], [], "10_faulty"),
         ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20], "10_malicious"),
     ]
 
@@ -572,8 +567,10 @@ def FedMGDAPlus_Testing_MNIST():
     config.aggregators = [FedMGDAPlusAggregator]
     config.percUsers = percUsers
 
-    lrs = [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5]
-    thresholds = [0.00001, 0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05]
+    lrs = [0.1]
+    fraction = 1 / len(PERC_USERS)
+    threshold_fracs = [2, 3, 4, 5, 10, 20, 50, 100, 1000]
+    epochs = [2, 3, 4, 5, 10]
 
     for scenario in attacks:
         faulty, malicious, attackName = scenario
@@ -582,21 +579,23 @@ def FedMGDAPlus_Testing_MNIST():
         config.malicious = malicious
         config.plotResults = False
 
-        for lr in lrs:
+        for e in epochs:
+            config.epochs = e
             errorsDict = {}
-            config.innerLR = lr
 
-            for thr in thresholds:
-                config.threshold = thr
+            for lr in lrs:
+                config.innerLR = lr
+                # config.threshold = fraction / threshold_fracs[0]
 
                 errors = __experimentOnMNIST(
                     config,
-                    title=f"FedMGDA+ Test MNIST - Attacks: {attackName}, LR: {lr}, Threshold: {thr}",
-                    filename=f"mgdaPlus_lr({lr})_threshold({thr})_test_mnist_{attackName}",
-                    folder="FedMGDAPlus_tests",
+                    title=f"FedMGDA+ Test MNIST - Attacks: {attackName}, LR: {lr}",
+                    filename=f"lr({lr})_{attackName}",
+                    folder=f"FedMGDAPlus_tests/lr/epochs_{e}",
                 )
-                errorsDict[f"threshold: {thr}"] = errors["FedMGDA+"]
+                errorsDict[f"lr: {lr}"] = errors["FedMGDA+"]
 
+            print(errorsDict)
             plt.figure()
             i = 0
             for name, err in errorsDict.items():
@@ -606,12 +605,12 @@ def FedMGDAPlus_Testing_MNIST():
             plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
             plt.ylabel("Error Rate (%)")
             plt.title(
-                f"FedMGDA+ Total Test MNIST - Attacks: {attackName}, LR: {lr}",
+                f"FedMGDA+ Total Test MNIST - Attacks: {attackName}",
                 loc="center",
                 wrap=True,
             )
             plt.ylim(0, 1.0)
-            plt.savefig(f"FedMGDAPlus_tests/graphs/LR({lr})_{attackName}.png", dpi=400)
+            plt.savefig(f"FedMGDAPlus_tests/lr/epochs_{e}/graphs/{attackName}.png", dpi=400)
 
 
 @experiment
@@ -1961,5 +1960,5 @@ def __groupedExperiments_SyntacticVsDP(
 # byz_FedMGDA_MNIST()
 
 # AFA_Testing_MNIST()
-# FedMGDAPlus_Testing_MNIST()
-FedMGDAPlus_Malicious_Testing_MNIST()
+FedMGDAPlus_Testing_MNIST()
+# FedMGDAPlus_Malicious_Testing_MNIST()

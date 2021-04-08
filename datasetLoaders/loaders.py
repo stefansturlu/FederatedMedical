@@ -80,7 +80,7 @@ class DatasetLoader:
         return clientDatasets
 
     @staticmethod
-    def _setRandomSeeds(seed=123):
+    def _setRandomSeeds(seed=0):
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)

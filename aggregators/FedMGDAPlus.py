@@ -15,8 +15,10 @@ class FedMGDAPlusAggregator(Aggregator):
         device,
         useAsyncClients=False,
         # Large learning rate needed for proper differentiation due to small changes for 1 layer
-        learningRate=10,
-        threshold=0.01,
+        learningRate=0.1,
+        # Should not be hard set, should be based on number of users
+        # ~0.033333 for 30 users (should not get higher than this for obvious reasons)
+        threshold=0.0001,
     ):
         super().__init__(clients, model, rounds, device, useAsyncClients)
         self.numOfClients = len(clients)
@@ -30,7 +32,14 @@ class FedMGDAPlusAggregator(Aggregator):
         self.delta = copy.deepcopy(model) if model else False
         self.threshold = threshold
 
+    # Needed for when we set the config innerLR and threshold
+    def reinitialise(self, lr: float, threshold: float):
+        self.learningRate = lr
+        self.lambdatOpt = torch.optim.SGD([self.lambdaModel], lr=lr, momentum=0.5)
+        self.threshold = threshold
+
     def trainAndTest(self, testDataset):
+        print(self.learningRate)
         roundsError = torch.zeros(self.rounds)
 
         for r in range(self.rounds):
@@ -44,7 +53,15 @@ class FedMGDAPlusAggregator(Aggregator):
             # reset the gradients
             self.lambdatOpt.zero_grad()
 
-            for client in self.clients:
+            any_blocked = False
+
+            blocked_clients = []
+
+            for idx, client in enumerate(self.clients):
+                self.lambdatOpt.zero_grad()
+                if (client.blocked):
+                    blocked_clients.append(idx)
+                    continue
                 clientModel = sentClientModels[client].named_parameters()
                 clientParams = dict(clientModel)
                 previousGlobalParams = dict(self.previousGlobalModel.named_parameters())
@@ -58,29 +75,62 @@ class FedMGDAPlusAggregator(Aggregator):
                             )
 
                 # compute the loss = lambda_i * delta_i for each client i
-                if not (self.lambdaModel[client.id - 1] == 0):
-                    loss += torch.norm(
-                        torch.mul(
-                            nn.utils.parameters_to_vector(self.delta.cpu().parameters()),
-                            self.lambdaModel[client.id - 1] / self.lambdaModel.sum()
-                        )
+                # print("^^^^^^^^^^^^^^^^^^^^")
+                loss_bottom = self.lambdaModel.max() - self.lambdaModel.min()
+                if (loss_bottom == 0):
+                    loss_bottom = 1
+                loss = torch.norm(
+                    torch.mul(
+                        nn.utils.parameters_to_vector(self.delta.cpu().parameters()),
+                        self.lambdaModel[client.id - 1] / loss_bottom
                     )
+                )
+                print(loss)
+                if (self.lambdaModel[client.id - 1] == 0):
+                    # if not client.blocked:
+                    #     self.handle_blocked(client, r)
+                    #     # any_blocked = True
+                    pass
+
+            # if (any_blocked):
+                # oldWeights = np.array(list(self.lambdaModel.data))
+                # print(oldWeights)
+                # # indices = oldWeights < self.threshold
+                # indices = [i for i, client in enumerate(self.clients) if client.blocked]
+                # print(indices)
+                # print(oldWeights[indices])
+                # self.lambdaModel = nn.Parameter(torch.ones(self.numOfClients), requires_grad=True)
+                # self.lambdatOpt = torch.optim.SGD([self.lambdaModel], lr=self.learningRate, momentum=0.5)
+
+                # newWeights = np.array(list(self.lambdaModel.data))
+                # newWeights[indices] = 0
+                # self.lambdaModel.data = torch.tensor(newWeights)
 
                 else:
-                    if not client.blocked:
-                        self.handle_blocked(client, r)
-
-
-            loss.backward()
-            self.lambdatOpt.step()
-            for g in self.lambdatOpt.param_groups:
-                g["lr"] = g["lr"] * 0.7
+                    loss.backward()
+                    self.lambdatOpt.step()
+            # for g in self.lambdatOpt.param_groups:
+            #     g["lr"] = g["lr"] * 0.7
 
             # Thresholding and Normalisation
             clientWeights = np.array(list(self.lambdaModel.data))
+            print(clientWeights)
+            clientWeights[blocked_clients] = 0
+
+            # norm = TODO
+
             clientWeights[clientWeights < self.threshold] = 0
+
+            for idx, weight in enumerate(clientWeights):
+                client = self.clients[idx]
+                if (weight == 0) and not client.blocked:
+                    self.handle_blocked(client, r)
+
+
             self.lambdaModel.data = torch.tensor(clientWeights)
             normalisedClientWeights = clientWeights / np.sum(clientWeights)
+            print(normalisedClientWeights)
+            # self.lambdaModel.data = torch.tensor(normalisedClientWeights)
 
             comb = 0.0
 
