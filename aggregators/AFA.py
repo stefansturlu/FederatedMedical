@@ -1,3 +1,4 @@
+from client import Client
 from logger import logPrint
 from typing import List
 import torch

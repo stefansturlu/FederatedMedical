@@ -12,8 +12,8 @@ import torch
 class Aggregator:
     def __init__(self, clients, model, rounds, device, useAsyncClients=False):
         self.model = model.to(device)
-        self.clients = clients
-        self.rounds = rounds
+        self.clients: List[Client] = clients
+        self.rounds: int = rounds
 
         self.device = device
         self.useAsyncClients = useAsyncClients
@@ -44,7 +44,7 @@ class Aggregator:
             for client in self.clients:
                 self.__shareModelAndTrainOnClient(client)
 
-    def __shareModelAndTrainOnClient(self, client):
+    def __shareModelAndTrainOnClient(self, client: Client):
         broadcastModel = copy.deepcopy(self.model)
         client.updateModel(broadcastModel)
         error, pred = client.trainModel()

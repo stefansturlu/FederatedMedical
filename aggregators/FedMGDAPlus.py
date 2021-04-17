@@ -14,7 +14,6 @@ class FedMGDAPlusAggregator(Aggregator):
         rounds,
         device,
         useAsyncClients=False,
-        # Large learning rate needed for proper differentiation due to small changes for 1 layer
         learningRate=0.1,
         # Should not be hard set, should be based on number of users
         # ~0.033333 for 30 users (should not get higher than this for obvious reasons)
@@ -39,7 +38,6 @@ class FedMGDAPlusAggregator(Aggregator):
         self.threshold = threshold
 
     def trainAndTest(self, testDataset):
-        print(self.learningRate)
         roundsError = torch.zeros(self.rounds)
 
         for r in range(self.rounds):
@@ -53,8 +51,7 @@ class FedMGDAPlusAggregator(Aggregator):
             # reset the gradients
             self.lambdatOpt.zero_grad()
 
-            any_blocked = False
-
+            # Keeping track of the blocked clients each round to ensure their weighting remains at 0 always
             blocked_clients = []
 
             for idx, client in enumerate(self.clients):
@@ -74,52 +71,40 @@ class FedMGDAPlusAggregator(Aggregator):
                                 torch.abs(clientParams[name].cpu().data - previousGlobalParams[name].cpu().data)
                             )
 
-                # compute the loss = lambda_i * delta_i for each client i
-                # print("^^^^^^^^^^^^^^^^^^^^")
+                # Compute the loss = lambda_i * delta_i for each client i
+                # Normalise the data
                 loss_bottom = self.lambdaModel.max() - self.lambdaModel.min()
+                # Handle case when initialised (or unlucky)
                 if (loss_bottom == 0):
                     loss_bottom = 1
+
                 loss = torch.norm(
                     torch.mul(
                         nn.utils.parameters_to_vector(self.delta.cpu().parameters()),
                         self.lambdaModel[client.id - 1] / loss_bottom
                     )
                 )
-                print(loss)
-                if (self.lambdaModel[client.id - 1] == 0):
-                    # if not client.blocked:
-                    #     self.handle_blocked(client, r)
-                    #     # any_blocked = True
-                    pass
 
-            # if (any_blocked):
-                # oldWeights = np.array(list(self.lambdaModel.data))
-                # print(oldWeights)
-                # # indices = oldWeights < self.threshold
-                # indices = [i for i, client in enumerate(self.clients) if client.blocked]
-                # print(indices)
-                # print(oldWeights[indices])
-                # self.lambdaModel = nn.Parameter(torch.ones(self.numOfClients), requires_grad=True)
-                # self.lambdatOpt = torch.optim.SGD([self.lambdaModel], lr=self.learningRate, momentum=0.5)
-
-                # newWeights = np.array(list(self.lambdaModel.data))
-                # newWeights[indices] = 0
-                # self.lambdaModel.data = torch.tensor(newWeights)
-
-                else:
+                # If the client is blocked, we don't want to learn from it
+                if not (self.lambdaModel[client.id - 1] == 0):
                     loss.backward()
                     self.lambdatOpt.step()
-            # for g in self.lambdatOpt.param_groups:
-            #     g["lr"] = g["lr"] * 0.7
 
             # Thresholding and Normalisation
             clientWeights = np.array(list(self.lambdaModel.data))
-            print(clientWeights)
             clientWeights[blocked_clients] = 0
+            # Setting to zero no matter what if negative
+            # This prevents huge range in the next norm calculation
+            # The min might not be zero and so that's why we just don't take the max for the bottom
+            clientWeights[clientWeights < 0] = 0
 
-            # norm = TODO
+            # Normalise the weights for thresholding
+            norm_bottom = clientWeights.max() - clientWeights.min()
+            if (norm_bottom == 0):
+                norm_bottom = 1
+            norm = clientWeights / norm_bottom
 
-            clientWeights[clientWeights < self.threshold] = 0
+            clientWeights[norm < self.threshold] = 0
 
             for idx, weight in enumerate(clientWeights):
                 client = self.clients[idx]
@@ -129,8 +114,6 @@ class FedMGDAPlusAggregator(Aggregator):
 
             self.lambdaModel.data = torch.tensor(clientWeights)
             normalisedClientWeights = clientWeights / np.sum(clientWeights)
-            print(normalisedClientWeights)
-            # self.lambdaModel.data = torch.tensor(normalisedClientWeights)
 
             comb = 0.0
 
