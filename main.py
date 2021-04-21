@@ -553,11 +553,71 @@ def AFA_Testing_MNIST():
         plt.savefig(f"AFA_tests/alphabeta/graphs/total.png", dpi=400)
 
 
+
 @experiment
-def FedMGDAPlus_Testing_MNIST():
+def FedMGDAPlus_Epoch_LR_MNIST():
     attacks = [
-        # ([1, 3, 5, 7, 9], [2, 4, 6, 8 ,10], "5_faulty, 5_malicious"),
-        # ([1, 3, 5, 7, 9, 11, 13, 15, 17, 19], [], "10_faulty"),
+        ([1, 3, 5, 7, 9], [2, 4, 6, 8 ,10], "5_faulty, 5_malicious"),
+        ([1, 3, 5, 7, 9, 11, 13, 15, 17, 19], [], "10_faulty"),
+        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20], "10_malicious"),
+    ]
+
+    percUsers = torch.tensor(PERC_USERS)
+
+    config = DefaultExperimentConfiguration()
+    config.aggregators = [FedMGDAPlusAggregator]
+    config.percUsers = percUsers
+    config.threshold = 0
+
+    lrs = [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1]
+    epochs = [1]
+
+    for scenario in attacks:
+        faulty, malicious, attackName = scenario
+
+        config.faulty = faulty
+        config.malicious = malicious
+        config.plotResults = False
+
+        for e in epochs:
+            config.epochs = e
+            errorsDict = {}
+
+            for lr in lrs:
+                config.innerLR = lr
+
+
+                errors = __experimentOnMNIST(
+                    config,
+                    title=f"FedMGDA+ Test MNIST - Attacks: {attackName}, LR: {lr}",
+                    filename=f"lr({lr})_{attackName}",
+                    folder=f"FedMGDAPlus_tests/lr_epoch_refined/epoch_{e}/lr_{lr}",
+                )
+                errorsDict[f"lr: {lr}"] = errors["FedMGDA+"]
+
+            plt.figure()
+            i = 0
+            for name, err in errorsDict.items():
+                plt.plot(err, color=COLOURS[i], alpha=0.6)
+                i += 1
+            plt.legend(errorsDict.keys())
+            plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
+            plt.ylabel("Error Rate (%)")
+            plt.title(
+                f"FedMGDA+ Grid Search MNIST \n Attacks: {attackName} \n LR: {lr}",
+                loc="center",
+                wrap=True,
+            )
+            plt.ylim(0, 1.0)
+            plt.savefig(f"FedMGDAPlus_tests/lr_epoch_refined/epoch_{e}/{attackName}.png", dpi=400)
+
+
+
+@experiment
+def FedMGDAPlus_Grid_Search_MNIST():
+    attacks = [
+        ([1, 3, 5, 7, 9], [2, 4, 6, 8 ,10], "5_faulty, 5_malicious"),
+        ([1, 3, 5, 7, 9, 11, 13, 15, 17, 19], [], "10_faulty"),
         ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20], "10_malicious"),
     ]
 
@@ -567,10 +627,10 @@ def FedMGDAPlus_Testing_MNIST():
     config.aggregators = [FedMGDAPlusAggregator]
     config.percUsers = percUsers
 
-    lrs = [0.01, 0.05, 0.1, 1]
+    lrs = [0.01, 0.05, 0.1, 0.5, 1]
     fraction = 1 / len(PERC_USERS)
     threshold_fracs = [2, 3, 4, 5, 10, 20, 50, 100, 1000]
-    epochs = [10]
+    epochs = [1, 2, 3, 4, 5, 10]
 
     for scenario in attacks:
         faulty, malicious, attackName = scenario
@@ -1962,5 +2022,5 @@ def __groupedExperiments_SyntacticVsDP(
 # byz_FedMGDA_MNIST()
 
 # AFA_Testing_MNIST()
-FedMGDAPlus_Testing_MNIST()
+FedMGDAPlus_Epoch_LR_MNIST()
 # FedMGDAPlus_Malicious_Testing_MNIST()

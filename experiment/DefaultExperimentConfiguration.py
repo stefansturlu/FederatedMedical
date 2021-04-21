@@ -55,4 +55,5 @@ class DefaultExperimentConfiguration:
 
         self.plotResults: bool = True
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cpu")
