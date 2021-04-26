@@ -208,7 +208,7 @@ def __runExperiment(config, datasetLoader, classifier, aggregator, useDifferenti
         aggregator.xi = config.xi
         aggregator.deltaXi = config.deltaXi
     elif isinstance(aggregator, FedMGDAPlusAggregator):
-        aggregator.reinitialise(config.innerLR, config.threshold)
+        aggregator.reinitialise(config.innerLR1, config.innerLR2)
 
     errors = aggregator.trainAndTest(testDataset)
     blocked: Dict[str, List] = {
@@ -567,10 +567,10 @@ def FedMGDAPlus_Epoch_LR_MNIST():
     config = DefaultExperimentConfiguration()
     config.aggregators = [FedMGDAPlusAggregator]
     config.percUsers = percUsers
-    config.threshold = 0
+    config.epochs = 1
 
-    lrs = [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1]
-    epochs = [1]
+    lrs1 = [0.01, 0.02, 0.03, 0.04, 0.05]
+    lrs2 = [0.05, 0.06, 0.07, 0.08, 0.09, 0.1]
 
     for scenario in attacks:
         faulty, malicious, attackName = scenario
@@ -579,21 +579,21 @@ def FedMGDAPlus_Epoch_LR_MNIST():
         config.malicious = malicious
         config.plotResults = False
 
-        for e in epochs:
-            config.epochs = e
+        for lr1 in lrs1:
+            config.innerLR1 = lr1
             errorsDict = {}
 
-            for lr in lrs:
-                config.innerLR = lr
+            for lr2 in lrs2:
+                config.innerLR2 = lr2
 
 
                 errors = __experimentOnMNIST(
                     config,
-                    title=f"FedMGDA+ Test MNIST - Attacks: {attackName}, LR: {lr}",
-                    filename=f"lr({lr})_{attackName}",
-                    folder=f"FedMGDAPlus_tests/lr_epoch_refined/epoch_{e}/lr_{lr}",
+                    title=f"FedMGDA+ Test MNIST - Attacks: {attackName}, Start: {lr1}, Stop: {lr2}",
+                    filename=f"{attackName}",
+                    folder=f"FedMGDAPlus_tests/increasing_lr1/start_{lr1}/end_{lr2}",
                 )
-                errorsDict[f"lr: {lr}"] = errors["FedMGDA+"]
+                errorsDict[f"{lr2}"] = errors["FedMGDA+"]
 
             plt.figure()
             i = 0
@@ -604,75 +604,12 @@ def FedMGDAPlus_Epoch_LR_MNIST():
             plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
             plt.ylabel("Error Rate (%)")
             plt.title(
-                f"FedMGDA+ Grid Search MNIST \n Attacks: {attackName} \n LR: {lr}",
+                f"FedMGDA+ Increasing LR MNIST \n Attacks: {attackName} \n Start: {lr1}",
                 loc="center",
                 wrap=True,
             )
             plt.ylim(0, 1.0)
-            plt.savefig(f"FedMGDAPlus_tests/lr_epoch_refined/epoch_{e}/{attackName}.png", dpi=400)
-
-
-
-@experiment
-def FedMGDAPlus_Grid_Search_MNIST():
-    attacks = [
-        ([1, 3, 5, 7, 9], [2, 4, 6, 8 ,10], "5_faulty, 5_malicious"),
-        ([1, 3, 5, 7, 9, 11, 13, 15, 17, 19], [], "10_faulty"),
-        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20], "10_malicious"),
-    ]
-
-    percUsers = torch.tensor(PERC_USERS)
-
-    config = DefaultExperimentConfiguration()
-    config.aggregators = [FedMGDAPlusAggregator]
-    config.percUsers = percUsers
-
-    lrs = [0.01, 0.05, 0.1, 0.5, 1]
-    fraction = 1 / len(PERC_USERS)
-    threshold_fracs = [2, 3, 4, 5, 10, 20, 50, 100, 1000]
-    epochs = [1, 2, 3, 4, 5, 10]
-
-    for scenario in attacks:
-        faulty, malicious, attackName = scenario
-
-        config.faulty = faulty
-        config.malicious = malicious
-        config.plotResults = False
-
-        for e in epochs:
-            config.epochs = e
-
-            for lr in lrs:
-                config.innerLR = lr
-                errorsDict = {}
-
-                for thr in threshold_fracs:
-                    threshold = fraction / thr
-                    config.threshold = threshold
-
-                    errors = __experimentOnMNIST(
-                        config,
-                        title=f"FedMGDA+ Test MNIST - Attacks: {attackName}, LR: {lr}, Threshold Frac: {thr}",
-                        filename=f"frac({thr})_{attackName}",
-                        folder=f"FedMGDAPlus_tests/grid_search/epochs_{e}/lr_({lr})",
-                    )
-                    errorsDict[f"thr frac: {thr}"] = errors["FedMGDA+"]
-
-                plt.figure()
-                i = 0
-                for name, err in errorsDict.items():
-                    plt.plot(err, color=COLOURS[i], alpha=0.6)
-                    i += 1
-                plt.legend(errorsDict.keys())
-                plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
-                plt.ylabel("Error Rate (%)")
-                plt.title(
-                    f"FedMGDA+ Grid Search MNIST \n Attacks: {attackName} \n LR: {lr}",
-                    loc="center",
-                    wrap=True,
-                )
-                plt.ylim(0, 1.0)
-                plt.savefig(f"FedMGDAPlus_tests/grid_search/epochs_{e}/lr_({lr})/{attackName}.png", dpi=400)
+            plt.savefig(f"FedMGDAPlus_tests/increasing_lr1/start_{lr1}/{attackName}.png", dpi=400)
 
 
 @experiment

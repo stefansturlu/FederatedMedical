@@ -9,7 +9,7 @@ class DefaultExperimentConfiguration:
         self.name: str = None
 
         # Federated learning parameters
-        self.rounds: int = 50  # Total number of training rounds
+        self.rounds: int = 30  # Total number of training rounds
         self.epochs: int = (
             2  # Epochs num locally run by clients before sending back the model update
         )
@@ -36,8 +36,8 @@ class DefaultExperimentConfiguration:
         self.deltaXi = 0.5
 
         # FedMGDA+ Parameters:
-        self.threshold = 0.001
-        self.innerLR = 0.001
+        self.innerLR1 = 0.01
+        self.innerLR2 = 0.01
 
         # Client privacy preserving module setup
         self.privacyPreserve: bool = False  # if None, run with AND without DP

@@ -5,9 +5,7 @@ from threading import Thread
 from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
 from typing import List
-
 import torch
-
 
 class Aggregator:
     def __init__(self, clients, model, rounds, device, useAsyncClients=False):

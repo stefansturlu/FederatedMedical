@@ -14,34 +14,34 @@ class FedMGDAPlusAggregator(Aggregator):
         rounds,
         device,
         useAsyncClients=False,
-        learningRate=0.1,
-        # Should not be hard set, should be based on number of users
-        # ~0.033333 for 30 users (should not get higher than this for obvious reasons)
-        threshold=0.0001,
+        learningRateStart=0.1,
+        learningRateEnd=0.1,
     ):
         super().__init__(clients, model, rounds, device, useAsyncClients)
         self.numOfClients = len(clients)
         self.lambdaModel = nn.Parameter(torch.ones(self.numOfClients), requires_grad=True)
-        self.learningRate = learningRate
-        self.lambdatOpt = torch.optim.SGD([self.lambdaModel], lr=self.learningRate, momentum=0.5)
+        self.LR1 = learningRateStart
+        self.LR2 = learningRateEnd
+        self.lambdatOpt = torch.optim.SGD([self.lambdaModel], lr=self.LR1, momentum=0.5)
 
         # self.delta is going to store the values of the g_i according to the paper FedMGDA
         # More accurately, it stores the difference between the previous model params and
         # the clients' params
         self.delta = copy.deepcopy(model) if model else False
-        self.threshold = threshold
 
-    # Needed for when we set the config innerLR and threshold
-    def reinitialise(self, lr: float, threshold: float):
-        self.learningRate = lr
-        self.lambdatOpt = torch.optim.SGD([self.lambdaModel], lr=lr, momentum=0.5)
-        self.threshold = threshold
+    # Needed for when we set the config innerLR
+    def reinitialise(self, lr1: float, lr2: float):
+        self.LR1 = lr1
+        self.LR2 = lr2
+        self.lambdatOpt = torch.optim.SGD([self.lambdaModel], lr=lr1, momentum=0.5)
 
     def trainAndTest(self, testDataset):
         roundsError = torch.zeros(self.rounds)
+        lrs = torch.linspace(self.LR1, self.LR2, self.rounds)
 
         for r in range(self.rounds):
             logPrint("Round... ", r)
+            logPrint("LR - Current: %.3f" % lrs[r])
             self._shareModelAndTrainOnClients()
             sentClientModels = self._retrieveClientModelsDict()
 
@@ -94,17 +94,9 @@ class FedMGDAPlusAggregator(Aggregator):
             clientWeights = np.array(list(self.lambdaModel.data))
             clientWeights[blocked_clients] = 0
             # Setting to zero no matter what if negative
-            # This prevents huge range in the next norm calculation
+            # If the weight gets below 0 then we don't want to count the client
             # The min might not be zero and so that's why we just don't take the max for the bottom
-            clientWeights[clientWeights < 0] = 0
-
-            # Normalise the weights for thresholding
-            norm_bottom = clientWeights.max() - clientWeights.min()
-            if (norm_bottom == 0):
-                norm_bottom = 1
-            norm = clientWeights / norm_bottom
-
-            clientWeights[norm < self.threshold] = 0
+            clientWeights[clientWeights <= 0] = 0
 
             for idx, weight in enumerate(clientWeights):
                 client = self.clients[idx]
@@ -128,6 +120,12 @@ class FedMGDAPlusAggregator(Aggregator):
                 comb = 1.0
 
             roundsError[r] = self.test(testDataset)
+
+
+            # Increasing / Decreasing LR each global round
+            for g in self.lambdatOpt.param_groups:
+                g['lr'] = lrs[r]
+
 
 
         return roundsError
