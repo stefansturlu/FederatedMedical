@@ -1,6 +1,7 @@
 import os
-from typing import Dict, List
+from typing import Callable, Dict, List, NewType, Tuple
 import json
+from loguru import logger
 
 from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration
 from datasetLoaders.loaders import (
@@ -20,12 +21,12 @@ import random
 import torch
 import time
 
-from aggregators.Aggregator import allAggregators
+from aggregators.Aggregator import Aggregator, allAggregators
 from aggregators.AFA import AFAAggregator
 from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
 
 # Determines how much data each client gets (normalised)
-PERC_USERS = [
+PERC_USERS: List[float] = [
     0.1,
     0.15,
     0.2,
@@ -59,7 +60,7 @@ PERC_USERS = [
 ]
 
 # Colours used for graphing, add more if necessary
-COLOURS = [
+COLOURS: List[str] = [
     "midnightblue",
     "tab:blue",
     "tab:orange",
@@ -101,7 +102,7 @@ def __experimentOnMNIST(
     return __experimentSetup(config, dataLoader, classifier, title, filename, folder)
 
 
-def __experimentOnCONVIDx(config, model="COVIDNet"):
+def __experimentOnCONVIDx(config: DefaultExperimentConfiguration, model="COVIDNet"):
     datasetLoader = DatasetLoaderCOVIDx().getDatasets
     if model == "COVIDNet":
         classifier = CovidNet.Classifier
@@ -112,7 +113,7 @@ def __experimentOnCONVIDx(config, model="COVIDNet"):
     __experimentSetup(config, datasetLoader, classifier)
 
 
-# def __experimentOnDiabetes(config):
+# def __experimentOnDiabetes(config: DefaultExperimentConfiguration):
 #     datasetLoader = DatasetLoaderDiabetes(
 #         config.requireDatasetAnonymization
 #     ).getDatasets
@@ -120,7 +121,7 @@ def __experimentOnCONVIDx(config, model="COVIDNet"):
 #     __experimentSetup(config, datasetLoader, classifier)
 
 
-# def __experimentOnHeartDisease(config):
+# def __experimentOnHeartDisease(config: DefaultExperimentConfiguration):
 #     dataLoader = DatasetLoaderHeartDisease(
 #         config.requireDatasetAnonymization
 #     ).getDatasets
@@ -138,9 +139,9 @@ def __experimentSetup(
 ):
     print(title)
     print(filename)
-    errorsDict = dict()
+    errorsDict: dict[str, Errors] = {}
+    blocked: dict[str, BlockedLocations] = {}
 
-    blocked = {}
     for aggregator in config.aggregators:
         name = aggregator.__name__.replace("Aggregator", "")
         name = name.replace("Plus", "+")
@@ -195,8 +196,10 @@ def __experimentSetup(
 
     return errorsDict
 
+Errors = NewType("Errors", torch.Tensor[int])
+BlockedLocations = NewType("BlockedLocations", Dict[str, List[Tuple[int, int]]])
 
-def __runExperiment(config, datasetLoader, classifier, aggregator, useDifferentialPrivacy):
+def __runExperiment(config: DefaultExperimentConfiguration, datasetLoader, classifier, aggregator: Aggregator, useDifferentialPrivacy: bool) -> Tuple[Errors, BlockedLocations]:
     trainDatasets, testDataset = datasetLoader(config.percUsers, config.labels, config.datasetSize)
     clients = __initClients(config, trainDatasets, useDifferentialPrivacy)
     # Requires model input size update due to dataset generalisation and categorisation
@@ -210,11 +213,12 @@ def __runExperiment(config, datasetLoader, classifier, aggregator, useDifferenti
     elif isinstance(aggregator, FedMGDAPlusAggregator):
         aggregator.reinitialise(config.innerLR1, config.innerLR2)
 
-    errors = aggregator.trainAndTest(testDataset)
-    blocked: Dict[str, List] = {
+    errors: Errors = aggregator.trainAndTest(testDataset)
+    blocked: BlockedLocations = {
         "benign": aggregator.benignBlocked,
         "malicious": aggregator.maliciousBlocked,
         "faulty": aggregator.faultyBlocked,
+        "freeRider": aggregator.freeRidersBlocked
     }
     return errors, blocked
 
@@ -223,7 +227,7 @@ def __initClients(config, trainDatasets, useDifferentialPrivacy):
     usersNo = config.percUsers.size(0)
     p0 = 1 / usersNo
     logPrint("Creating clients...")
-    clients = []
+    clients: List[Client] = []
     for i in range(usersNo):
         clients.append(
             Client(
@@ -262,6 +266,9 @@ def __initClients(config, trainDatasets, useDifferentialPrivacy):
             client.flip = True
             logPrint("User", client.id, "is malicious.")
             client.trainDataset.zeroLabels()
+        if client.id in config.freeRiding:
+            client.free = True
+            logPrint("User", client.id, "is Free-Riding.")
     return clients
 
 
@@ -273,7 +280,8 @@ def __setRandomSeeds(seed=0):
 
 
 #   EXPERIMENTS
-def experiment(exp):
+def experiment(exp: Callable[[], None]):
+    @logger.catch # Not necessarily needed but catches errors nicely
     def decorator():
         __setRandomSeeds()
         logPrint("Experiment {} began.".format(exp.__name__))

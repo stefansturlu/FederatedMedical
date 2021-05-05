@@ -36,32 +36,34 @@ class Client:
         needNormalization,
         byzantine=None,
         flipping=None,
+        freeRiding=False,
         model=None,
         alpha=3.0,
         beta=3.0,
     ):
 
         self.name: str = "client" + str(idx)
-        self.device = device
+        self.device: torch.device = device
 
-        self.model = model
+        self.model: nn.Module = model
         self.trainDataset = trainDataset
         self.dataLoader = DataLoader(self.trainDataset, batch_size=batchSize, shuffle=True)
         self.n: int = len(trainDataset)  # Number of training points provided
-        self.p = p  # Contribution to the overall model
-        self.id = idx  # ID for the user
+        self.p: float = p  # Contribution to the overall model
+        self.id: int = idx  # ID for the user
         self.byz: bool = byzantine  # Boolean indicating whether the user is faulty or not
         self.flip: bool = flipping  # Boolean indicating whether the user is malicious or not (label flipping attack)
+        self.free: bool = freeRiding # Boolean indicating whether the user is a free-rider or not
 
         # Used for computing dW, i.e. the change in model before
         # and after client local training, when DP is used
-        self.untrainedModel = copy.deepcopy(model).to("cpu") if model else False
+        self.untrainedModel: nn.Module = copy.deepcopy(model).to("cpu") if model else False
 
         self.opt = None
         self.sim = None
         self.loss = None
         self.Loss = Loss
-        self.Optimizer = Optimizer
+        self.Optimizer: optim.Optimizer = Optimizer
         self.pEpoch = None
         self.badUpdate: bool = False
         self.epochs: int = epochs
@@ -71,9 +73,9 @@ class Client:
         self.momentum: float = 0.9
 
         # AFA Client params
-        self.alpha = alpha
-        self.beta = beta
-        self.score = alpha / beta
+        self.alpha: float = alpha
+        self.beta: float = beta
+        self.score: float = alpha / beta
         self.blocked: bool = False
 
         # DP parameters
@@ -87,20 +89,24 @@ class Client:
 
         # FedMGDA+ params
 
-    def updateModel(self, model):
+    def updateModel(self, model: nn.Module):
         self.model = model.to("cpu")
         if self.Optimizer == optim.SGD:
             self.opt = self.Optimizer(
                 self.model.parameters(), lr=self.learningRate, momentum=self.momentum
             )
         else:
-            self.opt = self.Optimizer(self.model.parameters(), lr=self.learningRate)
+            self.opt: optim.Optimizer = self.Optimizer(self.model.parameters(), lr=self.learningRate)
         self.loss = self.Loss()
         self.untrainedModel = copy.deepcopy(model).to("cpu")
         torch.cuda.empty_cache()
 
     # Function to train the model for a specific user
     def trainModel(self):
+        # If the use is a free rider then they won't have any data to train on (theoretically)
+        if self.free:
+            pass
+
         self.model = self.model.to(self.device)
         for i in range(self.epochs):
             for iBatch, (x, y) in enumerate(self.dataLoader):
@@ -127,7 +133,10 @@ class Client:
         return err, pred
 
     # Function used by aggregators to retrieve the model from the client
-    def retrieveModel(self):
+    def retrieveModel(self) -> nn.Module:
+        if self.free:
+            return self.untrainedModel
+
         if self.byz:
             # Malicious model update
             # logPrint("Malicous update for user ",u.id)

@@ -1,4 +1,4 @@
-import torch.nn as nn
+from torch import nn, Tensor
 
 
 class Classifier(nn.Module):
@@ -13,7 +13,7 @@ class Classifier(nn.Module):
         self.out = nn.Linear(256, 10)
         self.out_act = nn.Softmax(dim=1)
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         x = self.fc1(x)
         x = self.relu1(x)
         x = self.drop1(x)

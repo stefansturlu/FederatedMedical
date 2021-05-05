@@ -22,6 +22,8 @@ class Aggregator:
         self.benignBlocked = []
         # List of faulty users blocked
         self.faultyBlocked = []
+        # List of free-riding users blocked
+        self.freeRidersBlocked = []
 
     def trainAndTest(self, testDataset):
         raise Exception(
@@ -91,13 +93,16 @@ class Aggregator:
         logPrint("USER ", client.id, " BLOCKED!!!")
         client.p = 0
         client.blocked = True
-        if client.byz or client.flip:
+        pair = (client.id, round)
+        if client.byz or client.flip or client.free:
             if client.byz:
-                self.faultyBlocked.append((client.id, round))
+                self.faultyBlocked.append(pair)
             if client.flip:
-                self.maliciousBlocked.append((client.id, round))
+                self.maliciousBlocked.append(pair)
+            if client.free:
+                self.freeRidersBlocked.append(pair)
         else:
-            self.benignBlocked.append((client.id, round))
+            self.benignBlocked.append(pair)
 
 
 def allAggregators() -> List[Aggregator]:
