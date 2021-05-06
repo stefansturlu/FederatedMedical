@@ -105,7 +105,7 @@ class Client:
     def trainModel(self):
         # If the use is a free rider then they won't have any data to train on (theoretically)
         if self.free:
-            pass
+            return None, None
 
         self.model = self.model.to(self.device)
         for i in range(self.epochs):
@@ -135,6 +135,8 @@ class Client:
     # Function used by aggregators to retrieve the model from the client
     def retrieveModel(self) -> nn.Module:
         if self.free:
+            # Free-rider update
+            # The self.model won't update but this is just a logical check
             return self.untrainedModel
 
         if self.byz:
@@ -148,7 +150,7 @@ class Client:
         return self.model
 
     # Function to manipulate the model for byzantine adversaries
-    def __manipulateModel(self, alpha=20):
+    def __manipulateModel(self, alpha: int = 20) -> None:
         params = self.model.named_parameters()
         for name, param in params:
             noise = alpha * torch.randn(param.data.size()).to(self.device)

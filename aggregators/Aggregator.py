@@ -1,14 +1,17 @@
+from torch import Tensor, nn, device
 from client import Client
 import copy
 from logger import logPrint
 from threading import Thread
 from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
-from typing import List
+from typing import List, NewType, Tuple
 import torch
 
+IdRoundPair = NewType("IdRoundPair", Tuple(int, int))
+
 class Aggregator:
-    def __init__(self, clients, model, rounds, device, useAsyncClients=False):
+    def __init__(self, clients: List[Client], model: nn.Module, rounds: int, device: device, useAsyncClients: bool = False):
         self.model = model.to(device)
         self.clients: List[Client] = clients
         self.rounds: int = rounds
@@ -17,21 +20,21 @@ class Aggregator:
         self.useAsyncClients = useAsyncClients
 
         # List of malicious users blocked in tuple of client_id and iteration
-        self.maliciousBlocked = []
+        self.maliciousBlocked: List[IdRoundPair] = []
         # List of benign users blocked
-        self.benignBlocked = []
+        self.benignBlocked: List[IdRoundPair] = []
         # List of faulty users blocked
-        self.faultyBlocked = []
+        self.faultyBlocked: List[IdRoundPair] = []
         # List of free-riding users blocked
-        self.freeRidersBlocked = []
+        self.freeRidersBlocked: List[IdRoundPair] = []
 
-    def trainAndTest(self, testDataset):
+    def trainAndTest(self, testDataset) -> Tensor[float]:
         raise Exception(
             "Train method should be override by child class, "
             "specific to the aggregation strategy."
         )
 
-    def _shareModelAndTrainOnClients(self):
+    def _shareModelAndTrainOnClients(self) -> None:
         if self.useAsyncClients:
             threads = []
             for client in self.clients:
@@ -44,13 +47,13 @@ class Aggregator:
             for client in self.clients:
                 self.__shareModelAndTrainOnClient(client)
 
-    def __shareModelAndTrainOnClient(self, client: Client):
+    def __shareModelAndTrainOnClient(self, client: Client) -> None:
         broadcastModel = copy.deepcopy(self.model)
         client.updateModel(broadcastModel)
         error, pred = client.trainModel()
 
     def _retrieveClientModelsDict(self):
-        models = dict()
+        models: dict[Client, nn.Module] = {}
         for client in self.clients:
             # If client blocked return an the unchanged version of the model
             if not client.blocked:
@@ -59,7 +62,7 @@ class Aggregator:
                 models[client] = client.model
         return models
 
-    def test(self, testDataset):
+    def test(self, testDataset) -> float:
         dataLoader = DataLoader(testDataset, shuffle=False)
         with torch.no_grad():
             predLabels, testLabels = zip(*[(self.predict(self.model, x), y) for x, y in dataLoader])
@@ -72,7 +75,7 @@ class Aggregator:
         return errors
 
     # Function for computing predictions
-    def predict(self, net, x):
+    def predict(self, net: nn.Module, x):
         with torch.no_grad():
             outputs = net(x.to(self.device))
             _, predicted = torch.max(outputs.to(self.device), 1)
@@ -80,7 +83,7 @@ class Aggregator:
 
     # Function to merge the models
     @staticmethod
-    def _mergeModels(mOrig, mDest, alphaOrig, alphaDest):
+    def _mergeModels(mOrig: nn.Module, mDest: nn.Module, alphaOrig: float, alphaDest: float) -> None:
         paramsDest = mDest.named_parameters()
         dictParamsDest = dict(paramsDest)
         paramsOrig = mOrig.named_parameters()
@@ -93,7 +96,7 @@ class Aggregator:
         logPrint("USER ", client.id, " BLOCKED!!!")
         client.p = 0
         client.blocked = True
-        pair = (client.id, round)
+        pair: IdRoundPair = (client.id, round)
         if client.byz or client.flip or client.free:
             if client.byz:
                 self.faultyBlocked.append(pair)

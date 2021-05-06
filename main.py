@@ -1,5 +1,5 @@
 import os
-from typing import Callable, Dict, List, NewType, Tuple
+from typing import Callable, Dict, List, NewType, Tuple, Union
 import json
 from loguru import logger
 
@@ -92,6 +92,18 @@ COLOURS: List[str] = [
     "black",
     "gold"
 ]
+
+##################################
+#### Types #######################
+##################################
+
+Errors = NewType("Errors", torch.Tensor[int])
+BlockedType = Union["benign", "malicious", "faulty", "freeRider"]
+BlockedLocations = NewType("BlockedLocations", Dict[BlockedType, List[Tuple[int, int]]])
+
+##################################
+##################################
+##################################
 
 
 def __experimentOnMNIST(
@@ -195,9 +207,6 @@ def __experimentSetup(
         plt.savefig(f"{folder}/{filename}.png", dpi=400)
 
     return errorsDict
-
-Errors = NewType("Errors", torch.Tensor[int])
-BlockedLocations = NewType("BlockedLocations", Dict[str, List[Tuple[int, int]]])
 
 def __runExperiment(config: DefaultExperimentConfiguration, datasetLoader, classifier, aggregator: Aggregator, useDifferentialPrivacy: bool) -> Tuple[Errors, BlockedLocations]:
     trainDatasets, testDataset = datasetLoader(config.percUsers, config.labels, config.datasetSize)

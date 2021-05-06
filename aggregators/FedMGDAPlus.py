@@ -1,28 +1,31 @@
+from client import Client
+from typing import List
 from logger import logPrint
 import torch
 import copy
 from aggregators.Aggregator import Aggregator
 import numpy as np
-from torch import nn
+from torch import nn, Tensor, device
+import torch.optim as optim
 
 
 class FedMGDAPlusAggregator(Aggregator):
     def __init__(
         self,
-        clients,
-        model,
-        rounds,
-        device,
-        useAsyncClients=False,
-        learningRateStart=0.1,
-        learningRateEnd=0.1,
+        clients:List[Client],
+        model:nn.Module,
+        rounds:int,
+        device:device,
+        useAsyncClients:bool=False,
+        learningRateStart:float=0.1,
+        learningRateEnd:float=0.1,
     ):
         super().__init__(clients, model, rounds, device, useAsyncClients)
         self.numOfClients = len(clients)
         self.lambdaModel = nn.Parameter(torch.ones(self.numOfClients), requires_grad=True)
         self.LR1 = learningRateStart
         self.LR2 = learningRateEnd
-        self.lambdatOpt = torch.optim.SGD([self.lambdaModel], lr=self.LR1, momentum=0.5)
+        self.lambdatOpt = optim.SGD([self.lambdaModel], lr=self.LR1, momentum=0.5)
 
         # self.delta is going to store the values of the g_i according to the paper FedMGDA
         # More accurately, it stores the difference between the previous model params and
@@ -30,12 +33,12 @@ class FedMGDAPlusAggregator(Aggregator):
         self.delta = copy.deepcopy(model) if model else False
 
     # Needed for when we set the config innerLR
-    def reinitialise(self, lr1: float, lr2: float):
+    def reinitialise(self, lr1: float, lr2: float) -> None:
         self.LR1 = lr1
         self.LR2 = lr2
-        self.lambdatOpt = torch.optim.SGD([self.lambdaModel], lr=lr1, momentum=0.5)
+        self.lambdatOpt = optim.SGD([self.lambdaModel], lr=lr1, momentum=0.5)
 
-    def trainAndTest(self, testDataset):
+    def trainAndTest(self, testDataset) -> Tensor[float]:
         roundsError = torch.zeros(self.rounds)
         lrs = torch.linspace(self.LR1, self.LR2, self.rounds)
 

@@ -10,6 +10,7 @@ import pandas as pd
 import pydicom as dicom
 import torch
 from PIL import Image
+from torch.tensor import Tensor
 
 # import cn.protect.quality as quality
 # from cn.protect.hierarchy import OrderHierarchy
@@ -53,13 +54,13 @@ class DatasetLoader:
         )
 
     @staticmethod
-    def _filterDataByLabel(labels, trainDataframe, testDataframe):
+    def _filterDataByLabel(labels: Tensor[int], trainDataframe, testDataframe):
         trainDataframe = trainDataframe[trainDataframe["labels"].isin(labels)]
         testDataframe = testDataframe[testDataframe["labels"].isin(labels)]
         return trainDataframe, testDataframe
 
     @staticmethod
-    def _splitTrainDataIntoClientDatasets(percUsers, trainDataframe, DatasetType):
+    def _splitTrainDataIntoClientDatasets(percUsers: Tensor[float], trainDataframe, DatasetType):
         DatasetLoader._setRandomSeeds()
         percUsers = percUsers / percUsers.sum()
 
@@ -230,7 +231,7 @@ class DatasetLoader:
 
 
 class DatasetLoaderMNIST(DatasetLoader):
-    def getDatasets(self, percUsers, labels, size=None):
+    def getDatasets(self, percUsers: Tensor[float], labels: Tensor[int], size=None):
         logPrint("Loading MNIST...")
         self._setRandomSeeds()
         data = self.__loadMNISTData()
@@ -320,7 +321,7 @@ class DatasetLoaderCOVIDx(DatasetLoader):
 
         return trainDataframe, testDataframe
 
-    def __datasetNotFound(self):
+    def __datasetNotFound(self) -> bool:
         if (
             not os.path.exists(self.dataPath + "/test_split_v2.txt")
             or not os.path.exists(self.dataPath + "/train_split_v2.txt")
@@ -578,7 +579,7 @@ class DatasetLoaderCOVIDx(DatasetLoader):
             return imageTensor, labelTensor
 
         @staticmethod
-        def __load_image(img_path):
+        def __load_image(img_path: str) -> Image:
             if not os.path.exists(img_path):
                 print("IMAGE DOES NOT EXIST {}".format(img_path))
             image = Image.open(img_path).convert("RGB")
