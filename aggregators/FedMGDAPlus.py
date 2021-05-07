@@ -4,7 +4,6 @@ from logger import logPrint
 import torch
 import copy
 from aggregators.Aggregator import Aggregator
-import numpy as np
 from torch import nn, Tensor, device
 import torch.optim as optim
 
@@ -94,53 +93,21 @@ class FedMGDAPlusAggregator(Aggregator):
                     self.lambdatOpt.step()
 
             # Thresholding and Normalisation
-            clientWeights = np.array(list(self.lambdaModel.data))
-            # print("\n\nFIRST")
-            # print(clientWeights)
+            clientWeights = self.lambdaModel.data
             clientWeights[blocked_clients] = 0
             # Setting to zero no matter what if negative
             # If the weight gets below 0 then we don't want to count the client
             # The min might not be zero and so that's why we just don't take the max for the bottom
             clientWeights[clientWeights <= 0] = 0
-            # print(clientWeights)
 
             for idx, weight in enumerate(clientWeights):
                 client = self.clients[idx]
                 if (weight == 0) and not client.blocked:
                     self.handle_blocked(client, r)
-                    # pass
 
 
-            self.lambdaModel.data = torch.tensor(clientWeights)
-            normalisedClientWeights = clientWeights / np.sum(clientWeights)
-            # print(normalisedClientWeights)
-
-
-            
-
-            # Thresholding and Normalisation
-            # tclientWeights = self.lambdaModel.data
-            # print("SECOND")
-            # print(tclientWeights)
-            # tclientWeights[blocked_clients] = 0
-            # # Setting to zero no matter what if negative
-            # # If the weight gets below 0 then we don't want to count the client
-            # # The min might not be zero and so that's why we just don't take the max for the bottom
-            # tclientWeights[tclientWeights <= 0] = 0
-            # print(tclientWeights)
-
-            # for idx, weight in enumerate(tclientWeights):
-            #     client = self.clients[idx]
-            #     if (weight == 0) and not client.blocked:
-            #         self.handle_blocked(client, r)
-
-
-            # self.lambdaModel.data = tclientWeights
-            # tnormalisedClientWeights = tclientWeights / torch.sum(tclientWeights)
-            # print(tnormalisedClientWeights)
-
-
-            # self.lambdaModel.data = torch.tensor(tclientWeights)
+            self.lambdaModel.data = clientWeights
+            normalisedClientWeights = clientWeights / torch.sum(clientWeights)
 
 
 

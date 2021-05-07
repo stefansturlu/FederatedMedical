@@ -587,8 +587,8 @@ def FedMGDAPlus_Epoch_LR_MNIST():
     config.percUsers = percUsers
     config.epochs = 1
 
-    lrs1 = [0.01, 0.02, 0.03, 0.04, 0.05]
-    lrs2 = [0.05, 0.06, 0.07, 0.08, 0.09, 0.1]
+    lrs2 = [0.02]
+    lrs1 = [0.07]
 
     for scenario in attacks:
         faulty, malicious, attackName = scenario
