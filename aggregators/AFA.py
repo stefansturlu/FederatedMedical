@@ -13,7 +13,7 @@ class AFAAggregator(Aggregator):
     def __init__(self, clients, model, rounds, device, useAsyncClients=False):
         super().__init__(clients, model, rounds, device, useAsyncClients)
         self.xi = 2
-        self.deltaXi = 0.5
+        self.deltaXi = 0.25
 
     def trainAndTest(self, testDataset):
         roundsError = torch.zeros(self.rounds)

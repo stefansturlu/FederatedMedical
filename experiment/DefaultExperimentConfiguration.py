@@ -32,8 +32,8 @@ class DefaultExperimentConfiguration:
         self.freeRiding: List[int] = []  # List of free-riding clients
 
         # AFA Parameters:
-        self.alpha: float = 3
-        self.beta: float = 3
+        self.alpha: float = 4
+        self.beta: float = 4
         self.xi: float = 2
         self.deltaXi: float = 0.25
 
