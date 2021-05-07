@@ -54,13 +54,13 @@ class DatasetLoader:
         )
 
     @staticmethod
-    def _filterDataByLabel(labels: Tensor[int], trainDataframe, testDataframe):
+    def _filterDataByLabel(labels: Tensor, trainDataframe, testDataframe):
         trainDataframe = trainDataframe[trainDataframe["labels"].isin(labels)]
         testDataframe = testDataframe[testDataframe["labels"].isin(labels)]
         return trainDataframe, testDataframe
 
     @staticmethod
-    def _splitTrainDataIntoClientDatasets(percUsers: Tensor[float], trainDataframe, DatasetType):
+    def _splitTrainDataIntoClientDatasets(percUsers: Tensor, trainDataframe, DatasetType):
         DatasetLoader._setRandomSeeds()
         percUsers = percUsers / percUsers.sum()
 
@@ -82,6 +82,7 @@ class DatasetLoader:
 
     @staticmethod
     def _setRandomSeeds(seed=0):
+        os.environ['PYTHONHASHSEED']=str(seed)
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
@@ -231,7 +232,7 @@ class DatasetLoader:
 
 
 class DatasetLoaderMNIST(DatasetLoader):
-    def getDatasets(self, percUsers: Tensor[float], labels: Tensor[int], size=None):
+    def getDatasets(self, percUsers: Tensor, labels: Tensor, size=None):
         logPrint("Loading MNIST...")
         self._setRandomSeeds()
         data = self.__loadMNISTData()

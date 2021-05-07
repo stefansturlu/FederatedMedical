@@ -1,5 +1,5 @@
 import os
-from typing import Callable, Dict, List, NewType, Tuple, Union
+from typing import Callable, Dict, List, NewType, Tuple, TypedDict, Union
 import json
 from loguru import logger
 
@@ -97,7 +97,7 @@ COLOURS: List[str] = [
 #### Types #######################
 ##################################
 
-Errors = NewType("Errors", torch.Tensor[int])
+Errors = NewType("Errors", torch.Tensor)
 BlockedType = Union["benign", "malicious", "faulty", "freeRider"]
 BlockedLocations = NewType("BlockedLocations", Dict[BlockedType, List[Tuple[int, int]]])
 
@@ -151,8 +151,8 @@ def __experimentSetup(
 ):
     print(title)
     print(filename)
-    errorsDict: dict[str, Errors] = {}
-    blocked: dict[str, BlockedLocations] = {}
+    errorsDict: TypedDict[str, Errors] = {}
+    blocked: TypedDict[str, BlockedLocations] = {}
 
     for aggregator in config.aggregators:
         name = aggregator.__name__.replace("Aggregator", "")
@@ -282,6 +282,7 @@ def __initClients(config, trainDatasets, useDifferentialPrivacy):
 
 
 def __setRandomSeeds(seed=0):
+    os.environ['PYTHONHASHSEED']=str(seed)
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)

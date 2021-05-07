@@ -5,10 +5,10 @@ from logger import logPrint
 from threading import Thread
 from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
-from typing import List, NewType, Tuple
+from typing import List, NewType, Tuple, TypedDict
 import torch
 
-IdRoundPair = NewType("IdRoundPair", Tuple(int, int))
+IdRoundPair = NewType("IdRoundPair", Tuple[int, int])
 
 class Aggregator:
     def __init__(self, clients: List[Client], model: nn.Module, rounds: int, device: device, useAsyncClients: bool = False):
@@ -28,7 +28,7 @@ class Aggregator:
         # List of free-riding users blocked
         self.freeRidersBlocked: List[IdRoundPair] = []
 
-    def trainAndTest(self, testDataset) -> Tensor[float]:
+    def trainAndTest(self, testDataset) -> Tensor:
         raise Exception(
             "Train method should be override by child class, "
             "specific to the aggregation strategy."
@@ -53,7 +53,7 @@ class Aggregator:
         error, pred = client.trainModel()
 
     def _retrieveClientModelsDict(self):
-        models: dict[Client, nn.Module] = {}
+        models: TypedDict[Client, nn.Module] = {}
         for client in self.clients:
             # If client blocked return an the unchanged version of the model
             if not client.blocked:
