@@ -1,3 +1,4 @@
+from experiment.CustomConfig import CustomConfig
 import os
 from typing import Callable, Dict, List, NewType, Tuple, TypedDict, Union
 import json
@@ -21,6 +22,7 @@ import random
 import torch
 import time
 import gc
+from torch import cuda, 
 
 from aggregators.Aggregator import Aggregator, allAggregators
 from aggregators.AFA import AFAAggregator
@@ -105,7 +107,6 @@ COLOURS: List[str] = [
 Errors = NewType("Errors", torch.Tensor)
 BlockedType = Union["benign", "malicious", "faulty", "freeRider"]
 BlockedLocations = NewType("BlockedLocations", Dict[BlockedType, List[Tuple[int, int]]])
-Attacks = NewType("Attacks", List[Tuple[List[int], List[int], str]])
 
 ##################################
 ##################################
@@ -241,7 +242,7 @@ def __runExperiment(config: DefaultExperimentConfiguration, datasetLoader, class
     return errors, blocked
 
 
-def __initClients(config, trainDatasets, useDifferentialPrivacy):
+def __initClients(config: DefaultExperimentConfiguration, trainDatasets, useDifferentialPrivacy):
     usersNo = config.percUsers.size(0)
     p0 = 1 / usersNo
     logPrint("Creating clients...")
@@ -291,16 +292,16 @@ def __initClients(config, trainDatasets, useDifferentialPrivacy):
 
 
 def __setRandomSeeds(seed=0):
-    os.environ['PYTHONHASHSEED']=str(seed)
+    os.environ["PYTHONHASHSEED"]=str(seed)
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
+    cuda.manual_seed(seed)
 
 
 #   EXPERIMENTS
 def experiment(exp: Callable[[], None]):
-    @logger.catch # Not necessarily needed but catches errors nicely
+    @logger.catch # Not necessarily needed but catches errors really nicely
     def decorator():
         __setRandomSeeds()
         logPrint("Experiment {} began.".format(exp.__name__))
@@ -310,6 +311,21 @@ def experiment(exp: Callable[[], None]):
         logPrint("Experiment {} took {}".format(exp.__name__, end - begin))
 
     return decorator
+
+
+
+def pipeline():
+    ### SET ANY CONFIG PARAMS HERE
+    config = DefaultExperimentConfiguration()
+
+    # Sample settings
+    config.freeRiderDetect = True
+    config.privacyPreserve = True
+
+    ### FREE-RIDER DETECTION BIT
+    if config.freeRiderDetect:
+
+
 
 
 @experiment
@@ -471,236 +487,15 @@ def withMultipleDPconfigsAndWithout_30notByzClients_onMNIST():
 
 
 @experiment
-def AFA_Testing_MNIST():
-    attacks = [
-        # ([1, 3, 5, 7, 9], [2, 4, 6, 8, 10], "5_faulty, 5_malicious"),
-        # ([1, 3, 5, 7, 9, 11, 13, 15, 17, 19], [], "10_faulty"),
-        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20], "10_malicious"),
-    ]
-
-    percUsers = torch.tensor(PERC_USERS)
-
-    config = DefaultExperimentConfiguration()
-    config.aggregators = [AFAAggregator]
-    config.percUsers = percUsers
-
-    alphaBetas = [(2, 2), (2, 3), (3, 2), (3, 3), (3, 4), (4, 3), (4, 4)]
-    xis = [
-        (1, 0.25),
-        (1, 0.5),
-        (1, 0.75),
-        (2, 0.25),
-        (2, 0.5),
-        (2, 0.75),
-        (3, 0.25),
-        (3, 0.5),
-        (3, 0.75),
-    ]
-
-    for scenario in attacks:
-        faulty, malicious, attackName = scenario
-
-        config.faulty = faulty
-        config.malicious = malicious
-        config.plotResults = False
-
-        totalErrorsDict = {}
-
-        for (xi, deltaXi) in xis:
-            config.xi = xi
-            config.deltaXi = deltaXi
-            errorsDict = {}
-
-            for (alpha, beta) in alphaBetas:
-                config.alpha = alpha
-                config.beta = beta
-
-                errors = __experimentOnMNIST(
-                    config,
-                    title=f"AFA Test MNIST - Attacks: {attackName}, Xi: ({xi}, {deltaXi}), Alpha: {alpha}, Beta: {beta}",
-                    filename=f"afa_xi({xi}_{deltaXi})_alpha({alpha})_beta({beta})_test_mnist_{attackName}",
-                    folder="AFA_tests/test",
-                )
-                errorsDict[f"alpha: {alpha}, beta: {beta}"] = errors["AFA"]
-                totalErrorsDict[
-                    f"xi: {xi}, deltaXi: {deltaXi}, alpha: {alpha}, beta: {beta}"
-                ] = errors["AFA"].numpy()
-
-            plt.figure()
-            i = 0
-            for name, err in errorsDict.items():
-                plt.plot(err, color=COLOURS[i], alpha=0.6)
-                i += 1
-            plt.legend(errorsDict.keys())
-            plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
-            plt.ylabel("Error Rate (%)")
-            plt.title(
-                f"AFA Total Test MNIST - Attacks: {attackName}, Xi: ({xi}, {deltaXi})",
-                loc="center",
-                wrap=True,
-            )
-            plt.ylim(0, 1.0)
-            plt.savefig(f"AFA_tests/test/graphs/total_xi({xi}_{deltaXi})_{attackName}.png", dpi=400)
-
-        # with open(f'totalErrors_{attackName}.json', 'w') as fp:
-        #     json.dump(totalErrorsDict, fp)
-
-    for scenario in attacks:
-        faulty, malicious, attackName = scenario
-
-        config.faulty = faulty
-        config.malicious = malicious
-
-        errorsDict = {}
-
-        for (alpha, beta) in alphaBetas:
-            config.alpha = alpha
-            config.beta = beta
-
-            errors = __experimentOnMNIST(
-                config,
-                title=f"AFA AlphaBeta Test MNIST - Attacks: {attackName}",
-                filename=f"afa_alphabeta_test_mnist_{attackName}",
-                folder="AFA_tests/alphabeta",
-            )
-            errorsDict[f"alpha: {alpha}, beta: {beta}"] = errors["AFA"]
-
-        plt.figure()
-        i = 0
-        for name, err in errorsDict.items():
-            plt.plot(err.numpy(), color=COLOURS[i])
-            i += 1
-        plt.legend(errorsDict.keys())
-        plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
-        plt.ylabel("Error Rate (%)")
-        plt.title(
-            f"AFA Total AlphaBeta Test MNIST - Attacks: {attackName}", loc="center", wrap=True
-        )
-        plt.ylim(0, 1.0)
-        plt.savefig(f"AFA_tests/alphabeta/graphs/total.png", dpi=400)
-
-
-
-@experiment
-def FedMGDAPlus_Malicious_Testing_MNIST():
-    attacks = [
-        ([], [2, 4, 6, 8, 10], "5_malicious_even"),
-        ([], [2, 4, 6, 8, 10, 12], "6_malicious_even"),
-        ([], [2, 4, 6, 8, 10, 12, 14], "7_malicious_even"),
-        ([], [2, 4, 6, 8, 10, 12, 14, 16], "8_malicious_even"),
-        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18], "9_malicious_even"),
-        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20], "10_malicious_even"),
-        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22], "11_malicious_even"),
-        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24], "12_malicious_even"),
-        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26], "13_malicious_even"),
-        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28], "14_malicious_even"),
-        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30], "15_malicious_even"),
-        ([], [1, 3, 5, 7, 9], "5_malicious_odd"),
-        ([], [1, 3, 5, 7, 9, 11], "6_malicious_odd"),
-        ([], [1, 3, 5, 7, 9, 11, 13], "7_malicious_odd"),
-        ([], [1, 3, 5, 7, 9, 11, 13, 15], "8_malicious_odd"),
-        ([], [1, 3, 5, 7, 9, 11, 13, 15, 17], "9_malicious_odd"),
-        ([], [1, 3, 5, 7, 9, 11, 13, 15, 17, 19], "10_malicious_odd"),
-        ([], [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21], "11_malicious_odd"),
-        ([], [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23], "12_malicious_odd"),
-        ([], [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25], "13_malicious_odd"),
-        ([], [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27], "14_malicious_odd"),
-        ([], [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29], "15_malicious_odd"),
-    ]
-
-    percUsers = torch.tensor(PERC_USERS)
-
-    config = DefaultExperimentConfiguration()
-    config.aggregators = [FedMGDAPlusAggregator]
-    config.percUsers = percUsers
-
-    errorsDict = {}
-
-    for scenario in attacks:
-        faulty, malicious, attackName = scenario
-
-        config.faulty = faulty
-        config.malicious = malicious
-
-        errors = __experimentOnMNIST(
-            config,
-            title=f"FedMGDA+ Test MNIST - Attacks: {attackName}",
-            filename=f"mgdaPlus_test_mnist_{attackName}",
-            folder="FedMGDAPlus_tests/malicious_levels",
-        )
-
-        errorsDict[f"{attackName}"] = errors["FedMGDA+"]
-
-    plt.figure()
-    i = 0
-    for name, err in errorsDict.items():
-        plt.plot(err, color=COLOURS[i], alpha=0.6)
-        i += 1
-    plt.legend(errorsDict.keys())
-    plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
-    plt.ylabel("Error Rate (%)")
-    plt.title(f"FedMGDA+ Total Test MNIST - Malicious Levels", loc="center", wrap=True)
-    plt.ylim(0, 1.0)
-    plt.savefig(f"FedMGDAPlus_tests/malicious_levels/graph.png", dpi=400)
-
-
-@experiment
 def Aggregator_Limitations_Test_MNIST():
-    attacks: Attacks = [
-        ([], [2], "1_malicious"),
-        ([], [2, 4], "2_malicious"),
-        ([], [2, 4, 6], "3_malicious"),
-        ([], [2, 4, 6, 8], "4_malicious"),
-        ([], [2, 4, 6, 8, 10], "5_malicious"),
-        ([], [2, 4, 6, 8, 10, 12], "6_malicious"),
-        ([], [2, 4, 6, 8, 10, 12, 14], "7_malicious"),
-        ([], [2, 4, 6, 8, 10, 12, 14, 16], "8_malicious"),
-        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18], "9_malicious"),
-        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20], "10_malicious"),
-        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22], "11_malicious"),
-        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24], "12_malicious"),
-        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26], "13_malicious"),
-        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28], "14_malicious"),
-        ([], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30], "15_malicious"),
-        ([1], [], "1_faulty"),
-        ([1, 3], [], "2_faulty"),
-        ([1, 3, 5], [], "3_faulty"),
-        ([1, 3, 5, 7], [], "4_faulty"),
-        ([1, 3, 5, 7, 9], [], "5_faulty"),
-        ([1, 3, 5, 7, 9, 11], [], "6_faulty"),
-        ([1, 3, 5, 7, 9, 11, 13], [], "7_faulty"),
-        ([1, 3, 5, 7, 9, 11, 13, 15], [], "8_faulty"),
-        ([1, 3, 5, 7, 9, 11, 13, 15, 17], [], "9_faulty"),
-        ([1, 3, 5, 7, 9, 11, 13, 15, 17, 19], [], "10_faulty"),
-        ([1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21], [], "11_faulty"),
-        ([1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23], [], "12_faulty"),
-        ([1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25], [], "13_faulty"),
-        ([1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27], [], "14_faulty"),
-        ([1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29], [], "15_faulty"),
-        ([1], [2], "1_faulty, 1_malicious"),
-        ([1, 3], [2, 4], "2_faulty, 2_malicious"),
-        ([1, 3, 5], [2, 4, 6], "3_faulty, 3_malicious"),
-        ([1, 3, 5, 7], [2, 4, 6, 8], "4_faulty, 4_malicious"),
-        ([1, 3, 5, 7, 9], [2, 4, 6, 8, 10], "5_faulty, 5_malicious"),
-        ([1, 3, 5, 7, 9, 11], [2, 4, 6, 8, 10, 12], "6_faulty, 6_malicious"),
-        ([1, 3, 5, 7, 9, 11, 13], [2, 4, 6, 8, 10, 12, 14], "7_faulty, 7_malicious"),
-        ([1, 3, 5, 7, 9, 11, 13, 15], [2, 4, 6, 8, 10, 12, 14, 16], "8_faulty, 8_malicious"),
-        ([1, 3, 5, 7, 9, 11, 13, 15, 17], [2, 4, 6, 8, 10, 12, 14, 16, 18], "9_faulty, 9_malicious"),
-        ([1, 3, 5, 7, 9, 11, 13, 15, 17, 19], [2, 4, 6, 8, 10, 12, 14, 16, 18, 20], "10_faulty, 10_malicious"),
-    ]
-
     percUsers = torch.tensor(PERC_USERS)
 
-    config = DefaultExperimentConfiguration()
+    config = CustomConfig()
     config.aggregators = allAggregators()
     config.percUsers = percUsers
     config.innerLR = 0.1
 
-    for scenario in attacks:
-        faulty, malicious, attackName = scenario
-
-        config.faulty = faulty
-        config.malicious = malicious
+    for attackName in config.scenario_conversion():
 
         errors = __experimentOnMNIST(
             config,
@@ -1046,41 +841,41 @@ def withAndWithoutDP_manyXisAFA_30ByzAndNotClients_onMNIST():
     # Attacks: Malicious/Flipping - flips labels to 0; Faulty/Byzantine - noisy
     attacks = [
         ([2 * i + 1 for i in range(2)], [], "2_faulty"),
-        # ([2 * i + 1 for i in range(4)], [], '4_faulty'),
+        # ([2 * i + 1 for i in range(4)], [], "4_faulty"),
         ([2 * i + 1 for i in range(6)], [], "6_faulty"),
-        # ([2 * i + 1 for i in range(7)], [], '7_faulty'),
+        # ([2 * i + 1 for i in range(7)], [], "7_faulty"),
         ([2 * i + 1 for i in range(8)], [], "8_faulty"),
-        # ([2 * i + 1 for i in range(9)], [], '9_faulty'),
+        # ([2 * i + 1 for i in range(9)], [], "9_faulty"),
         ([2 * i + 1 for i in range(10)], [], "10_faulty"),
-        # ([2 * i + 1 for i in range(12)], [], '12_faulty'),
-        # ([2 * i + 1 for i in range(14)], [], '14_faulty'),
-        # ([2 * i + 1 for i in range(15)], [], '15_faulty'),
+        # ([2 * i + 1 for i in range(12)], [], "12_faulty"),
+        # ([2 * i + 1 for i in range(14)], [], "14_faulty"),
+        # ([2 * i + 1 for i in range(15)], [], "15_faulty"),
         ([], [2 * i + 2 for i in range(2)], "2_malicious"),
-        # ([], [2 * i + 2 for i in range(4)], '4_malicious'),
+        # ([], [2 * i + 2 for i in range(4)], "4_malicious"),
         ([], [2 * i + 2 for i in range(6)], "6_malicious"),
-        # ([], [2 * i + 2 for i in range(7)], '7_malicious'),
+        # ([], [2 * i + 2 for i in range(7)], "7_malicious"),
         ([], [2 * i + 2 for i in range(8)], "8_malicious"),
-        # ([], [2 * i + 2 for i in range(9)], '9_malicious'),
+        # ([], [2 * i + 2 for i in range(9)], "9_malicious"),
         ([], [2 * i + 2 for i in range(10)], "10_malicious"),
-        # ([], [2 * i + 2 for i in range(12)], '12_malicious'),
-        # ([], [2 * i + 2 for i in range(14)], '14_malicious'),
-        # ([], [2 * i + 2 for i in range(15)], '15_malicious'),
+        # ([], [2 * i + 2 for i in range(12)], "12_malicious"),
+        # ([], [2 * i + 2 for i in range(14)], "14_malicious"),
+        # ([], [2 * i + 2 for i in range(15)], "15_malicious"),
         (
             [2 * i + 1 for i in range(1)],
             [2 * i + 2 for i in range(1)],
             "1_faulty,1_malicious",
         ),
-        # ([2 * i + 1 for i in range(2)], [2 * i + 2 for i in range(2)], '2_faulty,2_malicious'),
-        # ([2 * i + 1 for i in range(3)], [2 * i + 2 for i in range(3)], '3_faulty,3_malicious'),
+        # ([2 * i + 1 for i in range(2)], [2 * i + 2 for i in range(2)], "2_faulty,2_malicious"),
+        # ([2 * i + 1 for i in range(3)], [2 * i + 2 for i in range(3)], "3_faulty,3_malicious"),
         (
             [2 * i + 1 for i in range(4)],
             [2 * i + 2 for i in range(4)],
             "4_faulty,4_malicious",
         ),
-        # ([2 * i + 1 for i in range(5)], [2 * i + 2 for i in range(5)], '5_faulty,5_malicious'),
-        # ([2 * i + 1 for i in range(6)], [2 * i + 2 for i in range(6)], '6_faulty,6_malicious'),
-        # ([2 * i + 1 for i in range(7)], [2 * i + 2 for i in range(7)], '7_faulty,7_malicious'),
-        # ([2 * i + 1 for i in range(8)], [2 * i + 2 for i in range(8)], '8_faulty,8_malicious')
+        # ([2 * i + 1 for i in range(5)], [2 * i + 2 for i in range(5)], "5_faulty,5_malicious"),
+        # ([2 * i + 1 for i in range(6)], [2 * i + 2 for i in range(6)], "6_faulty,6_malicious"),
+        # ([2 * i + 1 for i in range(7)], [2 * i + 2 for i in range(7)], "7_faulty,7_malicious"),
+        # ([2 * i + 1 for i in range(8)], [2 * i + 2 for i in range(8)], "8_faulty,8_malicious")
     ]
 
     # Workaround to run experiments in parallel runs:

@@ -108,5 +108,9 @@ class Aggregator:
             self.benignBlocked.append(pair)
 
 
+    def handle_free_riders(self):
+        """Function to handle when we want to detect the presence of free-riders"""
+        pass
+
 def allAggregators() -> List[Aggregator]:
     return Aggregator.__subclasses__()

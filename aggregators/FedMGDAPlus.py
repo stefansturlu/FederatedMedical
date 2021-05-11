@@ -141,8 +141,8 @@ class FedMGDAPlusAggregator(Aggregator):
             if (size != 0):
                 # Increasing / Decreasing LR each global round
                 for g in self.lambdatOpt.param_groups:
-                    g['lr'] *= 0.9**size
-                    print(f"New LR: {g['lr']}")
+                    g["lr"] *= 0.9**size
+                    print(f"New LR: {g["lr"]}")
 
                     std_multiplier *= 1.05**size
                     print(f"New std: {std_multiplier}")
@@ -150,14 +150,14 @@ class FedMGDAPlusAggregator(Aggregator):
             elif (old_error <= roundsError[r]):
                 # Increasing / Decreasing LR each global round
                 for g in self.lambdatOpt.param_groups:
-                    g['lr'] *= 1.3
-                    print(f"New LR: {g['lr']}")
+                    g["lr"] *= 1.3
+                    print(f"New LR: {g["lr"]}")
 
                     std_multiplier /= 1.05
                     print(f"New std: {std_multiplier}")
             else:
                 for g in self.lambdatOpt.param_groups:
-                    g['lr'] *= 0.9
+                    g["lr"] *= 0.9
 
             old_error = roundsError[r]
 
