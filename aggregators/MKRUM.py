@@ -30,8 +30,8 @@ class MKRUMAggregator(Aggregator):
                 for client2 in self.clients:
                     if client.id != client2.id:
                         distance = self.__computeModelDistance(
-                            models[client].to(self.device),
-                            models[client2].to(self.device),
+                            models[client.id].to(self.device),
+                            models[client2.id].to(self.device),
                         )
                         distances[client.id - 1][client2.id - 1] = distance
                 dd = distances[client.id - 1][:].sort()[0]
@@ -46,7 +46,7 @@ class MKRUMAggregator(Aggregator):
             for client in self.clients:
                 if client.id in selected_users:
                     self._mergeModels(
-                        models[client].to(self.device),
+                        models[client.id].to(self.device),
                         self.model.to(self.device),
                         1 / mk,
                         comb,

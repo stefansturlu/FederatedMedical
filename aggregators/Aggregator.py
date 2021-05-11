@@ -57,9 +57,9 @@ class Aggregator:
         for client in self.clients:
             # If client blocked return an the unchanged version of the model
             if not client.blocked:
-                models[client] = client.retrieveModel()
+                models[client.id] = client.retrieveModel()
             else:
-                models[client] = client.model
+                models[client.id] = client.model
         return models
 
     def test(self, testDataset) -> float:

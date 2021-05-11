@@ -47,7 +47,7 @@ class AFAAggregator(Aggregator):
                 for client in self.clients:
                     if self.notBlockedNorBadUpdate(client):
                         self._mergeModels(
-                            models[client].to(self.device),
+                            models[client.id].to(self.device),
                             self.model.to(self.device),
                             client.pEpoch,
                             comb,
@@ -57,7 +57,7 @@ class AFAAggregator(Aggregator):
                 sim = []
                 for client in self.clients:
                     if self.notBlockedNorBadUpdate(client):
-                        client.sim = self.__modelSimilarity(self.model, models[client])
+                        client.sim = self.__modelSimilarity(self.model, models[client.id])
                         sim.append(np.asarray(client.sim.to("cpu")))
                         # logPrint("Similarity user ", u.id, ": ", u.sim)
 
@@ -120,7 +120,7 @@ class AFAAggregator(Aggregator):
             for client in self.clients:
                 if self.notBlockedNorBadUpdate(client):
                     self._mergeModels(
-                        models[client].to(self.device),
+                        models[client.id].to(self.device),
                         self.model.to(self.device),
                         client.pEpoch,
                         comb,

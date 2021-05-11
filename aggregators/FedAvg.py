@@ -18,7 +18,7 @@ class FAAggregator(Aggregator):
             comb = 0.0
             for client in self.clients:
                 self._mergeModels(
-                    models[client].to(self.device),
+                    models[client.id].to(self.device),
                     self.model.to(self.device),
                     client.p,
                     comb,

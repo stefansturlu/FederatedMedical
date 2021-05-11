@@ -90,7 +90,7 @@ class Client:
         # FedMGDA+ params
 
     def updateModel(self, model: nn.Module):
-        self.model = model.to("cpu")
+        self.model = model.to(self.device)
         if self.Optimizer == optim.SGD:
             self.opt = self.Optimizer(
                 self.model.parameters(), lr=self.learningRate, momentum=self.momentum
@@ -98,7 +98,7 @@ class Client:
         else:
             self.opt: optim.Optimizer = self.Optimizer(self.model.parameters(), lr=self.learningRate)
         self.loss = self.Loss()
-        self.untrainedModel = copy.deepcopy(model).to("cpu")
+        self.untrainedModel = copy.deepcopy(model)
         torch.cuda.empty_cache()
 
     # Function to train the model for a specific user
@@ -116,7 +116,7 @@ class Client:
             # logPrint("Client:{}; Epoch{}; Batch:{}; \tError:{}"
             #          "".format(self.id, i + 1, iBatch + 1, err))
         torch.cuda.empty_cache()
-        self.model = self.model.to("cpu")
+        self.model = self.model
         return err, pred
 
     # Function to train the classifier

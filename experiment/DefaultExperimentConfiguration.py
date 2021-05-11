@@ -38,8 +38,7 @@ class DefaultExperimentConfiguration:
         self.deltaXi: float = 0.25
 
         # FedMGDA+ Parameters:
-        self.innerLR1: float = 0.01
-        self.innerLR2: float = 0.01
+        self.innerLR: float = 0.1
 
         # Client privacy preserving module setup
         self.privacyPreserve: Union[bool, None] = False  # if None, run with AND without DP

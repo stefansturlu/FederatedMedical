@@ -27,13 +27,13 @@ class COMEDAggregator(Aggregator):
 
     def __medianModels(self, models):
         client1 = self.clients[0]
-        model = models[client1]
+        model = models[client1.id]
         modelCopy = copy.deepcopy(model)
         params = model.named_parameters()
         for name1, param1 in params:
             m = []
             for client2 in self.clients:
-                params2 = models[client2].named_parameters()
+                params2 = models[client2.id].named_parameters()
                 dictParams2 = dict(params2)
                 m.append(dictParams2[name1].data.view(-1).to("cpu").numpy())
                 # logPrint("Size: ", dictParams2[name1].data.size())

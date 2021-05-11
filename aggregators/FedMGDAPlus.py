@@ -16,34 +16,34 @@ class FedMGDAPlusAggregator(Aggregator):
         rounds:int,
         device:device,
         useAsyncClients:bool=False,
-        learningRateStart:float=0.1,
-        learningRateEnd:float=0.1,
+        learningRate:float=0.1,
     ):
         super().__init__(clients, model, rounds, device, useAsyncClients)
         self.numOfClients = len(clients)
         self.lambdaModel = nn.Parameter(torch.ones(self.numOfClients), requires_grad=True)
-        self.LR1 = learningRateStart
-        self.LR2 = learningRateEnd
+        self.LR = learningRate
         self.lambdatOpt = optim.SGD([self.lambdaModel], lr=self.LR1, momentum=0.5)
 
         # self.delta is going to store the values of the g_i according to the paper FedMGDA
         # More accurately, it stores the difference between the previous model params and
         # the clients' params
+        # Using a model to do this is overly complex but it allows for the parameter names to
+        # be kept (probably still a better way to do it)
         self.delta = copy.deepcopy(model) if model else False
 
     # Needed for when we set the config innerLR
-    def reinitialise(self, lr1: float, lr2: float) -> None:
-        self.LR1 = lr1
-        self.LR2 = lr2
-        self.lambdatOpt = optim.SGD([self.lambdaModel], lr=lr1, momentum=0.5)
+    def reinitialise(self, lr: float) -> None:
+        self.LR = lr
+        self.lambdatOpt = optim.SGD([self.lambdaModel], lr=lr, momentum=0.5)
 
     def trainAndTest(self, testDataset) -> Tensor:
         roundsError = torch.zeros(self.rounds)
-        lrs = torch.linspace(self.LR1, self.LR2, self.rounds)
+        previousBlockedClients = []
+        old_error = 100
+        std_multiplier = 1.5
 
         for r in range(self.rounds):
             logPrint("Round... ", r)
-            logPrint("LR - Current: %.3f" % lrs[r])
             self._shareModelAndTrainOnClients()
             sentClientModels = self._retrieveClientModelsDict()
 
@@ -61,28 +61,28 @@ class FedMGDAPlusAggregator(Aggregator):
                 if (client.blocked):
                     blocked_clients.append(idx)
                     continue
-                clientModel = sentClientModels[client].named_parameters()
+                clientModel = sentClientModels[client.id].named_parameters()
                 clientParams = dict(clientModel)
                 previousGlobalParams = dict(self.previousGlobalModel.named_parameters())
 
                 with torch.no_grad():
                     for name, param in self.delta.named_parameters():
                         param.copy_(torch.tensor(0))
-                        if name in clientParams:
-                            param.copy_(
-                                torch.abs(clientParams[name].cpu().data - previousGlobalParams[name].cpu().data)
-                            )
+                        if name in clientParams and name in previousGlobalParams:
+                            if not torch.any(clientParams[name].isnan()):
+                                param.copy_(
+                                    torch.abs(clientParams[name].data - previousGlobalParams[name].data)
+                                )
 
                 # Compute the loss = lambda_i * delta_i for each client i
                 # Normalise the data
-                loss_bottom = self.lambdaModel.max() - self.lambdaModel.min()
-                # Handle case when initialised (or unlucky)
+                loss_bottom = self.lambdaModel.max()
                 if (loss_bottom == 0):
                     loss_bottom = 1
 
                 loss = torch.norm(
                     torch.mul(
-                        nn.utils.parameters_to_vector(self.delta.cpu().parameters()),
+                        nn.utils.parameters_to_vector(self.delta.parameters()),
                         self.lambdaModel[client.id - 1] / loss_bottom
                     )
                 )
@@ -100,6 +100,11 @@ class FedMGDAPlusAggregator(Aggregator):
             # The min might not be zero and so that's why we just don't take the max for the bottom
             clientWeights[clientWeights <= 0] = 0
 
+            vals = clientWeights[torch.nonzero(clientWeights)]
+            cutoff = vals.mean() - (std_multiplier*vals.std())
+
+            clientWeights[clientWeights < cutoff] = 0
+
             for idx, weight in enumerate(clientWeights):
                 client = self.clients[idx]
                 if (weight == 0) and not client.blocked:
@@ -107,15 +112,14 @@ class FedMGDAPlusAggregator(Aggregator):
 
 
             self.lambdaModel.data = clientWeights
-            normalisedClientWeights = clientWeights / torch.sum(clientWeights)
-
+            normalisedClientWeights = clientWeights / clientWeights.sum()
 
 
             comb = 0.0
 
             for client in self.clients:
                 self._mergeModels(
-                    sentClientModels[client].to(self.device),
+                    sentClientModels[client.id].to(self.device),
                     self.model.to(self.device),
                     normalisedClientWeights[client.id - 1],
                     comb,
@@ -126,10 +130,38 @@ class FedMGDAPlusAggregator(Aggregator):
             roundsError[r] = self.test(testDataset)
 
 
-            # Increasing / Decreasing LR each global round
-            for g in self.lambdatOpt.param_groups:
-                g['lr'] = lrs[r]
+            blockedCheck = []
+            for idx, client in enumerate(self.clients):
+                if (client.blocked):
+                    blockedCheck.append(idx)
 
+            size = len(blockedCheck) - len(previousBlockedClients)
+
+
+            if (size != 0):
+                # Increasing / Decreasing LR each global round
+                for g in self.lambdatOpt.param_groups:
+                    g['lr'] *= 0.9**size
+                    print(f"New LR: {g['lr']}")
+
+                    std_multiplier *= 1.05**size
+                    print(f"New std: {std_multiplier}")
+
+            elif (old_error <= roundsError[r]):
+                # Increasing / Decreasing LR each global round
+                for g in self.lambdatOpt.param_groups:
+                    g['lr'] *= 1.3
+                    print(f"New LR: {g['lr']}")
+
+                    std_multiplier /= 1.05
+                    print(f"New std: {std_multiplier}")
+            else:
+                for g in self.lambdatOpt.param_groups:
+                    g['lr'] *= 0.9
+
+            old_error = roundsError[r]
+
+            previousBlockedClients = blockedCheck
 
 
         return roundsError
