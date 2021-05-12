@@ -1,4 +1,6 @@
-from datasetLoaders import DatasetLoader, DatasetInterface
+from typing import Tuple
+from datasetLoaders.DatasetLoader import DatasetLoader
+from datasetLoaders.DatasetInterface import DatasetInterface
 import pandas as pd
 from torch.tensor import Tensor
 from torchvision import transforms, datasets
@@ -21,7 +23,7 @@ class DatasetLoaderMNIST(DatasetLoader):
         return clientDatasets, testDataset
 
     @staticmethod
-    def __loadMNISTData():
+    def __loadMNISTData() -> Tuple[pd.DataFrame, pd.DataFrame]:
         trans = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))])
 
         # if not exist, download mnist dataset

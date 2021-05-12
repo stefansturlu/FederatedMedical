@@ -9,7 +9,8 @@ import pydicom as dicom
 from PIL import Image
 from torchvision import transforms
 from logger import logPrint
-from datasetLoaders import DatasetLoader, DatasetInterface
+from datasetLoaders.DatasetLoader import DatasetLoader
+from datasetLoaders.DatasetInterface import DatasetInterface
 
 
 class DatasetLoaderCOVIDx(DatasetLoader):

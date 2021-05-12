@@ -1,10 +1,13 @@
+from datasetLoaders.DatasetInterface import DatasetInterface
 import os
 import random
 import re
+from typing import List, Tuple
 import numpy as np
 import pandas as pd
 import torch
 from torch.tensor import Tensor
+from pandas import DataFrame
 # from cn.protect import Protect
 # from cn.protect.privacy import KAnonymity
 
@@ -20,13 +23,13 @@ class DatasetLoader:
         )
 
     @staticmethod
-    def _filterDataByLabel(labels: Tensor, trainDataframe, testDataframe):
+    def _filterDataByLabel(labels: Tensor, trainDataframe: DataFrame, testDataframe: DataFrame) -> Tuple[DataFrame, DataFrame]:
         trainDataframe = trainDataframe[trainDataframe["labels"].isin(labels)]
         testDataframe = testDataframe[testDataframe["labels"].isin(labels)]
         return trainDataframe, testDataframe
 
     @staticmethod
-    def _splitTrainDataIntoClientDatasets(percUsers: Tensor, trainDataframe, DatasetType):
+    def _splitTrainDataIntoClientDatasets(percUsers: Tensor, trainDataframe: DataFrame, DatasetType: DatasetInterface) -> List[DatasetInterface]:
         DatasetLoader._setRandomSeeds()
         percUsers = percUsers / percUsers.sum()
 
@@ -67,7 +70,7 @@ class DatasetLoader:
     #     clientSyntacticMappings = []
 
     #     dataframes = [
-    #         pd.DataFrame(list(ds.dataframe["data"]), columns=columns)
+    #         DataFrame(list(ds.dataframe["data"]), columns=columns)
     #         for ds in clientDatasets
     #     ]
     #     for dataframe in dataframes:
@@ -112,7 +115,7 @@ class DatasetLoader:
     #     anonClientDatasets = []
     #     for resultDataframe, initialDataset in zip(resultDataframes, clientDatasets):
     #         labels = initialDataset.dataframe["labels"].values
-    #         labeledDataframe = pd.DataFrame(zip(resultDataframe.values, labels))
+    #         labeledDataframe = DataFrame(zip(resultDataframe.values, labels))
     #         labeledDataframe.columns = ["data", "labels"]
     #         anonClientDatasets.append(datasetClass(labeledDataframe))
 
@@ -123,14 +126,14 @@ class DatasetLoader:
     ):
 
         datasetClass = testDataset.__class__
-        dataframe = pd.DataFrame(list(testDataset.dataframe["data"]), columns=columns)
+        dataframe = DataFrame(list(testDataset.dataframe["data"]), columns=columns)
 
         domainsSize = dict()
         quasiIds = clientSyntacticMappings[0][0].keys()
         for quasiId in quasiIds:
             domainsSize[quasiId] = dataframe[quasiId].max() - dataframe[quasiId].min()
 
-        generalisedDataframe = pd.DataFrame(dataframe)
+        generalisedDataframe = DataFrame(dataframe)
         ungeneralisedIndex = []
         for i in range(len(dataframe)):
             legitMappings = []
@@ -164,7 +167,7 @@ class DatasetLoader:
             resultDataframe[col] = 0
 
         labels = testDataset.dataframe["labels"].values
-        labeledDataframe = pd.DataFrame(zip(resultDataframe.values, labels))
+        labeledDataframe = DataFrame(zip(resultDataframe.values, labels))
         labeledDataframe.columns = ["data", "labels"]
 
         return datasetClass(labeledDataframe)

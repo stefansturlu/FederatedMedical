@@ -5,7 +5,7 @@ class DatasetInterface(Dataset):
     def __init__(self, labels):
         self.labels = torch.tensor(labels, dtype=torch.long)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.labels)
 
     def __getitem__(self, index):

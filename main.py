@@ -7,8 +7,10 @@ from loguru import logger
 from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration
 from datasetLoaders.MNIST import DatasetLoaderMNIST
 from datasetLoaders.COVIDx import DatasetLoaderCOVIDx
+from datasetLoaders.Pneumonia import DatasetLoaderPneumonia
 
-from classifiers import MNIST, CovidNet, CNN
+
+from classifiers import MNIST, CovidNet, CNN, Pneumonia
 from logger import logPrint
 from client import Client
 
@@ -127,6 +129,12 @@ def __experimentOnCOVIDx(config: DefaultExperimentConfiguration, model="COVIDNet
         raise Exception("Invalid Covid model name.")
     __experimentSetup(config, datasetLoader, classifier)
 
+
+def __experimentOnPneumonia(config: DefaultExperimentConfiguration, title="", filename="", folder="DEFAULT"):
+    datasetLoader = DatasetLoaderPneumonia().getDatasets
+    classifier = Pneumonia.Classifier
+
+    __experimentSetup(config, datasetLoader, classifier)
 
 # def __experimentOnDiabetes(config: DefaultExperimentConfiguration):
 #     datasetLoader = DatasetLoaderDiabetes(
@@ -315,11 +323,10 @@ def program() -> None:
 
     config.aggregators = [FAAggregator]
     config.percUsers = percUsers
-    config.innerLR = 0.1
 
     for attackName in config.scenario_conversion():
 
-        errors = __experimentOnCOVIDx(
+        errors = __experimentOnPneumonia(
             config,
             title=f"Aggregator Limitations Test MNIST \n Attacks: {attackName}",
             filename=f"{attackName}",
