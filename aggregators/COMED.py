@@ -1,15 +1,19 @@
+from torch import nn, device, Tensor
+from client import Client
 from logger import logPrint
 from typing import List
 import torch
 import copy
 from aggregators.Aggregator import Aggregator
+from datasetLoaders.DatasetInterface import DatasetInterface
+
 
 # ROBUST AGGREGATION ALGORITHM - computes the median of the clients updates
 class COMEDAggregator(Aggregator):
-    def __init__(self, clients, model, rounds, device, useAsyncClients=False):
+    def __init__(self, clients: List[Client], model: nn.Module, rounds: int, device: device, useAsyncClients=False):
         super().__init__(clients, model, rounds, device, useAsyncClients)
 
-    def trainAndTest(self, testDataset):
+    def trainAndTest(self, testDataset: DatasetInterface) -> Tensor:
         roundsError = torch.zeros(self.rounds)
 
         for r in range(self.rounds):
@@ -25,7 +29,7 @@ class COMEDAggregator(Aggregator):
 
         return roundsError
 
-    def __medianModels(self, models):
+    def __medianModels(self, models: List[nn.Module]) -> nn.Module:
         client1 = self.clients[0]
         model = models[client1.id]
         modelCopy = copy.deepcopy(model)

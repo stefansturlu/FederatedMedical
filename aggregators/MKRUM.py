@@ -1,14 +1,17 @@
+from datasetLoaders.DatasetInterface import DatasetInterface
+from client import Client
 from logger import logPrint
 from typing import List
 import torch
 from aggregators.Aggregator import Aggregator
+from torch import nn, device, Tensor
 
 
 class MKRUMAggregator(Aggregator):
-    def __init__(self, clients, model, rounds, device, useAsyncClients=False):
+    def __init__(self, clients: List[Client], model: nn.Module, rounds: int, device: device, useAsyncClients:bool=False):
         super().__init__(clients, model, rounds, device, useAsyncClients)
 
-    def trainAndTest(self, testDataset):
+    def trainAndTest(self, testDataset: DatasetInterface):
         userNo = len(self.clients)
         # Number of Byzantine workers to be tolerated
         f = int((userNo - 3) / 2)
@@ -57,7 +60,7 @@ class MKRUMAggregator(Aggregator):
 
         return roundsError
 
-    def __computeModelDistance(self, mOrig, mDest):
+    def __computeModelDistance(self, mOrig: nn.Module, mDest: nn.Module) -> Tensor:
         paramsDest = mDest.named_parameters()
         dictParamsDest = dict(paramsDest)
         paramsOrig = mOrig.named_parameters()
@@ -67,5 +70,5 @@ class MKRUMAggregator(Aggregator):
             if name1 in dictParamsDest:
                 d1 = torch.cat((d1, dictParamsDest[name1].data.view(-1)))
                 d2 = torch.cat((d2, param1.data.view(-1)))
-        sim = torch.norm(d1 - d2, p=2)
+        sim: Tensor = torch.norm(d1 - d2, p=2)
         return sim

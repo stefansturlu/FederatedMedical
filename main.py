@@ -133,6 +133,8 @@ def __experimentOnCOVIDx(config: DefaultExperimentConfiguration, model="COVIDNet
 def __experimentOnPneumonia(config: DefaultExperimentConfiguration, title="", filename="", folder="DEFAULT"):
     datasetLoader = DatasetLoaderPneumonia().getDatasets
     classifier = Pneumonia.Classifier
+    # Each client now only has like 80-170 images so a batch size of 200 is pointless
+    config.batchSize = 30
 
     __experimentSetup(config, datasetLoader, classifier)
 
@@ -321,12 +323,12 @@ def program() -> None:
     config = CustomConfig()
     percUsers = torch.tensor(PERC_USERS)
 
-    config.aggregators = [FAAggregator]
+    config.aggregators = [COMEDAggregator]
     config.percUsers = percUsers
 
     for attackName in config.scenario_conversion():
 
-        errors = __experimentOnPneumonia(
+        errors = __experimentOnMNIST(
             config,
             title=f"Aggregator Limitations Test MNIST \n Attacks: {attackName}",
             filename=f"{attackName}",

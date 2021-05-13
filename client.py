@@ -59,7 +59,7 @@ class Client:
         self.untrainedModel: nn.Module = copy.deepcopy(model).to("cpu") if model else False
 
         self.opt = None
-        self.sim = None
+        self.sim: Tensor = None
         self.loss = None
         self.Loss = Loss
         self.Optimizer: optim.Optimizer = Optimizer

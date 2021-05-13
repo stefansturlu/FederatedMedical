@@ -1,3 +1,4 @@
+from datasetLoaders.DatasetInterface import DatasetInterface
 from torch import Tensor, nn, device
 from client import Client
 import copy
@@ -28,7 +29,7 @@ class Aggregator:
         # List of free-riding users blocked
         self.freeRidersBlocked: List[IdRoundPair] = []
 
-    def trainAndTest(self, testDataset) -> Tensor:
+    def trainAndTest(self, testDataset: DatasetInterface) -> Tensor:
         raise Exception(
             "Train method should be override by child class, "
             "specific to the aggregation strategy."
@@ -70,7 +71,7 @@ class Aggregator:
         testLabels = torch.tensor(testLabels, dtype=torch.long)
         # Confusion matrix and normalized confusion matrix
         mconf = confusion_matrix(testLabels, predLabels)
-        errors = 1 - 1.0 * mconf.diagonal().sum() / len(testDataset)
+        errors: float = 1 - 1.0 * mconf.diagonal().sum() / len(testDataset)
         logPrint("Error Rate: ", round(100.0 * errors, 3), "%")
         return errors
 
@@ -92,7 +93,7 @@ class Aggregator:
                 weightedSum = alphaOrig * param1.data + alphaDest * dictParamsDest[name1].data
                 dictParamsDest[name1].data.copy_(weightedSum)
 
-    def handle_blocked(self, client: Client, round: int):
+    def handle_blocked(self, client: Client, round: int) -> None:
         logPrint("USER ", client.id, " BLOCKED!!!")
         client.p = 0
         client.blocked = True
