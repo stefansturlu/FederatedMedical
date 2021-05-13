@@ -233,7 +233,11 @@ def __runExperiment(config: DefaultExperimentConfiguration, datasetLoader, class
     if config.requireDatasetAnonymization:
         classifier.inputSize = testDataset.getInputSize()
     model = classifier().to(config.device)
-    aggregator = aggregator(clients, model, config.rounds, config.device, config.freeRiderDetect)
+
+    if config.clustering:
+        aggregator = GroupWiseAggregation(clients, model, config)
+    else:
+        aggregator = aggregator(clients, model, config.rounds, config.device, config.freeRiderDetect)
     if isinstance(aggregator, AFAAggregator):
         aggregator.xi = config.xi
         aggregator.deltaXi = config.deltaXi

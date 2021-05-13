@@ -61,3 +61,4 @@ class DefaultExperimentConfiguration:
 
         # Pipeline config
         self.freeRiderDetect: bool = False
+        self.clustering: bool = False
