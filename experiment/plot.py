@@ -308,14 +308,14 @@ def plotResults(filteredResults, experimentToPlot):
 
 
 def __filtering(experiment):
-    # return 'AFA' in experiment.name
-    # return '10' in experiment.name
-    # return '1_' in experiment.name or ':5' in experiment.name
-    # return 'AFA' in experiment.name and 'DP' not in experiment.name
-    # return ''
-    # # return '1_' in experiment.name
-    # return '10_faulty' in experiment.name
-    # return '8_faulty' in experiment.name
+    # return "AFA" in experiment.name
+    # return "10" in experiment.name
+    # return "1_" in experiment.name or ":5" in experiment.name
+    # return "AFA" in experiment.name and "DP" not in experiment.name
+    # return ""
+    # # return "1_" in experiment.name
+    # return "10_faulty" in experiment.name
+    # return "8_faulty" in experiment.name
     return True
 
 

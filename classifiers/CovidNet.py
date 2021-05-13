@@ -1,9 +1,10 @@
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import Tensor
 
 
 class Flatten(nn.Module):
-    def forward(self, input):
+    def forward(self, input: Tensor) -> Tensor:
         return input.view(input.size(0), -1)
 
 
@@ -61,7 +62,7 @@ class PEXP(nn.Module):
             nn.Conv2d(in_channels=n_input // 4, out_channels=n_out, kernel_size=1),
         )
 
-    def forward(self, x):
+    def forward(self, x: Tensor):
         return self.network(x)
 
 
@@ -122,10 +123,10 @@ class Classifier(nn.Module):
         self.add_module("fc2", nn.Linear(1024, 256))
         self.add_module("classifier", nn.Linear(256, n_classes))
 
-    def forward(self, x):
+    def forward(self, x: Tensor):
         return self.__forward__(x)
 
-    def forward_large_net(self, x):
+    def forward_large_net(self, x: Tensor):
         x = F.max_pool2d(F.relu(self.conv1(x)), 2)
         out_conv1_1x1 = self.conv1_1x1(x)
 
@@ -185,7 +186,7 @@ class Classifier(nn.Module):
         logits = self.classifier(fc2out)
         return logits
 
-    def forward_small_net(self, x):
+    def forward_small_net(self, x: Tensor):
         x = F.max_pool2d(F.relu(self.conv1(x)), 2)
 
         pepx11 = self.pexp1_1(x)

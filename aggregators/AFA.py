@@ -3,19 +3,19 @@ from logger import logPrint
 from typing import List
 import torch
 import copy
-import numpy as np
 from aggregators.Aggregator import Aggregator
-from torch import nn
+from torch import nn, device, Tensor
 from scipy.stats import beta
+from datasetLoaders.DatasetInterface import DatasetInterface
 
 # ADAPTIVE FEDERATED AVERAGING
 class AFAAggregator(Aggregator):
-    def __init__(self, clients, model, rounds, device, useAsyncClients=False):
-        super().__init__(clients, model, rounds, device, useAsyncClients)
-        self.xi = 2
-        self.deltaXi = 0.5
+    def __init__(self, clients: List[Client], model: nn.Module, rounds: int, device: device, detectFreeRiders:bool, useAsyncClients:bool=False):
+        super().__init__(clients, model, rounds, device, detectFreeRiders, useAsyncClients)
+        self.xi: float = 2
+        self.deltaXi: float = 0.25
 
-    def trainAndTest(self, testDataset):
+    def trainAndTest(self, testDataset: DatasetInterface):
         roundsError = torch.zeros(self.rounds)
 
         for r in range(self.rounds):
@@ -30,7 +30,7 @@ class AFAAggregator(Aggregator):
 
             models = self._retrieveClientModelsDict()
 
-            badCount = 2
+            badCount: int = 2
             slack = self.xi
             while badCount != 0:
                 pT_epoch = 0.0
@@ -47,25 +47,24 @@ class AFAAggregator(Aggregator):
                 for client in self.clients:
                     if self.notBlockedNorBadUpdate(client):
                         self._mergeModels(
-                            models[client].to(self.device),
+                            models[client.id].to(self.device),
                             self.model.to(self.device),
                             client.pEpoch,
                             comb,
                         )
                         comb = 1.0
 
-                sim = []
+                sim = torch.zeros(len(self.clients)).to(self.device)
                 for client in self.clients:
                     if self.notBlockedNorBadUpdate(client):
-                        client.sim = self.__modelSimilarity(self.model, models[client])
-                        sim.append(np.asarray(client.sim.to("cpu")))
+                        client.sim = self.__modelSimilarity(self.model, models[client.id])
+                        sim[client.id - 1] = client.sim
                         # logPrint("Similarity user ", u.id, ": ", u.sim)
 
-                sim = np.asarray(sim)
 
-                meanS = np.mean(sim)
-                medianS = np.median(sim)
-                desvS = np.std(sim)
+                meanS = torch.mean(sim)
+                medianS = torch.median(sim)
+                desvS = torch.std(sim)
 
                 if meanS < medianS:
                     th = medianS - slack * desvS
@@ -120,7 +119,7 @@ class AFAAggregator(Aggregator):
             for client in self.clients:
                 if self.notBlockedNorBadUpdate(client):
                     self._mergeModels(
-                        models[client].to(self.device),
+                        models[client.id].to(self.device),
                         self.model.to(self.device),
                         client.pEpoch,
                         comb,
@@ -136,7 +135,7 @@ class AFAAggregator(Aggregator):
 
         return roundsError
 
-    def __modelSimilarity(self, mOrig, mDest):
+    def __modelSimilarity(self, mOrig: nn.Module, mDest: nn.Module) -> Tensor:
         cos = nn.CosineSimilarity(0)
 
         d2 = torch.tensor([]).to(self.device)
@@ -154,20 +153,15 @@ class AFAAggregator(Aggregator):
                 # sim = cos(d1.view(-1),d2.view(-1))
                 # logPrint(name1,param1.size())
                 # logPrint("Similarity: ",sim)
-        sim = cos(d1, d2)
+        sim: Tensor = cos(d1, d2)
         return sim
 
     @staticmethod
-    def checkBlockedUser(a, b, th=0.95):
-        # return beta.cdf(0.5, a, b) > th
-        s = beta.cdf(0.5, a, b)
-        blocked = False
-        if s > th:
-            blocked = True
-        return blocked
+    def checkBlockedUser(a:float, b:float, th:float=0.95) -> bool:
+        return beta.cdf(0.5, a, b) > th
 
     @staticmethod
-    def updateUserScore(client):
+    def updateUserScore(client: Client) -> None:
         if client.badUpdate:
             client.beta += 1
         else:
@@ -175,5 +169,5 @@ class AFAAggregator(Aggregator):
         client.score = client.alpha / client.beta
 
     @staticmethod
-    def notBlockedNorBadUpdate(client):
+    def notBlockedNorBadUpdate(client: Client) -> bool:
         return client.blocked == False | client.badUpdate == False

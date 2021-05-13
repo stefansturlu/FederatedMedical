@@ -1,6 +1,7 @@
 import torch
 from aggregators.Aggregator import Aggregator, allAggregators
-from typing import List
+from typing import List, Union
+import torch.optim as optim
 
 
 class DefaultExperimentConfiguration:
@@ -16,7 +17,7 @@ class DefaultExperimentConfiguration:
         self.batchSize: int = 200  # Local training  batch size
         self.learningRate: float = 0.1
         self.Loss = torch.nn.CrossEntropyLoss
-        self.Optimizer = torch.optim.SGD
+        self.Optimizer: optim.Optimizer = torch.optim.SGD
 
         # Big datasets size tuning param: (trainSize, testSize); (None, None) interpreted as full dataset
         self.datasetSize = (None, None)
@@ -28,19 +29,19 @@ class DefaultExperimentConfiguration:
         self.labels = torch.tensor(range(10))  # Considered dataset labels
         self.faulty: List[int] = []  # List of noisy clients
         self.malicious: List[int] = []  # List of (malicious) clients with flipped labels
+        self.freeRiding: List[int] = []  # List of free-riding clients
 
         # AFA Parameters:
-        self.alpha = 3
-        self.beta = 3
-        self.xi = 2
-        self.deltaXi = 0.5
+        self.alpha: float = 4
+        self.beta: float = 4
+        self.xi: float = 2
+        self.deltaXi: float = 0.25
 
         # FedMGDA+ Parameters:
-        self.innerLR1 = 0.01
-        self.innerLR2 = 0.01
+        self.innerLR: float = 0.1
 
         # Client privacy preserving module setup
-        self.privacyPreserve: bool = False  # if None, run with AND without DP
+        self.privacyPreserve: Union[bool, None] = False  # if None, run with AND without DP
         self.releaseProportion: float = 0.1
         self.epsilon1: float = 1
         self.epsilon3: float = 1
@@ -57,3 +58,6 @@ class DefaultExperimentConfiguration:
 
         # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.device = torch.device("cpu")
+
+        # Pipeline config
+        self.freeRiderDetect: bool = False
