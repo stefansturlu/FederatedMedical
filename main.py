@@ -1,3 +1,4 @@
+from aggregators.GroupWise import GroupWiseAggregation
 from datasetLoaders.DatasetLoader import DatasetLoader
 from experiment.CustomConfig import CustomConfig
 import os
@@ -335,7 +336,7 @@ def program() -> None:
     config = CustomConfig()
     percUsers = torch.tensor(PERC_USERS)
 
-    config.aggregators = [COMEDAggregator]
+    config.aggregators = [GroupWiseAggregation]
     config.percUsers = percUsers
     config.freeRiderDetect = True
     config.rounds = 10
