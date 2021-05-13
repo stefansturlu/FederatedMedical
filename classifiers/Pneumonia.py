@@ -1,5 +1,5 @@
 from torch import Tensor
-from torch.nn import Sequential, Module, Conv2d, BatchNorm2d, MaxPool2d, Dropout2d, Flatten, Linear, ReLU, Sigmoid, functional as F
+from torch.nn import Sequential, Module, Conv2d, BatchNorm2d, MaxPool2d, Dropout2d, Flatten, Linear, ReLU, Sigmoid
 from torch.nn.modules.padding import ZeroPad2d
 
 

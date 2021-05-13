@@ -8,7 +8,7 @@ class DatasetInterface(Dataset):
     def __len__(self) -> int:
         return len(self.labels)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int):
         raise Exception("Method should be implemented in subclass.")
 
     def getInputSize(self):
@@ -17,5 +17,5 @@ class DatasetInterface(Dataset):
             "models requires input size update (based on dataset)."
         )
 
-    def zeroLabels(self):
+    def zeroLabels(self) -> None:
         self.labels = torch.zeros(len(self.labels), dtype=torch.long)

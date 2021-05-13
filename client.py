@@ -1,12 +1,11 @@
-import sys
 import copy
-import random
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch import Tensor
 
 from torch.utils.data import DataLoader
-from numpy import clip, percentile, array, concatenate, empty
+from numpy import clip, percentile
 
 from scipy.stats import laplace
 
@@ -89,7 +88,7 @@ class Client:
 
         # FedMGDA+ params
 
-    def updateModel(self, model: nn.Module):
+    def updateModel(self, model: nn.Module) -> None:
         self.model = model.to(self.device)
         if self.Optimizer == optim.SGD:
             self.opt = self.Optimizer(
@@ -120,7 +119,7 @@ class Client:
         return err, pred
 
     # Function to train the classifier
-    def _trainClassifier(self, x, y):
+    def _trainClassifier(self, x: Tensor, y: Tensor):
         x = x.to(self.device)
         y = y.to(self.device)
         # Reset gradients

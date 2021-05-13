@@ -16,7 +16,7 @@ from pandas import DataFrame
 class DatasetLoader:
     """Parent class used for specifying the data loading workflow """
 
-    def getDatasets(self, percUsers, labels, size=(None, None)):
+    def getDatasets(self, percUsers: List[float], labels: List[int], size=(None, None)):
         raise Exception(
             "LoadData method should be override by child class, "
             "specific to the loaded dataset strategy."
@@ -39,18 +39,18 @@ class DatasetLoader:
         ]
 
         # Sample and reset_index shuffles the dataset in-place and resets the index
-        trainDataframes = np.split(
+        trainDataframes: List[DataFrame] = np.split(
             trainDataframe.sample(frac=1).reset_index(drop=True), indices_or_sections=dataSplitIndex
         )
 
-        clientDatasets = [
+        clientDatasets: List[DatasetInterface] = [
             DatasetType(clientDataframe.reset_index(drop=True))
             for clientDataframe in trainDataframes
         ]
         return clientDatasets
 
     @staticmethod
-    def _setRandomSeeds(seed=0):
+    def _setRandomSeeds(seed=0) -> None:
         os.environ['PYTHONHASHSEED']=str(seed)
         random.seed(seed)
         np.random.seed(seed)

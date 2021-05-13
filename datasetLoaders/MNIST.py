@@ -1,17 +1,16 @@
-from typing import Tuple
+from typing import List, Tuple
 from datasetLoaders.DatasetLoader import DatasetLoader
 from datasetLoaders.DatasetInterface import DatasetInterface
-import pandas as pd
+from pandas import DataFrame
 from torch.tensor import Tensor
 from torchvision import transforms, datasets
-from functools import reduce
 from logger import logPrint
 import torch
 
 
 
 class DatasetLoaderMNIST(DatasetLoader):
-    def getDatasets(self, percUsers: Tensor, labels: Tensor, size=None):
+    def getDatasets(self, percUsers: Tensor, labels: Tensor, size=None) -> Tuple[List[DatasetInterface], DatasetInterface]:
         logPrint("Loading MNIST...")
         self._setRandomSeeds()
         data = self.__loadMNISTData()
@@ -23,7 +22,7 @@ class DatasetLoaderMNIST(DatasetLoader):
         return clientDatasets, testDataset
 
     @staticmethod
-    def __loadMNISTData() -> Tuple[pd.DataFrame, pd.DataFrame]:
+    def __loadMNISTData() -> Tuple[DataFrame, DataFrame]:
         trans = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))])
 
         # if not exist, download mnist dataset
@@ -44,8 +43,8 @@ class DatasetLoaderMNIST(DatasetLoader):
         xTest = xTest.flatten(1, 2).numpy()
         yTest = testSet.test_labels.numpy()
 
-        trainDataframe = pd.DataFrame(zip(xTrain, yTrain))
-        testDataframe = pd.DataFrame(zip(xTest, yTest))
+        trainDataframe = DataFrame(zip(xTrain, yTrain))
+        testDataframe = DataFrame(zip(xTest, yTest))
         trainDataframe.columns = testDataframe.columns = ["data", "labels"]
 
         return trainDataframe, testDataframe
