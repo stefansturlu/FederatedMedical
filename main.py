@@ -1,6 +1,7 @@
+from datasetLoaders.DatasetLoader import DatasetLoader
 from experiment.CustomConfig import CustomConfig
 import os
-from typing import Callable, Dict, List, NewType, Tuple, TypedDict, Union
+from typing import Callable, Dict, List, NewType, Tuple, Dict, Union
 import json
 from loguru import logger
 
@@ -156,7 +157,7 @@ def __experimentOnPneumonia(config: DefaultExperimentConfiguration, title="", fi
 
 def __experimentSetup(
     config: DefaultExperimentConfiguration,
-    datasetLoader,
+    datasetLoader: DatasetLoader,
     classifier,
     title: str = "DEFAULT_TITLE",
     filename: str = "DEFAULT_NAME",
@@ -167,8 +168,8 @@ def __experimentSetup(
     __setRandomSeeds()
     gc.collect()
     torch.cuda.empty_cache()
-    errorsDict: TypedDict[str, Errors] = {}
-    blocked: TypedDict[str, BlockedLocations] = {}
+    errorsDict: Dict[str, Errors] = {}
+    blocked: Dict[str, BlockedLocations] = {}
 
     for aggregator in config.aggregators:
         name = aggregator.__name__.replace("Aggregator", "")
@@ -231,7 +232,7 @@ def __runExperiment(config: DefaultExperimentConfiguration, datasetLoader, class
     if config.requireDatasetAnonymization:
         classifier.inputSize = testDataset.getInputSize()
     model = classifier().to(config.device)
-    aggregator = aggregator(clients, model, config.rounds, config.device)
+    aggregator = aggregator(clients, model, config.rounds, config.device, config.freeRiderDetect)
     if isinstance(aggregator, AFAAggregator):
         aggregator.xi = config.xi
         aggregator.deltaXi = config.deltaXi
@@ -245,6 +246,17 @@ def __runExperiment(config: DefaultExperimentConfiguration, datasetLoader, class
         "faulty": aggregator.faultyBlocked,
         "freeRider": aggregator.freeRidersBlocked
     }
+    plt.figure()
+    for i in range(30):
+        plt.plot(aggregator.means[i].detach().numpy())
+    plt.legend(range(30))
+    plt.show()
+    plt.figure()
+    for i in range(30):
+        plt.plot(aggregator.stds[i].detach().numpy())
+    plt.legend(range(30))
+    plt.show()
+    exit(0)
     return errors, blocked
 
 
@@ -325,6 +337,8 @@ def program() -> None:
 
     config.aggregators = [COMEDAggregator]
     config.percUsers = percUsers
+    config.freeRiderDetect = True
+    config.rounds = 10
 
     for attackName in config.scenario_conversion():
 

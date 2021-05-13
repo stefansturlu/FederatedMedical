@@ -10,8 +10,8 @@ from datasetLoaders.DatasetInterface import DatasetInterface
 
 # ROBUST AGGREGATION ALGORITHM - computes the median of the clients updates
 class COMEDAggregator(Aggregator):
-    def __init__(self, clients: List[Client], model: nn.Module, rounds: int, device: device, useAsyncClients=False):
-        super().__init__(clients, model, rounds, device, useAsyncClients)
+    def __init__(self, clients: List[Client], model: nn.Module, rounds: int, device: device, detectFreeRiders:bool, useAsyncClients=False):
+        super().__init__(clients, model, rounds, device, detectFreeRiders, useAsyncClients)
 
     def trainAndTest(self, testDataset: DatasetInterface) -> Tensor:
         roundsError = torch.zeros(self.rounds)

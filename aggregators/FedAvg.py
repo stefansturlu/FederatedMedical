@@ -8,8 +8,8 @@ from datasetLoaders.DatasetInterface import DatasetInterface
 
 # FEDERATED AVERAGING AGGREGATOR
 class FAAggregator(Aggregator):
-    def __init__(self, clients: List[Client], model: nn.Module, rounds: int, device: device, useAsyncClients:bool=False):
-        super().__init__(clients, model, rounds, device, useAsyncClients)
+    def __init__(self, clients: List[Client], model: nn.Module, rounds: int, device: device, detectFreeRiders:bool, useAsyncClients:bool=False):
+        super().__init__(clients, model, rounds, device, detectFreeRiders, useAsyncClients)
 
     def trainAndTest(self, testDataset: DatasetInterface) -> Tensor:
         roundsError = torch.zeros(self.rounds)

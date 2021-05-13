@@ -6,19 +6,25 @@ from logger import logPrint
 from threading import Thread
 from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
-from typing import List, NewType, Tuple, TypedDict
+from typing import List, NewType, Tuple, Dict
 import torch
+import matplotlib.pyplot as plt
 
 IdRoundPair = NewType("IdRoundPair", Tuple[int, int])
 
 class Aggregator:
-    def __init__(self, clients: List[Client], model: nn.Module, rounds: int, device: device, useAsyncClients: bool = False):
+    def __init__(self, clients: List[Client], model: nn.Module, rounds: int, device: device, detectFreeRiders:bool, useAsyncClients: bool = False):
         self.model = model.to(device)
         self.clients: List[Client] = clients
         self.rounds: int = rounds
 
         self.device = device
         self.useAsyncClients = useAsyncClients
+        self.detectFreeRiders = detectFreeRiders
+
+        self.stds = torch.zeros((len(clients), rounds))
+        self.means = torch.zeros((len(clients), rounds))
+        self.round = 0
 
         # List of malicious users blocked in tuple of client_id and iteration
         self.maliciousBlocked: List[IdRoundPair] = []
@@ -54,13 +60,16 @@ class Aggregator:
         error, pred = client.trainModel()
 
     def _retrieveClientModelsDict(self):
-        models: TypedDict[Client, nn.Module] = {}
+        models: Dict[int, nn.Module] = {}
         for client in self.clients:
             # If client blocked return an the unchanged version of the model
             if not client.blocked:
                 models[client.id] = client.retrieveModel()
             else:
                 models[client.id] = client.model
+
+        if self.detectFreeRiders:
+            self.handle_free_riders(models)
         return models
 
     def test(self, testDataset) -> float:
@@ -109,9 +118,33 @@ class Aggregator:
             self.benignBlocked.append(pair)
 
 
-    def handle_free_riders(self):
+    def handle_free_riders(self, models: Dict[int, nn.Module]):
         """Function to handle when we want to detect the presence of free-riders"""
-        pass
+        named_params = {}
+        means = torch.zeros(len(models.items()))
+        stds = torch.zeros(len(models.items()))
+        for id, model in models.items():
+            # print("HI", id)
+            mean = 0
+            std = 0
+            for name, param in model.named_parameters():
+                # print(name)
+                # print(param.mean())
+                # print(param.std())
+                if "weight" in name:
+                    mean += param.mean()
+                    std += param.std()
+            # means[id-1] = mean
+            # stds[id-1] = std
+            self.means[id-1][self.round] = mean
+            self.stds[id-1][self.round] = std
+        #     named_params[id] = {"mean":mean.item(), "std":std.item()}
+        # print(named_params)
+
+        # plt.figure()
+        # plt.plot(range(30), stds)
+        # plt.show()
+        self.round += 1
 
 def allAggregators() -> List[Aggregator]:
     return Aggregator.__subclasses__()

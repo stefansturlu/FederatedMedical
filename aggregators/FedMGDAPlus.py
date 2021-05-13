@@ -15,10 +15,11 @@ class FedMGDAPlusAggregator(Aggregator):
         model:nn.Module,
         rounds:int,
         device:device,
+        detectFreeRiders:bool,
         useAsyncClients:bool=False,
         learningRate:float=0.1,
     ):
-        super().__init__(clients, model, rounds, device, useAsyncClients)
+        super().__init__(clients, model, rounds, device, detectFreeRiders, useAsyncClients)
         self.numOfClients = len(clients)
         self.lambdaModel = nn.Parameter(torch.ones(self.numOfClients), requires_grad=True)
         self.LR = learningRate
