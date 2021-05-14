@@ -1,9 +1,9 @@
 from torch import nn, device, Tensor
 from client import Client
 from logger import logPrint
-from typing import List
+from typing import Dict, List
 import torch
-import copy
+from copy import deepcopy
 from aggregators.Aggregator import Aggregator
 from datasetLoaders.DatasetInterface import DatasetInterface
 
@@ -23,20 +23,20 @@ class COMEDAggregator(Aggregator):
             models = self._retrieveClientModelsDict()
 
             # Merge models
-            self.model = self.__medianModels(models)
+            self.model = self.aggregate(models)
 
             roundsError[r] = self.test(testDataset)
 
         return roundsError
 
-    def __medianModels(self, models: List[nn.Module]) -> nn.Module:
-        client1 = self.clients[0]
+    def aggregate(self, clients: List[Client], models: Dict[int, nn.Module]) -> nn.Module:
+        client1 = clients[0]
         model = models[client1.id]
-        modelCopy = copy.deepcopy(model)
+        modelCopy = deepcopy(model)
         params = model.named_parameters()
         for name1, param1 in params:
             m = []
-            for client2 in self.clients:
+            for client2 in clients:
                 params2 = models[client2.id].named_parameters()
                 dictParams2 = dict(params2)
                 m.append(dictParams2[name1].data.view(-1).to("cpu").numpy())
@@ -47,3 +47,4 @@ class COMEDAggregator(Aggregator):
             dictParamsm[name1].data.copy_(med.view(dictParamsm[name1].data.size()))
             # logPrint("Median computed, size: ", med.size())
         return modelCopy.to(self.device)
+

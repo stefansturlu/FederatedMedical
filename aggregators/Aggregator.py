@@ -37,7 +37,13 @@ class Aggregator:
 
     def trainAndTest(self, testDataset: DatasetInterface) -> Tensor:
         raise Exception(
-            "Train method should be override by child class, "
+            "Train method should be overridden by child class, "
+            "specific to the aggregation strategy."
+        )
+
+    def aggregate(self, clients: List[Client], models: Dict[int, nn.Module]) -> nn.Module:
+        raise Exception(
+            "Aggregation method should be overridden by child class, "
             "specific to the aggregation strategy."
         )
 

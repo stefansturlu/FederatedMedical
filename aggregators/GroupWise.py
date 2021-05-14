@@ -1,3 +1,6 @@
+from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
+from aggregators.AFA import AFAAggregator
+from copy import deepcopy
 from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration
 from torch import nn, device, Tensor
 from client import Client
@@ -9,19 +12,19 @@ from datasetLoaders.DatasetInterface import DatasetInterface
 import matplotlib.pyplot as plt
 
 # Group-Wise Aggregator based on clustering
-# It does not inherit from the Aggregator class as it itself does not do the aggregation
-class GroupWiseAggregation():
-    def __init__(self, clients: List[Client], model: nn.Module, config: DefaultExperimentConfiguration, useAsyncClients:bool=False):
-        self.model = model.to(device)
-        self.clients: List[Client] = clients
-        self.config = config
+# Even though it itself does not do aggregation, it makes programatic sense to inherit attributes and functions
+class GroupWiseAggregation(Aggregator):
+    def __init__(self, clients: List[Client], model: nn.Module, rounds: int, device: device, detectFreeRiders:bool, config: DefaultExperimentConfiguration, useAsyncClients:bool=False):
+        super().__init__(clients, model, rounds, device, detectFreeRiders, useAsyncClients)
 
-        self.useAsyncClients = useAsyncClients
+        self.config = config
 
         self.cluster_count = 3
         self.cluster_centres = None
-        self.internalAggregator: Aggregator = None
-        self.externalAggregator: Aggregator = None
+        self.cluster_choices = torch.zeros(len(self.clients))
+
+        self.internalAggregator = self._init_aggregator(config.internalAggregator)
+        self.externalAggregator = self._init_aggregator(config.externalAggregator)
 
     def trainAndTest(self, testDataset: DatasetInterface) -> Tensor:
         roundsError = torch.zeros(self.config.rounds)
@@ -29,62 +32,67 @@ class GroupWiseAggregation():
             logPrint("Round... ", r)
             self._shareModelAndTrainOnClients()
             models = self._retrieveClientModelsDict()
-            # Merge models
-            comb = 0.0
+
+            # Perform Clustering
             self.clustering(models)
-            for client in self.clients:
-                self._mergeModels(
-                    models[client.id].to(self.config.device),
-                    self.model.to(self.config.device),
-                    client.p,
-                    comb,
-                )
-                comb = 1.0
+            cluster_models = []
+            cluster_model_count = []
+
+            for choice in self.cluster_choices:
+                empty_model = deepcopy(models[1])
+                indices = self.cluster_choices == choice
+                cluster_model_count.append(len(indices))
+
+                comb = 0.0
+                for i in indices:
+                    self._mergeModels(
+                        models[i].to(self.config.device),
+                        empty_model.to(self.config.device),
+                        self.clients[i].p,
+                        comb,
+                    )
+                    comb = 1.0
+
+                cluster_models.append(empty_model)
+
+            # Assume p value is based on size of cluster
+            self.model = self.externalAggregator.aggregate([{"p": val/len(self.clients)} for val in cluster_model_count], cluster_models)
 
             roundsError[r] = self.test(testDataset)
 
         return roundsError
 
-    def _init_cluster_centres(self, models_weights: Tensor, choices: Tensor) -> None:
+
+    def _init_aggregator(self, aggregator: Aggregator) -> Aggregator:
+        agg = aggregator(self.clients, self.model, self.rounds, self.device, self.detectFreeRiders)
+        if isinstance(agg, AFAAggregator):
+            agg.xi = self.config.xi
+            agg.deltaXi = self.config.deltaXi
+        elif isinstance(agg, FedMGDAPlusAggregator):
+            agg.reinitialise(self.config.innerLR)
+
+        return agg
+
+
+    def _init_cluster_centres(self, models_weights: Tensor) -> None:
         if self.cluster_centres == None:
             indices: Tensor = torch.randint(high=len(models_weights), size=self.cluster_count)
             self.cluster_centres = models_weights[indices]
 
         else:
             for choice in range(self.cluster_count):
-                indices = choices == choice
+                indices = self.cluster_choices == choice
                 cluster = models_weights[indices]
                 self.cluster_centres[choice] = self._gen_cluster_centre(cluster)
 
 
-    def _gen_cluster_centre(self, cluster: Tensor) -> Tensor:
-        summation = cluster.sum(0)
+    def _gen_cluster_centre(self, indices: Tensor) -> Tensor:
+        """ Takes the average of the clients assigned to each cluster to generate a new centre """
+        # Here you should be using other robust aggregation algorithms to perform the centre calculation and blocking
 
-        return summation / cluster.shape[0]
+        model = self.internalAggregator.aggregate([self.clients[i] for i in indices], )
 
-
-    # Taken from AFA
-    def __modelSimilarity(self, mOrig: nn.Module, mDest: nn.Module) -> Tensor:
-        cos = nn.CosineSimilarity(0)
-
-        d2 = torch.tensor([]).to(self.config.device)
-        d1 = torch.tensor([]).to(self.config.device)
-
-        paramsOrig = mOrig.named_parameters()
-        paramsDest = mDest.named_parameters()
-        dictParamsDest = dict(paramsDest)
-
-        for name1, param1 in paramsOrig:
-            if name1 in dictParamsDest:
-                d1 = torch.cat((d1, dictParamsDest[name1].data.view(-1)))
-                d2 = torch.cat((d2, param1.data.view(-1)))
-                # d2 = param1.data
-                # sim = cos(d1.view(-1),d2.view(-1))
-                # logPrint(name1,param1.size())
-                # logPrint("Similarity: ",sim)
-        sim: Tensor = cos(d1, d2)
-        return d1, d2
-        return sim
+        return self._generate_weights({0: model})[0]
 
 
     def _generate_weights(self, models: Dict[int, nn.Module]) -> Tensor:
@@ -100,11 +108,12 @@ class GroupWiseAggregation():
         return torch.tensor(X, device=self.config.device)
 
 
+    # I use Cosine Similarity to cluster as I believe it to be a better similarity
+    # metric than just Euclidean distance
     def clustering(self, models: Dict[int, nn.Module]):
-        models_weights = self.generate_weights(models)
+        models_weights = self._generate_weights(models)
         self._init_cluster_centres(models_weights)
         cos = nn.CosineSimilarity(0)
-        cluster_choice = torch.zeros(len(self.clients))
 
         old_centres = self.cluster_centres
 
@@ -121,23 +130,7 @@ class GroupWiseAggregation():
                         best_sim = sim
                         choice = j
 
-                cluster_choice[i] = choice
+                self.cluster_choices[i] = choice
 
-            self._init_cluster_centres(models_weights, cluster_choice)
+            self._init_cluster_centres(models_weights)
 
-
-
-
-
-
-
-
-        # sim = self.__modelSimilarity(models[2], models[1])
-
-        # plt.figure()
-        # for client1, model1 in models.items():
-
-        #     for client2, model2 in models.items():
-        #         d1, d2 = self.__modelSimilarity(model1, model2)
-        #         plt.scatter(client1, sim)
-        # plt.show()

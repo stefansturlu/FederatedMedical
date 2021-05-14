@@ -235,7 +235,7 @@ def __runExperiment(config: DefaultExperimentConfiguration, datasetLoader, class
     model = classifier().to(config.device)
 
     if config.clustering:
-        aggregator = GroupWiseAggregation(clients, model, config)
+        aggregator = GroupWiseAggregation(clients, model, config.rounds, config.device, config.freeRiderDetect, config=config)
     else:
         aggregator = aggregator(clients, model, config.rounds, config.device, config.freeRiderDetect)
     if isinstance(aggregator, AFAAggregator):
@@ -336,14 +336,16 @@ def experiment(exp: Callable[[], None]):
     return decorator
 
 
+@experiment
 def program() -> None:
     config = CustomConfig()
     percUsers = torch.tensor(PERC_USERS)
 
     config.aggregators = [GroupWiseAggregation]
     config.percUsers = percUsers
-    config.freeRiderDetect = True
+    # config.freeRiderDetect = True
     config.rounds = 10
+    config.clustering = True
 
     for attackName in config.scenario_conversion():
 

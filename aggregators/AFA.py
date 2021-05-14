@@ -1,6 +1,6 @@
 from client import Client
 from logger import logPrint
-from typing import List
+from typing import Dict, List
 import torch
 import copy
 from aggregators.Aggregator import Aggregator
@@ -30,106 +30,7 @@ class AFAAggregator(Aggregator):
 
             models = self._retrieveClientModelsDict()
 
-            badCount: int = 2
-            slack = self.xi
-            while badCount != 0:
-                pT_epoch = 0.0
-                for client in self.clients:
-                    if self.notBlockedNorBadUpdate(client):
-                        client.pEpoch = client.n * client.score
-                        pT_epoch = pT_epoch + client.pEpoch
-
-                for client in self.clients:
-                    if self.notBlockedNorBadUpdate(client):
-                        client.pEpoch = client.pEpoch / pT_epoch
-
-                comb = 0.0
-                for client in self.clients:
-                    if self.notBlockedNorBadUpdate(client):
-                        self._mergeModels(
-                            models[client.id].to(self.device),
-                            self.model.to(self.device),
-                            client.pEpoch,
-                            comb,
-                        )
-                        comb = 1.0
-
-                sim = torch.zeros(len(self.clients)).to(self.device)
-                for client in self.clients:
-                    if self.notBlockedNorBadUpdate(client):
-                        client.sim = self.__modelSimilarity(self.model, models[client.id])
-                        sim[client.id - 1] = client.sim
-                        # logPrint("Similarity user ", u.id, ": ", u.sim)
-
-
-                meanS = torch.mean(sim)
-                medianS = torch.median(sim)
-                desvS = torch.std(sim)
-
-                if meanS < medianS:
-                    th = medianS - slack * desvS
-                else:
-                    th = medianS + slack * desvS
-
-                slack += self.deltaXi
-
-                badCount = 0
-                for client in self.clients:
-                    if not client.badUpdate:
-                        # Malicious self.clients are below the threshold
-                        if meanS < medianS:
-                            if client.sim < th:
-                                # logPrint("Type1")
-                                # logPrint("Bad update from user ", u.id)
-                                client.badUpdate = True
-                                badCount += 1
-                                # Malicious self.clients are above the threshold
-                        else:
-                            if client.sim > th:
-                                client.badUpdate = True
-                                badCount += 1
-
-            pT = 0.0
-            for client in self.clients:
-                if not client.blocked:
-                    self.updateUserScore(client)
-                    client.blocked = self.checkBlockedUser(client.alpha, client.beta)
-                    if client.blocked:
-                        self.handle_blocked(client, r)
-                    else:
-                        client.p = client.n * client.score
-                        pT = pT + client.p
-
-            for client in self.clients:
-                client.p = client.p / pT
-                # logPrint("Weight user", u.id, ": ", round(u.p,3))
-
-            # Update model with the updated scores
-            pT_epoch = 0.0
-            for client in self.clients:
-                if self.notBlockedNorBadUpdate(client):
-                    client.pEpoch = client.n * client.score
-                    pT_epoch = pT_epoch + client.pEpoch
-
-            for client in self.clients:
-                if self.notBlockedNorBadUpdate(client):
-                    client.pEpoch = client.pEpoch / pT_epoch
-            # logPrint("Updated scores:{}".format([client.pEpoch for client in self.clients]))
-            comb = 0.0
-            for client in self.clients:
-                if self.notBlockedNorBadUpdate(client):
-                    self._mergeModels(
-                        models[client.id].to(self.device),
-                        self.model.to(self.device),
-                        client.pEpoch,
-                        comb,
-                    )
-                    comb = 1.0
-
-            # Reset badUpdate variable
-            for client in self.clients:
-                if not client.blocked:
-                    client.badUpdate = False
+            self.model = self.aggregate(self.clients, models)
 
             roundsError[r] = self.test(testDataset)
 
@@ -171,3 +72,110 @@ class AFAAggregator(Aggregator):
     @staticmethod
     def notBlockedNorBadUpdate(client: Client) -> bool:
         return client.blocked == False | client.badUpdate == False
+
+
+    def aggregate(self, clients: List[Client], models: Dict[int, nn.Module]) -> nn.Module:
+        empty_model = copy.deepcopy(models[1])
+
+        badCount: int = 2
+        slack = self.xi
+        while badCount != 0:
+            pT_epoch = 0.0
+            for client in clients:
+                if self.notBlockedNorBadUpdate(client):
+                    client.pEpoch = client.n * client.score
+                    pT_epoch = pT_epoch + client.pEpoch
+
+            for client in clients:
+                if self.notBlockedNorBadUpdate(client):
+                    client.pEpoch = client.pEpoch / pT_epoch
+
+            comb = 0.0
+            for client in clients:
+                if self.notBlockedNorBadUpdate(client):
+                    self._mergeModels(
+                        models[client.id].to(self.device),
+                        empty_model.to(self.device),
+                        client.pEpoch,
+                        comb,
+                    )
+                    comb = 1.0
+
+            sim = torch.zeros(len(clients)).to(self.device)
+            for client in clients:
+                if self.notBlockedNorBadUpdate(client):
+                    client.sim = self.__modelSimilarity(empty_model, models[client.id])
+                    sim[client.id - 1] = client.sim
+                    # logPrint("Similarity user ", u.id, ": ", u.sim)
+
+
+            meanS = torch.mean(sim)
+            medianS = torch.median(sim)
+            desvS = torch.std(sim)
+
+            if meanS < medianS:
+                th = medianS - slack * desvS
+            else:
+                th = medianS + slack * desvS
+
+            slack += self.deltaXi
+
+            badCount = 0
+            for client in clients:
+                if not client.badUpdate:
+                    # Malicious clients are below the threshold
+                    if meanS < medianS:
+                        if client.sim < th:
+                            # logPrint("Type1")
+                            # logPrint("Bad update from user ", u.id)
+                            client.badUpdate = True
+                            badCount += 1
+                            # Malicious clients are above the threshold
+                    else:
+                        if client.sim > th:
+                            client.badUpdate = True
+                            badCount += 1
+
+        pT = 0.0
+        for client in clients:
+            if not client.blocked:
+                self.updateUserScore(client)
+                client.blocked = self.checkBlockedUser(client.alpha, client.beta)
+                if client.blocked:
+                    self.handle_blocked(client, r)
+                else:
+                    client.p = client.n * client.score
+                    pT = pT + client.p
+
+        for client in clients:
+            client.p = client.p / pT
+            # logPrint("Weight user", u.id, ": ", round(u.p,3))
+
+        # Update model with the updated scores
+        pT_epoch = 0.0
+        for client in clients:
+            if self.notBlockedNorBadUpdate(client):
+                client.pEpoch = client.n * client.score
+                pT_epoch = pT_epoch + client.pEpoch
+
+        for client in clients:
+            if self.notBlockedNorBadUpdate(client):
+                client.pEpoch = client.pEpoch / pT_epoch
+        # logPrint("Updated scores:{}".format([client.pEpoch for client in clients]))
+        comb = 0.0
+        for client in clients:
+            if self.notBlockedNorBadUpdate(client):
+                self._mergeModels(
+                    models[client.id].to(self.device),
+                    empty_model.to(self.device),
+                    client.pEpoch,
+                    comb,
+                )
+                comb = 1.0
+
+        # Reset badUpdate variable
+        for client in clients:
+            if not client.blocked:
+                client.badUpdate = False
+
+        return empty_model

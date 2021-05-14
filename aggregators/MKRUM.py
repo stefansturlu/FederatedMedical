@@ -1,7 +1,8 @@
+from copy import deepcopy
 from datasetLoaders.DatasetInterface import DatasetInterface
 from client import Client
 from logger import logPrint
-from typing import List
+from typing import Dict, List
 import torch
 from aggregators.Aggregator import Aggregator
 from torch import nn, device, Tensor
@@ -12,49 +13,15 @@ class MKRUMAggregator(Aggregator):
         super().__init__(clients, model, rounds, device, detectFreeRiders, useAsyncClients)
 
     def trainAndTest(self, testDataset: DatasetInterface):
-        userNo = len(self.clients)
-        # Number of Byzantine workers to be tolerated
-        f = int((userNo - 3) / 2)
-        th = userNo - f - 2
-        mk = userNo - f
-
         roundsError = torch.zeros(self.rounds)
 
         for r in range(self.rounds):
             logPrint("Round... ", r)
 
             self._shareModelAndTrainOnClients()
-
-            # Compute distances for all users
-            scores = torch.zeros(userNo)
             models = self._retrieveClientModelsDict()
-            for client in self.clients:
-                distances = torch.zeros((userNo, userNo))
-                for client2 in self.clients:
-                    if client.id != client2.id:
-                        distance = self.__computeModelDistance(
-                            models[client.id].to(self.device),
-                            models[client2.id].to(self.device),
-                        )
-                        distances[client.id - 1][client2.id - 1] = distance
-                dd = distances[client.id - 1][:].sort()[0]
-                dd = dd.cumsum(0)
-                scores[client.id - 1] = dd[th]
 
-            _, idx = scores.sort()
-            selected_users = idx[: mk - 1] + 1
-            # logPrint("Selected users: ", selected_users)
-
-            comb = 0.0
-            for client in self.clients:
-                if client.id in selected_users:
-                    self._mergeModels(
-                        models[client.id].to(self.device),
-                        self.model.to(self.device),
-                        1 / mk,
-                        comb,
-                    )
-                    comb = 1.0
+            self.model = self.aggregate(self.clients, models)
 
             roundsError[r] = self.test(testDataset)
 
@@ -72,3 +39,42 @@ class MKRUMAggregator(Aggregator):
                 d2 = torch.cat((d2, param1.data.view(-1)))
         sim: Tensor = torch.norm(d1 - d2, p=2)
         return sim
+
+
+    def aggregate(self, clients: List[Client], models: Dict[int, nn.Module]) -> nn.Module:
+        empty_model = deepcopy(models[1])
+
+        userNo = len(clients)
+        # Number of Byzantine workers to be tolerated
+        f = int((userNo - 3) / 2)
+        th = userNo - f - 2
+        mk = userNo - f
+        # Compute distances for all users
+        scores = torch.zeros(userNo)
+        for client in clients:
+            distances = torch.zeros((userNo, userNo))
+            for client2 in clients:
+                if client.id != client2.id:
+                    distance = self.__computeModelDistance(
+                        models[client.id].to(self.device),
+                        models[client2.id].to(self.device),
+                    )
+                    distances[client.id - 1][client2.id - 1] = distance
+            dd = distances[client.id - 1][:].sort()[0]
+            dd = dd.cumsum(0)
+            scores[client.id - 1] = dd[th]
+
+        _, idx = scores.sort()
+        selected_users = idx[: mk - 1] + 1
+        # logPrint("Selected users: ", selected_users)
+
+        comb = 0.0
+        for client in clients:
+            if client.id in selected_users:
+                self._mergeModels(
+                    models[client.id].to(self.device),
+                    empty_model.to(self.device),
+                    1 / mk,
+                    comb,
+                )
+                comb = 1.0

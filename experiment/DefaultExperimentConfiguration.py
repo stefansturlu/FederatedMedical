@@ -1,3 +1,4 @@
+from aggregators.FedAvg import FAAggregator
 import torch
 from aggregators.Aggregator import Aggregator, allAggregators
 from typing import List, Union
@@ -62,3 +63,7 @@ class DefaultExperimentConfiguration:
         # Pipeline config
         self.freeRiderDetect: bool = False
         self.clustering: bool = False
+
+        # Group-Wise config
+        self.internalAggregator: Aggregator = FAAggregator
+        self.externalAggregator: Aggregator = FAAggregator
