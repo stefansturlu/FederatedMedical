@@ -26,7 +26,8 @@ class FAAggregator(Aggregator):
         return roundsError
 
     def aggregate(self, clients: List[Client], models: Dict[int, nn.Module]) -> nn.Module:
-        empty_model = deepcopy(models[1])
+        print(len(models))
+        empty_model = deepcopy(self.model)
 
         comb = 0.0
         for client in clients:

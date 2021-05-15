@@ -75,7 +75,7 @@ class AFAAggregator(Aggregator):
 
 
     def aggregate(self, clients: List[Client], models: Dict[int, nn.Module]) -> nn.Module:
-        empty_model = copy.deepcopy(models[1])
+        empty_model = copy.deepcopy(self.model)
 
         badCount: int = 2
         slack = self.xi

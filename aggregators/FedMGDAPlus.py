@@ -95,7 +95,7 @@ class FedMGDAPlusAggregator(Aggregator):
 
 
     def aggregate(self, clients: List[Client], models: Dict[int, nn.Module]) -> nn.Module:
-        empty_model = copy.deepcopy(models[1])
+        empty_model = copy.deepcopy(self.model)
 
         loss = 0.0
         # reset the gradients

@@ -42,7 +42,7 @@ class MKRUMAggregator(Aggregator):
 
 
     def aggregate(self, clients: List[Client], models: Dict[int, nn.Module]) -> nn.Module:
-        empty_model = deepcopy(models[1])
+        empty_model = deepcopy(self.model)
 
         userNo = len(clients)
         # Number of Byzantine workers to be tolerated
