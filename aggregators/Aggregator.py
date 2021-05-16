@@ -41,7 +41,7 @@ class Aggregator:
             "specific to the aggregation strategy."
         )
 
-    def aggregate(self, clients: List[Client], models: Dict[int, nn.Module]) -> nn.Module:
+    def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
         raise Exception(
             "Aggregation method should be overridden by child class, "
             "specific to the aggregation strategy."
@@ -66,13 +66,13 @@ class Aggregator:
         error, pred = client.trainModel()
 
     def _retrieveClientModelsDict(self):
-        models: Dict[int, nn.Module] = {}
+        models: List[nn.Module] = []
         for client in self.clients:
             # If client blocked return an the unchanged version of the model
             if not client.blocked:
-                models[client.id] = client.retrieveModel()
+                models.append(client.retrieveModel())
             else:
-                models[client.id] = client.model
+                models.append(client.model)
 
         if self.detectFreeRiders:
             self.handle_free_riders(models)
@@ -124,12 +124,12 @@ class Aggregator:
             self.benignBlocked.append(pair)
 
 
-    def handle_free_riders(self, models: Dict[int, nn.Module]):
+    def handle_free_riders(self, models: List[nn.Module]):
         """Function to handle when we want to detect the presence of free-riders"""
         named_params = {}
-        means = torch.zeros(len(models.items()))
-        stds = torch.zeros(len(models.items()))
-        for id, model in models.items():
+        means = torch.zeros(len(models))
+        stds = torch.zeros(len(models))
+        for id, model in enumerate(models):
             # print("HI", id)
             mean = 0
             std = 0
@@ -140,10 +140,10 @@ class Aggregator:
                 if "weight" in name:
                     mean += param.mean()
                     std += param.std()
-            # means[id-1] = mean
-            # stds[id-1] = std
-            self.means[id-1][self.round] = mean
-            self.stds[id-1][self.round] = std
+            # means[id] = mean
+            # stds[id] = std
+            self.means[id][self.round] = mean
+            self.stds[id][self.round] = std
         #     named_params[id] = {"mean":mean.item(), "std":std.item()}
         # print(named_params)
 

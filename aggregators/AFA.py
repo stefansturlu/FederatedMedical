@@ -74,7 +74,7 @@ class AFAAggregator(Aggregator):
         return client.blocked == False | client.badUpdate == False
 
 
-    def aggregate(self, clients: List[Client], models: Dict[int, nn.Module]) -> nn.Module:
+    def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
         empty_model = copy.deepcopy(self.model)
 
         badCount: int = 2
@@ -105,7 +105,7 @@ class AFAAggregator(Aggregator):
             for client in clients:
                 if self.notBlockedNorBadUpdate(client):
                     client.sim = self.__modelSimilarity(empty_model, models[client.id])
-                    sim[client.id - 1] = client.sim
+                    sim[client.id] = client.sim
                     # logPrint("Similarity user ", u.id, ": ", u.sim)
 
 

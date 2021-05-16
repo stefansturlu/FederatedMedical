@@ -94,7 +94,7 @@ class FedMGDAPlusAggregator(Aggregator):
         return roundsError
 
 
-    def aggregate(self, clients: List[Client], models: Dict[int, nn.Module]) -> nn.Module:
+    def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
         empty_model = copy.deepcopy(self.model)
 
         loss = 0.0
@@ -131,12 +131,12 @@ class FedMGDAPlusAggregator(Aggregator):
             loss = torch.norm(
                 torch.mul(
                     nn.utils.parameters_to_vector(self.delta.parameters()),
-                    self.lambdaModel[client.id - 1] / loss_bottom
+                    self.lambdaModel[client.id] / loss_bottom
                 )
             )
 
             # If the client is blocked, we don't want to learn from it
-            if not (self.lambdaModel[client.id - 1] == 0):
+            if not (self.lambdaModel[client.id] == 0):
                 loss.backward()
                 self.lambdatOpt.step()
 
@@ -169,7 +169,7 @@ class FedMGDAPlusAggregator(Aggregator):
             self._mergeModels(
                 models[client.id].to(self.device),
                 empty_model.to(self.device),
-                normalisedClientWeights[client.id - 1],
+                normalisedClientWeights[client.id],
                 comb,
             )
 

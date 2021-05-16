@@ -29,7 +29,7 @@ class COMEDAggregator(Aggregator):
 
         return roundsError
 
-    def aggregate(self, clients: List[Client], models: Dict[int, nn.Module]) -> nn.Module:
+    def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
         client1 = clients[0]
         model = models[client1.id]
         modelCopy = deepcopy(model)

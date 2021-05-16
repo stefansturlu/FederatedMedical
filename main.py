@@ -273,7 +273,7 @@ def __initClients(config: DefaultExperimentConfiguration, trainDatasets, useDiff
     for i in range(usersNo):
         clients.append(
             Client(
-                idx=i + 1,
+                idx=i,
                 trainDataset=trainDatasets[i],
                 epochs=config.epochs,
                 batchSize=config.batchSize,

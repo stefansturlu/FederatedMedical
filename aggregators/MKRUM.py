@@ -41,7 +41,7 @@ class MKRUMAggregator(Aggregator):
         return sim
 
 
-    def aggregate(self, clients: List[Client], models: Dict[int, nn.Module]) -> nn.Module:
+    def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
         empty_model = deepcopy(self.model)
 
         userNo = len(clients)
@@ -59,10 +59,10 @@ class MKRUMAggregator(Aggregator):
                         models[client.id].to(self.device),
                         models[client2.id].to(self.device),
                     )
-                    distances[client.id - 1][client2.id - 1] = distance
-            dd = distances[client.id - 1][:].sort()[0]
+                    distances[client.id][client2.id] = distance
+            dd = distances[client.id][:].sort()[0]
             dd = dd.cumsum(0)
-            scores[client.id - 1] = dd[th]
+            scores[client.id] = dd[th]
 
         _, idx = scores.sort()
         selected_users = idx[: mk - 1] + 1
