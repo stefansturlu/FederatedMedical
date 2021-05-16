@@ -36,7 +36,6 @@ class GroupWiseAggregation(Aggregator):
 
             # Perform Clustering
             self.clustering(models)
-            print(self.cluster_choices)
 
             # Assume p value is based on size of cluster
             class FakeClient:
@@ -49,18 +48,6 @@ class GroupWiseAggregation(Aggregator):
             roundsError[r] = self.test(testDataset)
 
         return roundsError
-
-
-    def _weights_to_model(self, weights: Tensor):
-        new_model = deepcopy(self.model)
-        paramsDest = new_model.named_parameters()
-        dictParamsDest = dict(paramsDest)
-
-        for param in weights:
-            if name1 in dictParamsDest:
-                weightedSum = param1.data
-                dictParamsDest[name1].data.copy_(weightedSum)
-        pass
 
 
     def _init_aggregator(self, aggregator: Aggregator) -> Aggregator:
@@ -81,7 +68,8 @@ class GroupWiseAggregation(Aggregator):
 
         else:
             for choice in range(self.cluster_count):
-                indices = [val for val in self.cluster_choices if val == choice]
+                indices = [i for i,val in enumerate(self.cluster_choices) if val == choice]
+                print(indices)
                 self.cluster_centres[choice] = self._gen_cluster_centre(indices, models)
                 self.cluster_centres_p[choice] = len(indices)
 
@@ -90,15 +78,15 @@ class GroupWiseAggregation(Aggregator):
         """ Takes the average of the clients assigned to each cluster to generate a new centre """
         # Here you should be using other robust aggregation algorithms to perform the centre calculation and blocking
 
-        model = self.internalAggregator.aggregate([self.clients[i] for i in indices], [models[i] for i in indices])
+        model = self.internalAggregator.aggregate([self.clients[i] for i in indices], models)
 
         return model
 
 
-    def _generate_weights(self, models: List[nn.Module]) -> Tensor:
-        X = torch.tensor([]).to(self.device)
+    def _generate_weights(self, models: List[nn.Module]) -> List[Tensor]:
+        X = []
         for model in models:
-            X = torch.cat((X, self._generate_coords(model)))
+            X.append(self._generate_coords(model))
 
         return X
 
@@ -111,30 +99,73 @@ class GroupWiseAggregation(Aggregator):
         return coords
 
 
+    def _list_tensor_subtraction(self, a, b):
+        # cos = nn.CosineSimilarity(0)
+        # """ Computes the difference between a list of tensor representations of models """
+        distances = [torch.mean(ai-bi) for (ai, bi) in zip(a, b)]
+        print(distances)
+        return abs(sum(distances) / len(distances))
+        j = 0
+        for d in distances:
+            j += d.sum()
+        # exit(0)
+        # sim = sum(distances) / len(distances)
+
+        return j
+
+        for (ai, bi) in zip(a, b):
+            print(ai-bi)
+            print(torch.mean(ai-bi))
+
+
+        cos = nn.CosineSimilarity(0)
+        """ Computes the difference between a list of tensor representations of models """
+        distances = [cos(ai, bi) for (ai, bi) in zip(a, b)]
+        # print(distances)
+        # exit(0)
+        sim = sum(distances) / len(distances)
+        print(sim)
+
+        return sim
+
+
     # I use Cosine Similarity to cluster as I believe it to be a better similarity
     # metric than just Euclidean distance
     def clustering(self, models: List[nn.Module]):
         models_weights = self._generate_weights(models)
         self._init_cluster_centres(models)
-        cos = nn.CosineSimilarity(0)
 
-        old_centres = self.cluster_centres
+        cluster_centres_weights = self._generate_weights(self.cluster_centres)
+        old_centres: Tensor = None
+        torch.set_printoptions(20)
 
         # While the clusters are still converging
-        while cos(old_centres, self.cluster_centres) < 0.99:
-            old_centres = self.cluster_centres
-
+        while old_centres is None or self._list_tensor_subtraction(old_centres, cluster_centres_weights) > 0.000000000001:
+            print("START ITER")
+            print(cluster_centres_weights)
+            print(old_centres)
+            if old_centres is not None:
+                print(self._list_tensor_subtraction(old_centres, cluster_centres_weights))
             for i, model in enumerate(models_weights):
+                # best_sim = 1000
                 best_sim = 0
                 choice = -1
-                for j, cluster in enumerate(self.cluster_centres):
-                    cluster_coords = self._generate_coords(cluster)
-                    sim = cos(model, cluster_coords)
-                    if sim > best_sim:
+                for j, cluster in enumerate(cluster_centres_weights):
+                    sim = torch.mean(model - cluster)
+                    # print(torch.square(model - cluster).sum())
+                    # sim = nn.CosineSimilarity(0)(model, cluster)
+                    # print(sim)
+                    if sim < best_sim:
                         best_sim = sim
                         choice = j
-
                 self.cluster_choices[i] = choice
-
+            # print(self.cluster_choices)
+            old_centres = cluster_centres_weights
             self._init_cluster_centres(models)
+            cluster_centres_weights = self._generate_weights(self.cluster_centres)
+            print(self._list_tensor_subtraction(old_centres, cluster_centres_weights))
+            print("END ITER")
+            print(cluster_centres_weights)
+            print(old_centres)
+
 
