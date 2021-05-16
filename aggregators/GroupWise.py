@@ -10,6 +10,7 @@ import torch
 from aggregators.Aggregator import Aggregator
 from datasetLoaders.DatasetInterface import DatasetInterface
 import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
 
 # Group-Wise Aggregator based on clustering
 # Even though it itself does not do aggregation, it makes programatic sense to inherit attributes and functions
@@ -20,9 +21,9 @@ class GroupWiseAggregation(Aggregator):
         self.config = config
 
         self.cluster_count = 3
-        self.cluster_centres: List[nn.Module] = None
+        self.cluster_centres: List[nn.Module] = [None]*self.cluster_count
         self.cluster_centres_p = [0]*self.cluster_count
-        self.cluster_choices = [0]*len(self.clients)
+        self.cluster_labels = [0]*len(self.clients)
 
         self.internalAggregator = self._init_aggregator(config.internalAggregator)
         self.externalAggregator = self._init_aggregator(config.externalAggregator)
@@ -35,7 +36,24 @@ class GroupWiseAggregation(Aggregator):
             models = self._retrieveClientModelsDict()
 
             # Perform Clustering
-            self.clustering(models)
+            X = self._generate_weights(models)
+            X = [model.tolist() for model in X]
+            kmeans = KMeans(n_clusters=3, random_state=0).fit(X)
+            self.cluster_labels = kmeans.labels_
+            indices = [[] for _ in range(self.cluster_count)]
+
+            for i, l in enumerate(self.cluster_labels):
+                self.cluster_centres_p[l] += 1
+                indices[l].append(i)
+
+            self.cluster_centres_p = [p/len(self.clients) for p in self.cluster_centres_p]
+
+            for label in self.cluster_labels:
+                self.cluster_centres[label] = self._gen_cluster_centre(indices[l], models)
+
+            exit(0)
+
+
 
             # Assume p value is based on size of cluster
             class FakeClient:
@@ -68,7 +86,7 @@ class GroupWiseAggregation(Aggregator):
 
         else:
             for choice in range(self.cluster_count):
-                indices = [i for i,val in enumerate(self.cluster_choices) if val == choice]
+                indices = [i for i,val in enumerate(self.cluster_labels) if val == choice]
                 print(indices)
                 self.cluster_centres[choice] = self._gen_cluster_centre(indices, models)
                 self.cluster_centres_p[choice] = len(indices)
@@ -158,8 +176,8 @@ class GroupWiseAggregation(Aggregator):
                     if sim < best_sim:
                         best_sim = sim
                         choice = j
-                self.cluster_choices[i] = choice
-            # print(self.cluster_choices)
+                self.cluster_labels[i] = choice
+            # print(self.cluster_labels)
             old_centres = cluster_centres_weights
             self._init_cluster_centres(models)
             cluster_centres_weights = self._generate_weights(self.cluster_centres)
