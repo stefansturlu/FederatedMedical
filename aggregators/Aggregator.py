@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 from typing import List, NewType, Tuple, Dict
 import torch
 import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
 
 IdRoundPair = NewType("IdRoundPair", Tuple[int, int])
 
@@ -47,21 +48,29 @@ class Aggregator:
             "specific to the aggregation strategy."
         )
 
-    def _shareModelAndTrainOnClients(self) -> None:
+
+    def _shareModelAndTrainOnClients(self, models:List[nn.Module]=None, labels:List[int]=None):
+        if models == None and labels == None:
+            models = [self.model]
+            labels = [0]*len(self.clients)
+
         if self.useAsyncClients:
             threads = []
             for client in self.clients:
-                t = Thread(target=(lambda: self.__shareModelAndTrainOnClient(client)))
+                model = models[labels[client.id]]
+                t = Thread(target=(lambda: self.__shareModelAndTrainOnClient(client, model)))
                 threads.append(t)
                 t.start()
             for thread in threads:
                 thread.join()
         else:
             for client in self.clients:
-                self.__shareModelAndTrainOnClient(client)
+                model = models[labels[client.id]]
+                self.__shareModelAndTrainOnClient(client, model)
 
-    def __shareModelAndTrainOnClient(self, client: Client) -> None:
-        broadcastModel = copy.deepcopy(self.model)
+
+    def __shareModelAndTrainOnClient(self, client: Client, model: nn.Module) -> None:
+        broadcastModel = copy.deepcopy(model)
         client.updateModel(broadcastModel)
         error, pred = client.trainModel()
 
@@ -151,6 +160,70 @@ class Aggregator:
         # plt.plot(range(30), stds)
         # plt.show()
         self.round += 1
+
+
+    def pca3D(self, X):
+        pca = PCA(3).fit(X)
+        pca_3d = pca.transform(X)
+
+        fig = plt.figure()
+        ax = fig.add_subplot(projection="3d")
+        c1, c2, c3, c4 = None, None, None, None
+        for i in range(len(pca_3d)):
+            if self.clients[i].flip:
+                c1 = ax.scatter(pca_3d[i,0],pca_3d[i,1],pca_3d[i,2],c='r',marker='+')
+            elif self.clients[i].byz:
+                c2 = ax.scatter(pca_3d[i,0],pca_3d[i,1],pca_3d[i,2],c='g',marker='o')
+            elif self.clients[i].free:
+                c3 = ax.scatter(pca_3d[i,0],pca_3d[i,1],pca_3d[i,2],c='b',marker='*')
+            else:
+                c4 = ax.scatter(pca_3d[i,0],pca_3d[i,1],pca_3d[i,2],c='y',marker='.')
+
+        plt.legend([c1, c2, c3, c4], ['Byz', 'Faulty', "Free", 'Benign'])
+        plt.title('Iris dataset with 3 clusters and known outcomes')
+        plt.show()
+
+
+    def pca2D(self, X):
+        pca = PCA(2).fit(X)
+        pca_2d = pca.transform(X)
+
+        plt.figure()
+        c1, c2, c3, c4 = None, None, None, None
+        for i in range(len(pca_2d)):
+            if self.clients[i].flip:
+                c1 = plt.scatter(pca_2d[i,0],pca_2d[i,1],c='r',marker='+')
+            elif self.clients[i].byz:
+                c2 = plt.scatter(pca_2d[i,0],pca_2d[i,1],c='g',marker='o')
+            elif self.clients[i].free:
+                c3 = plt.scatter(pca_2d[i,0],pca_2d[i,1],c='b',marker='*')
+            else:
+                c4 = plt.scatter(pca_2d[i,0],pca_2d[i,1],c='y',marker='.')
+
+        plt.legend([c1, c2, c3, c4], ['Byz', 'Faulty', "Free", 'Benign'])
+        plt.title('Iris dataset with 3 clusters and known outcomes')
+        plt.show()
+
+
+    def pca1D(self, X):
+        pca = PCA(1).fit(X)
+        pca_2d = pca.transform(X)
+
+        plt.figure()
+        c1, c2, c3, c4 = None, None, None, None
+        for i in range(len(pca_2d)):
+            if self.clients[i].flip:
+                c1 = plt.scatter(pca_2d[i],pca_2d[i],c='r',marker='+')
+            elif self.clients[i].byz:
+                c2 = plt.scatter(pca_2d[i],pca_2d[i],c='g',marker='o')
+            elif self.clients[i].free:
+                c3 = plt.scatter(pca_2d[i],pca_2d[i],c='b',marker='*')
+            else:
+                c4 = plt.scatter(pca_2d[i],pca_2d[i],c='y',marker='.')
+
+        plt.legend([c1, c2, c3, c4], ['Byz', 'Faulty', "Free", 'Benign'])
+        plt.title('Iris dataset with 3 clusters and known outcomes')
+        plt.show()
 
 def allAggregators() -> List[Aggregator]:
     return Aggregator.__subclasses__()
