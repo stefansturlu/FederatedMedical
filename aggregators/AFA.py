@@ -142,7 +142,7 @@ class AFAAggregator(Aggregator):
                 self.updateUserScore(client)
                 client.blocked = self.checkBlockedUser(client.alpha, client.beta)
                 if client.blocked:
-                    self.handle_blocked(client, r)
+                    self.handle_blocked(client, self.round)
                 else:
                     client.p = client.n * client.score
                     pT = pT + client.p
@@ -177,5 +177,7 @@ class AFAAggregator(Aggregator):
         for client in clients:
             if not client.blocked:
                 client.badUpdate = False
+
+        self.round += 1
 
         return empty_model

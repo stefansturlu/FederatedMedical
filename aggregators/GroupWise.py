@@ -12,6 +12,7 @@ from datasetLoaders.DatasetInterface import DatasetInterface
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 import math
+import heapq
 
 # Group-Wise Aggregator based on clustering
 # Even though it itself does not do aggregation, it makes programatic sense to inherit attributes and functions
@@ -21,7 +22,7 @@ class GroupWiseAggregation(Aggregator):
 
         self.config = config
 
-        self.cluster_count = 3
+        self.cluster_count = 5
         self.cluster_centres: List[nn.Module] = [None]*self.cluster_count
         self.cluster_centres_p = [0]*self.cluster_count
         self.cluster_labels = [0]*len(self.clients)
@@ -33,7 +34,7 @@ class GroupWiseAggregation(Aggregator):
         roundsError = torch.zeros(self.config.rounds)
         for r in range(self.config.rounds):
             logPrint("Round... ", r)
-            if r % 5 == 0:
+            if r == 0:
                 self._shareModelAndTrainOnClients()
             else:
                 self._shareModelAndTrainOnClients(self.cluster_centres, self.cluster_labels)
@@ -41,20 +42,37 @@ class GroupWiseAggregation(Aggregator):
             models = self._retrieveClientModelsDict()
 
             # Perform Clustering
-            self.generate_cluster_centres(models)
+            with torch.no_grad():
+                self.generate_cluster_centres(models)
 
 
-            if r % 5 == 4:
-                self._use_most_similar_clusters()
-                # Assume p value is based on size of cluster
-                class FakeClient:
-                    def __init__(self, p:float, id:int):
-                        self.p = p
-                        self.id = id
+                if r % 3 == 2:
+                    # Assume p value is based on size of cluster
+                    best_models, ps, indices = self._use_most_similar_clusters()
+                    conc_ps = [ps[i] for i in indices]
 
-                self.model = self.externalAggregator.aggregate([FakeClient(p/len(self.clients), i) for (i, p) in enumerate(self.cluster_centres_p)], self.cluster_centres)
+                    class FakeClient:
+                        def __init__(self, p:float, id:int):
+                            self.p = p
+                            self.id = id
 
-            roundsError[r] = self.test(testDataset)
+                    general = self.externalAggregator.aggregate([FakeClient(p, i) for (i, p) in enumerate(ps)], self.cluster_centres)
+                    concentrated = self.externalAggregator.aggregate([FakeClient(p, i) for (i, p) in enumerate(conc_ps)], best_models)
+
+                    for i in range(len(self.cluster_centres)):
+                        if i in indices:
+                            self.cluster_centres[i] = concentrated
+                        else:
+                            self.cluster_centres[i] = general
+
+
+                    print("Concentrated test")
+                    self.model = concentrated
+                    roundsError[r] = self.test(testDataset)
+
+                    print("General test")
+                    self.model = general
+                    roundsError[r] = self.test(testDataset)
 
         return roundsError
 
@@ -78,7 +96,6 @@ class GroupWiseAggregation(Aggregator):
         else:
             for choice in range(self.cluster_count):
                 indices = [i for i,val in enumerate(self.cluster_labels) if val == choice]
-                print(indices)
                 self.cluster_centres[choice] = self._gen_cluster_centre(indices, models)
                 self.cluster_centres_p[choice] = len(indices)
 
@@ -111,36 +128,140 @@ class GroupWiseAggregation(Aggregator):
     def generate_cluster_centres(self, models: List[nn.Module]) -> None:
         X = self._generate_weights(models)
         X = [model.tolist() for model in X]
-        kmeans = KMeans(n_clusters=self.cluster_count, random_state=0).fit(X)
+        pca = self.pca(X, dim=2)
+        kmeans = KMeans(n_clusters=self.cluster_count, random_state=0).fit(pca)
+        y_kmeans = KMeans(n_clusters=self.cluster_count, random_state=0).fit_predict(pca)
+
+        plt.figure()
+        plt.scatter(pca[y_kmeans==0, 0], pca[y_kmeans==0, 1], s=100, c='red', label ='Cluster 1')
+        plt.scatter(pca[y_kmeans==1, 0], pca[y_kmeans==1, 1], s=100, c='blue', label ='Cluster 2')
+        plt.scatter(pca[y_kmeans==2, 0], pca[y_kmeans==2, 1], s=100, c='green', label ='Cluster 3')
+        plt.scatter(pca[y_kmeans==3, 0], pca[y_kmeans==3, 1], s=100, c='cyan', label ='Cluster 4')
+        plt.scatter(pca[y_kmeans==4, 0], pca[y_kmeans==4, 1], s=100, c='magenta', label ='Cluster 5')
+        #Plot the centroid. This time we're going to use the cluster centres  #attribute that returns here the coordinates of the centroid.
+        plt.scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], s=50, c='yellow', label = 'Centroids')
+        plt.title('Clusters of Customers')
+        plt.xlabel('Annual Income(k$)')
+        plt.ylabel('Spending Score(1-100')
+        plt.show()
 
 
-        self.pca2D(X)
-
+        # self.pca1D(X)
+        # self.pca2D(X)
+        # self.pca3D(X)
 
 
         self.cluster_labels = kmeans.labels_
-        print(self.cluster_labels)
         indices = [[] for _ in range(self.cluster_count)]
 
         for i, l in enumerate(self.cluster_labels):
             self.cluster_centres_p[l] += 1
             indices[l].append(i)
 
-        self.cluster_centres_p = [p/len(self.clients) for p in self.cluster_centres_p]
+        print(self.cluster_labels)
 
-        for label in self.cluster_labels:
-            self.cluster_centres[label] = self._gen_cluster_centre(indices[l], models)
+        self.cluster_centres_p = [p/len(self.clients) for p in self.cluster_centres_p]
+        for i, ins in enumerate(indices):
+            self.cluster_centres[i] = self._gen_cluster_centre(ins, models)
 
 
     def _use_most_similar_clusters(self) -> None:
-        num_to_take = math.floor(self.cluster_count) + 1
+        num_to_take = math.floor(self.cluster_count/2) + 1
 
         X = self._generate_weights(self.cluster_centres)
-        X = [model.tolist() for model in X]
-        kmeans = KMeans(n_clusters=2, random_state=0).fit(X)
+        Xl = [model.tolist() for model in X]
+        kmeans = KMeans(n_clusters=num_to_take, random_state=0).fit(Xl)
         print(kmeans.labels_)
 
-        exit(0)
+
+        # dists = [[] for _ in range(self.cluster_count)]
+
+        # for i, m1 in enumerate(X):
+        #     for m2 in X:
+        #         d = torch.square(m1 - m2).sum().sqrt()
+        #         dists[i].append(d)
+        # print("dists")
+        # print(dists)
+
+        # best_val = 100000000
+        # best_indices = None
+
+        # for i, d in enumerate(dists):
+        #     indices = heapq.nsmallest(num_to_take, range(len(d)), d.__getitem__)
+        #     print(indices)
+        #     val = sum(d[i] for i in indices)
+        #     if val < best_val:
+        #         best_val = val
+        #         best_indices = indices
+
+        # print("best indices")
+        # print(best_indices)
+
+        # best_models = [self.cluster_centres[i] for i in best_indices]
+        # ps = [self.cluster_centres_p[i] for i in best_indices]
+        # print("ps")
+        # print(ps)
+        # ps = [p/sum(ps) for p in ps]
+        # print("ps")
+        # print(ps)
+
+        # class FakeClient:
+        #     def __init__(self, p:float, id:int):
+        #         self.p = p
+        #         self.id = id
+
+        # self.model = self.externalAggregator.aggregate([FakeClient(p/len(ps), i) for (i, p) in enumerate(ps)], best_models)
+
+        # for i in best_indices:
+        #     self.cluster_centres[i] = self.model
+
+
+        # return best_models, ps
+
+
+
+
+
+
+
+
+
+
+
+
+        sims = [[] for _ in range(self.cluster_count)]
+        cos = nn.CosineSimilarity(0)
+
+        for i, m1 in enumerate(X):
+            for m2 in X:
+                sim = cos(m1, m2)
+                sims[i].append(sim)
+        print("sims")
+        print(sims)
+
+        best_val = 0
+        best_indices = None
+        besti = -1
+
+        for i, s in enumerate(sims):
+            indices = heapq.nlargest(num_to_take, range(len(s)), s.__getitem__)
+            print(indices)
+            val = sum(s[i] for i in indices)
+            if val > best_val:
+                best_val = val
+                best_indices = indices
+                besti = i
+
+        print("best indices")
+        print(best_indices)
+
+        best_models = [self.cluster_centres[i] for i in best_indices]
+        ps = [s for s in sims[besti]]
+        ps = [p/sum(ps) for p in ps]
+        print("ps")
+        print(ps)
+
+        return best_models, ps, best_indices
 
 
 

@@ -6,7 +6,7 @@ from logger import logPrint
 from threading import Thread
 from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
-from typing import List, NewType, Tuple, Dict
+from typing import List, NewType, Tuple, Dict, Union
 import torch
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
@@ -224,6 +224,14 @@ class Aggregator:
         plt.legend([c1, c2, c3, c4], ['Byz', 'Faulty', "Free", 'Benign'])
         plt.title('Iris dataset with 3 clusters and known outcomes')
         plt.show()
+
+
+    # dim must be between 0 and min(n_samples, n_features)
+    # This is most likely len(self.clients) (e.g. 30) unless you are working with a really small model
+    def pca(self, flattened_models: nn.Module, dim=10) -> Tuple[Union[Tuple, float]]:
+        return PCA(dim).fit_transform(flattened_models)
+
+
 
 def allAggregators() -> List[Aggregator]:
     return Aggregator.__subclasses__()
