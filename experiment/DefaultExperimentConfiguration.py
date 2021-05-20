@@ -1,3 +1,4 @@
+from aggregators.FedAvg import FAAggregator
 import torch
 from aggregators.Aggregator import Aggregator, allAggregators
 from typing import List, Union
@@ -56,8 +57,13 @@ class DefaultExperimentConfiguration:
 
         self.plotResults: bool = True
 
-        # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # self.device = torch.device("cpu")
 
         # Pipeline config
         self.freeRiderDetect: bool = False
+        self.clustering: bool = False
+
+        # Group-Wise config
+        self.internalAggregator: Aggregator = FAAggregator
+        self.externalAggregator: Aggregator = FAAggregator

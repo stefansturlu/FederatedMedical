@@ -1,10 +1,11 @@
 from torch import nn, device, Tensor
 from client import Client
 from logger import logPrint
-from typing import List
+from typing import Dict, List
 import torch
 from aggregators.Aggregator import Aggregator
 from datasetLoaders.DatasetInterface import DatasetInterface
+from copy import deepcopy
 
 # FEDERATED AVERAGING AGGREGATOR
 class FAAggregator(Aggregator):
@@ -18,16 +19,25 @@ class FAAggregator(Aggregator):
             self._shareModelAndTrainOnClients()
             models = self._retrieveClientModelsDict()
             # Merge models
-            comb = 0.0
-            for client in self.clients:
-                self._mergeModels(
-                    models[client.id].to(self.device),
-                    self.model.to(self.device),
-                    client.p,
-                    comb,
-                )
-                comb = 1.0
+            self.model = self.aggregate(self.clients, models)
 
-            roundsError[r] = self.test(testDataset)
+        roundsError[r] = self.test(testDataset)
 
         return roundsError
+
+    def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
+        empty_model = deepcopy(self.model)
+
+        comb = 0.0
+        for client in clients:
+            self._mergeModels(
+                models[client.id].to(self.device),
+                empty_model.to(self.device),
+                client.p,
+                comb,
+            )
+            comb = 1.0
+
+        return empty_model
+
+

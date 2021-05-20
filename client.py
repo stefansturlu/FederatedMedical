@@ -63,7 +63,7 @@ class Client:
         self.loss = None
         self.Loss = Loss
         self.Optimizer: optim.Optimizer = Optimizer
-        self.pEpoch = None
+        self.pEpoch: float = None
         self.badUpdate: bool = False
         self.epochs: int = epochs
         self.batchSize: int = batchSize

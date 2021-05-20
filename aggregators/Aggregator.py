@@ -6,9 +6,10 @@ from logger import logPrint
 from threading import Thread
 from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
-from typing import List, NewType, Tuple, Dict
+from typing import List, NewType, Tuple, Dict, Union
 import torch
 import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
 
 IdRoundPair = NewType("IdRoundPair", Tuple[int, int])
 
@@ -37,36 +38,50 @@ class Aggregator:
 
     def trainAndTest(self, testDataset: DatasetInterface) -> Tensor:
         raise Exception(
-            "Train method should be override by child class, "
+            "Train method should be overridden by child class, "
             "specific to the aggregation strategy."
         )
 
-    def _shareModelAndTrainOnClients(self) -> None:
+    def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
+        raise Exception(
+            "Aggregation method should be overridden by child class, "
+            "specific to the aggregation strategy."
+        )
+
+
+    def _shareModelAndTrainOnClients(self, models:List[nn.Module]=None, labels:List[int]=None):
+        if models == None and labels == None:
+            models = [self.model]
+            labels = [0]*len(self.clients)
+
         if self.useAsyncClients:
             threads = []
             for client in self.clients:
-                t = Thread(target=(lambda: self.__shareModelAndTrainOnClient(client)))
+                model = models[labels[client.id]]
+                t = Thread(target=(lambda: self.__shareModelAndTrainOnClient(client, model)))
                 threads.append(t)
                 t.start()
             for thread in threads:
                 thread.join()
         else:
             for client in self.clients:
-                self.__shareModelAndTrainOnClient(client)
+                model = models[labels[client.id]]
+                self.__shareModelAndTrainOnClient(client, model)
 
-    def __shareModelAndTrainOnClient(self, client: Client) -> None:
-        broadcastModel = copy.deepcopy(self.model)
+
+    def __shareModelAndTrainOnClient(self, client: Client, model: nn.Module) -> None:
+        broadcastModel = copy.deepcopy(model)
         client.updateModel(broadcastModel)
         error, pred = client.trainModel()
 
     def _retrieveClientModelsDict(self):
-        models: Dict[int, nn.Module] = {}
+        models: List[nn.Module] = []
         for client in self.clients:
             # If client blocked return an the unchanged version of the model
             if not client.blocked:
-                models[client.id] = client.retrieveModel()
+                models.append(client.retrieveModel())
             else:
-                models[client.id] = client.model
+                models.append(client.model)
 
         if self.detectFreeRiders:
             self.handle_free_riders(models)
@@ -118,12 +133,12 @@ class Aggregator:
             self.benignBlocked.append(pair)
 
 
-    def handle_free_riders(self, models: Dict[int, nn.Module]):
+    def handle_free_riders(self, models: List[nn.Module]):
         """Function to handle when we want to detect the presence of free-riders"""
         named_params = {}
-        means = torch.zeros(len(models.items()))
-        stds = torch.zeros(len(models.items()))
-        for id, model in models.items():
+        means = torch.zeros(len(models))
+        stds = torch.zeros(len(models))
+        for id, model in enumerate(models):
             # print("HI", id)
             mean = 0
             std = 0
@@ -134,10 +149,10 @@ class Aggregator:
                 if "weight" in name:
                     mean += param.mean()
                     std += param.std()
-            # means[id-1] = mean
-            # stds[id-1] = std
-            self.means[id-1][self.round] = mean
-            self.stds[id-1][self.round] = std
+            # means[id] = mean
+            # stds[id] = std
+            self.means[id][self.round] = mean
+            self.stds[id][self.round] = std
         #     named_params[id] = {"mean":mean.item(), "std":std.item()}
         # print(named_params)
 
@@ -145,6 +160,78 @@ class Aggregator:
         # plt.plot(range(30), stds)
         # plt.show()
         self.round += 1
+
+
+    def pca3D(self, X):
+        pca = PCA(3).fit(X)
+        pca_3d = pca.transform(X)
+
+        fig = plt.figure()
+        ax = fig.add_subplot(projection="3d")
+        c1, c2, c3, c4 = None, None, None, None
+        for i in range(len(pca_3d)):
+            if self.clients[i].flip:
+                c1 = ax.scatter(pca_3d[i,0],pca_3d[i,1],pca_3d[i,2],c='r',marker='+')
+            elif self.clients[i].byz:
+                c2 = ax.scatter(pca_3d[i,0],pca_3d[i,1],pca_3d[i,2],c='g',marker='o')
+            elif self.clients[i].free:
+                c3 = ax.scatter(pca_3d[i,0],pca_3d[i,1],pca_3d[i,2],c='b',marker='*')
+            else:
+                c4 = ax.scatter(pca_3d[i,0],pca_3d[i,1],pca_3d[i,2],c='y',marker='.')
+
+        plt.legend([c1, c2, c3, c4], ['Byz', 'Faulty', "Free", 'Benign'])
+        plt.title('Iris dataset with 3 clusters and known outcomes')
+        plt.show()
+
+
+    def pca2D(self, X):
+        pca = PCA(2).fit(X)
+        pca_2d = pca.transform(X)
+
+        plt.figure()
+        c1, c2, c3, c4 = None, None, None, None
+        for i in range(len(pca_2d)):
+            if self.clients[i].flip:
+                c1 = plt.scatter(pca_2d[i,0],pca_2d[i,1],c='r',marker='+')
+            elif self.clients[i].byz:
+                c2 = plt.scatter(pca_2d[i,0],pca_2d[i,1],c='g',marker='o')
+            elif self.clients[i].free:
+                c3 = plt.scatter(pca_2d[i,0],pca_2d[i,1],c='b',marker='*')
+            else:
+                c4 = plt.scatter(pca_2d[i,0],pca_2d[i,1],c='y',marker='.')
+
+        plt.legend([c1, c2, c3, c4], ['Byz', 'Faulty', "Free", 'Benign'])
+        plt.title('Iris dataset with 3 clusters and known outcomes')
+        plt.show()
+
+
+    def pca1D(self, X):
+        pca = PCA(1).fit(X)
+        pca_2d = pca.transform(X)
+
+        plt.figure()
+        c1, c2, c3, c4 = None, None, None, None
+        for i in range(len(pca_2d)):
+            if self.clients[i].flip:
+                c1 = plt.scatter(pca_2d[i],pca_2d[i],c='r',marker='+')
+            elif self.clients[i].byz:
+                c2 = plt.scatter(pca_2d[i],pca_2d[i],c='g',marker='o')
+            elif self.clients[i].free:
+                c3 = plt.scatter(pca_2d[i],pca_2d[i],c='b',marker='*')
+            else:
+                c4 = plt.scatter(pca_2d[i],pca_2d[i],c='y',marker='.')
+
+        plt.legend([c1, c2, c3, c4], ['Byz', 'Faulty', "Free", 'Benign'])
+        plt.title('Iris dataset with 3 clusters and known outcomes')
+        plt.show()
+
+
+    # dim must be between 0 and min(n_samples, n_features)
+    # This is most likely len(self.clients) (e.g. 30) unless you are working with a really small model
+    def pca(self, flattened_models: nn.Module, dim=10) -> Tuple[Union[Tuple, float]]:
+        return PCA(dim).fit_transform(flattened_models)
+
+
 
 def allAggregators() -> List[Aggregator]:
     return Aggregator.__subclasses__()

@@ -1,7 +1,8 @@
+from aggregators.GroupWise import GroupWiseAggregation
 from datasetLoaders.DatasetLoader import DatasetLoader
 from experiment.CustomConfig import CustomConfig
 import os
-from typing import Callable, Dict, List, NewType, Tuple, Dict, Union
+from typing import Callable, Dict, List, Literal, NewType, Tuple, Dict, Union
 import json
 from loguru import logger
 
@@ -104,7 +105,7 @@ COLOURS: List[str] = [
 ##################################
 
 Errors = NewType("Errors", torch.Tensor)
-BlockedType = Union["benign", "malicious", "faulty", "freeRider"]
+BlockedType = Union[Literal["benign"], Literal["malicious"], Literal["faulty"], Literal["freeRider"]]
 BlockedLocations = NewType("BlockedLocations", Dict[BlockedType, List[Tuple[int, int]]])
 
 ##################################
@@ -232,7 +233,11 @@ def __runExperiment(config: DefaultExperimentConfiguration, datasetLoader, class
     if config.requireDatasetAnonymization:
         classifier.inputSize = testDataset.getInputSize()
     model = classifier().to(config.device)
-    aggregator = aggregator(clients, model, config.rounds, config.device, config.freeRiderDetect)
+
+    if config.clustering:
+        aggregator = GroupWiseAggregation(clients, model, config.rounds, config.device, config.freeRiderDetect, config=config)
+    else:
+        aggregator = aggregator(clients, model, config.rounds, config.device, config.freeRiderDetect)
     if isinstance(aggregator, AFAAggregator):
         aggregator.xi = config.xi
         aggregator.deltaXi = config.deltaXi
@@ -246,17 +251,17 @@ def __runExperiment(config: DefaultExperimentConfiguration, datasetLoader, class
         "faulty": aggregator.faultyBlocked,
         "freeRider": aggregator.freeRidersBlocked
     }
-    plt.figure()
-    for i in range(30):
-        plt.plot(aggregator.means[i].detach().numpy())
-    plt.legend(range(30))
-    plt.show()
-    plt.figure()
-    for i in range(30):
-        plt.plot(aggregator.stds[i].detach().numpy())
-    plt.legend(range(30))
-    plt.show()
-    exit(0)
+    # plt.figure()
+    # for i in range(30):
+    #     plt.plot(aggregator.means[i].detach().numpy())
+    # plt.legend(range(30))
+    # plt.show()
+    # plt.figure()
+    # for i in range(30):
+    #     plt.plot(aggregator.stds[i].detach().numpy())
+    # plt.legend(range(30))
+    # plt.show()
+    # exit(0)
     return errors, blocked
 
 
@@ -268,7 +273,7 @@ def __initClients(config: DefaultExperimentConfiguration, trainDatasets, useDiff
     for i in range(usersNo):
         clients.append(
             Client(
-                idx=i + 1,
+                idx=i,
                 trainDataset=trainDatasets[i],
                 epochs=config.epochs,
                 batchSize=config.batchSize,
@@ -331,14 +336,16 @@ def experiment(exp: Callable[[], None]):
     return decorator
 
 
+@experiment
 def program() -> None:
     config = CustomConfig()
     percUsers = torch.tensor(PERC_USERS)
 
-    config.aggregators = [COMEDAggregator]
+    config.aggregators = [GroupWiseAggregation]
     config.percUsers = percUsers
-    config.freeRiderDetect = True
-    config.rounds = 10
+    # config.freeRiderDetect = True
+    config.rounds = 30
+    config.clustering = True
 
     for attackName in config.scenario_conversion():
 
