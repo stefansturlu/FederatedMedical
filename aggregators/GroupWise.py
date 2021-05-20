@@ -24,17 +24,19 @@ class GroupWiseAggregation(Aggregator):
 
         self.cluster_count = 5
         self.cluster_centres: List[nn.Module] = [None]*self.cluster_count
-        self.cluster_centres_p = [0]*self.cluster_count
+        self.cluster_centres_len = torch.zeros(self.cluster_count)
         self.cluster_labels = [0]*len(self.clients)
 
         self.internalAggregator = self._init_aggregator(config.internalAggregator)
         self.externalAggregator = self._init_aggregator(config.externalAggregator)
 
+        self.blocked_ps = []
+
     def trainAndTest(self, testDataset: DatasetInterface) -> Tensor:
         roundsError = torch.zeros(self.config.rounds)
         for r in range(self.config.rounds):
             logPrint("Round... ", r)
-            if r == 0:
+            if True:
                 self._shareModelAndTrainOnClients()
             else:
                 self._shareModelAndTrainOnClients(self.cluster_centres, self.cluster_labels)
@@ -46,24 +48,23 @@ class GroupWiseAggregation(Aggregator):
                 self.generate_cluster_centres(models)
 
 
-                if r % 3 == 2:
+                if True:
                     # Assume p value is based on size of cluster
                     best_models, ps, indices = self._use_most_similar_clusters()
                     conc_ps = [ps[i] for i in indices]
+                    conc_ps = [p/sum(conc_ps) for p in conc_ps]
 
-                    class FakeClient:
-                        def __init__(self, p:float, id:int):
-                            self.p = p
-                            self.id = id
 
                     general = self.externalAggregator.aggregate([FakeClient(p, i) for (i, p) in enumerate(ps)], self.cluster_centres)
+
+
                     concentrated = self.externalAggregator.aggregate([FakeClient(p, i) for (i, p) in enumerate(conc_ps)], best_models)
 
-                    for i in range(len(self.cluster_centres)):
-                        if i in indices:
-                            self.cluster_centres[i] = concentrated
-                        else:
-                            self.cluster_centres[i] = general
+                    # for i in range(len(self.cluster_centres)):
+                    #     # if i in indices:
+                    #     # self.cluster_centres[i] = concentrated
+                    #     # else:
+                    #     self.cluster_centres[i] = general
 
 
                     print("Concentrated test")
@@ -86,19 +87,6 @@ class GroupWiseAggregation(Aggregator):
             agg.reinitialise(self.config.innerLR)
 
         return agg
-
-
-    def _init_cluster_centres(self, models: List[nn.Module]) -> None:
-        if self.cluster_centres == None:
-            indices: Tensor = torch.randint(high=len(models), size=(self.cluster_count,))
-            self.cluster_centres = [models[i] for i in indices]
-
-        else:
-            for choice in range(self.cluster_count):
-                indices = [i for i,val in enumerate(self.cluster_labels) if val == choice]
-                self.cluster_centres[choice] = self._gen_cluster_centre(indices, models)
-                self.cluster_centres_p[choice] = len(indices)
-
 
     def _gen_cluster_centre(self, indices: Tensor, models: List[nn.Module]) -> nn.Module:
         """ Takes the average of the clients assigned to each cluster to generate a new centre """
@@ -132,18 +120,19 @@ class GroupWiseAggregation(Aggregator):
         kmeans = KMeans(n_clusters=self.cluster_count, random_state=0).fit(pca)
         y_kmeans = KMeans(n_clusters=self.cluster_count, random_state=0).fit_predict(pca)
 
-        plt.figure()
-        plt.scatter(pca[y_kmeans==0, 0], pca[y_kmeans==0, 1], s=100, c='red', label ='Cluster 1')
-        plt.scatter(pca[y_kmeans==1, 0], pca[y_kmeans==1, 1], s=100, c='blue', label ='Cluster 2')
-        plt.scatter(pca[y_kmeans==2, 0], pca[y_kmeans==2, 1], s=100, c='green', label ='Cluster 3')
-        plt.scatter(pca[y_kmeans==3, 0], pca[y_kmeans==3, 1], s=100, c='cyan', label ='Cluster 4')
-        plt.scatter(pca[y_kmeans==4, 0], pca[y_kmeans==4, 1], s=100, c='magenta', label ='Cluster 5')
-        #Plot the centroid. This time we're going to use the cluster centres  #attribute that returns here the coordinates of the centroid.
-        plt.scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], s=50, c='yellow', label = 'Centroids')
-        plt.title('Clusters of Customers')
-        plt.xlabel('Annual Income(k$)')
-        plt.ylabel('Spending Score(1-100')
-        plt.show()
+        # plt.figure()
+        # plt.scatter(pca[y_kmeans==0, 0], pca[y_kmeans==0, 1], s=100, c='red', label ='Cluster 0')
+        # plt.scatter(pca[y_kmeans==1, 0], pca[y_kmeans==1, 1], s=100, c='blue', label ='Cluster 1')
+        # plt.scatter(pca[y_kmeans==2, 0], pca[y_kmeans==2, 1], s=100, c='green', label ='Cluster 2')
+        # plt.scatter(pca[y_kmeans==3, 0], pca[y_kmeans==3, 1], s=100, c='cyan', label ='Cluster 3')
+        # plt.scatter(pca[y_kmeans==4, 0], pca[y_kmeans==4, 1], s=100, c='magenta', label ='Cluster 4')
+        # #Plot the centroid. This time we're going to use the cluster centres  #attribute that returns here the coordinates of the centroid.
+        # plt.scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], s=50, c='yellow', label = 'Centroids')
+        # plt.title('Clusters of Customers')
+        # plt.xlabel('Annual Income(k$)')
+        # plt.ylabel('Spending Score(1-100')
+        # plt.legend()
+        # plt.show()
 
 
         # self.pca1D(X)
@@ -153,16 +142,19 @@ class GroupWiseAggregation(Aggregator):
 
         self.cluster_labels = kmeans.labels_
         indices = [[] for _ in range(self.cluster_count)]
+        self.cluster_centres_len.zero_()
 
         for i, l in enumerate(self.cluster_labels):
-            self.cluster_centres_p[l] += 1
+            self.cluster_centres_len[l] += 1
             indices[l].append(i)
 
         print(self.cluster_labels)
 
-        self.cluster_centres_p = [p/len(self.clients) for p in self.cluster_centres_p]
+        self.cluster_centres_len /= len(self.clients)
         for i, ins in enumerate(indices):
             self.cluster_centres[i] = self._gen_cluster_centre(ins, models)
+
+
 
 
     def _use_most_similar_clusters(self) -> None:
@@ -172,60 +164,6 @@ class GroupWiseAggregation(Aggregator):
         Xl = [model.tolist() for model in X]
         kmeans = KMeans(n_clusters=num_to_take, random_state=0).fit(Xl)
         print(kmeans.labels_)
-
-
-        # dists = [[] for _ in range(self.cluster_count)]
-
-        # for i, m1 in enumerate(X):
-        #     for m2 in X:
-        #         d = torch.square(m1 - m2).sum().sqrt()
-        #         dists[i].append(d)
-        # print("dists")
-        # print(dists)
-
-        # best_val = 100000000
-        # best_indices = None
-
-        # for i, d in enumerate(dists):
-        #     indices = heapq.nsmallest(num_to_take, range(len(d)), d.__getitem__)
-        #     print(indices)
-        #     val = sum(d[i] for i in indices)
-        #     if val < best_val:
-        #         best_val = val
-        #         best_indices = indices
-
-        # print("best indices")
-        # print(best_indices)
-
-        # best_models = [self.cluster_centres[i] for i in best_indices]
-        # ps = [self.cluster_centres_p[i] for i in best_indices]
-        # print("ps")
-        # print(ps)
-        # ps = [p/sum(ps) for p in ps]
-        # print("ps")
-        # print(ps)
-
-        # class FakeClient:
-        #     def __init__(self, p:float, id:int):
-        #         self.p = p
-        #         self.id = id
-
-        # self.model = self.externalAggregator.aggregate([FakeClient(p/len(ps), i) for (i, p) in enumerate(ps)], best_models)
-
-        # for i in best_indices:
-        #     self.cluster_centres[i] = self.model
-
-
-        # return best_models, ps
-
-
-
-
-
-
-
-
-
 
 
 
@@ -255,9 +193,17 @@ class GroupWiseAggregation(Aggregator):
         print("best indices")
         print(best_indices)
 
+        mean = 1 / self.cluster_count
+        ps = Tensor([p/sum(sims[besti]) for p in sims[besti]])
+        std = torch.std(ps[ps.nonzero()])
+        cutoff = mean - std
+        print("cutoff")
+        print(cutoff)
+
         best_models = [self.cluster_centres[i] for i in best_indices]
-        ps = [s for s in sims[besti]]
-        ps = [p/sum(ps) for p in ps]
+        ps[ps < cutoff] = 0
+        ps = ps.mul(self.cluster_centres_len)
+        ps /= ps.sum()
         print("ps")
         print(ps)
 
@@ -265,3 +211,7 @@ class GroupWiseAggregation(Aggregator):
 
 
 
+class FakeClient:
+    def __init__(self, p:float, id:int):
+        self.p = p
+        self.id = id
