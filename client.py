@@ -102,8 +102,9 @@ class Client:
 
     # Function to train the model for a specific user
     def trainModel(self):
-        # If the use is a free rider then they won't have any data to train on (theoretically)
         if self.free:
+            # If the use is a free rider then they won't have any data to train on (theoretically)
+            # However, we have to initialise the grad weights and the only way I know to do that is to train
             return None, None
 
         self.model = self.model.to(self.device)
@@ -133,13 +134,15 @@ class Client:
 
     # Function used by aggregators to retrieve the model from the client
     def retrieveModel(self) -> nn.Module:
+        # with torch.no_grad():
         if self.free:
             # Free-rider update
             # The self.model won't update but this is just a logical check
+            # self.__manipulate_grad()
             return self.untrainedModel
 
         if self.byz:
-            # Malicious model update
+            # Faulty model update
             # logPrint("Malicous update for user ",u.id)
             self.__manipulateModel()
 
@@ -154,6 +157,31 @@ class Client:
         for name, param in params:
             noise = alpha * torch.randn(param.data.size()).to(self.device)
             param.data.copy_(param.data.to(self.device) + noise)
+
+
+    def __manipulate_grad(self):
+        # paramsDest = mDest.named_parameters()
+        # dictParamsDest = dict(paramsDest)
+        # paramsOrig = mOrig.named_parameters()
+        # for name1, param1 in paramsOrig:
+        #     if name1 in dictParamsDest:
+        #         weightedSum = alphaOrig * param1.data + alphaDest * dictParamsDest[name1].data
+        #         dictParamsDest[name1].data.copy_(weightedSum)
+
+
+
+        model = copy.deepcopy(self.model)
+        untrainedParams = dict(self.untrainedModel.named_parameters())
+        R = 10e-3
+        for name, param in model.named_parameters():
+            grad = R * torch.randn(param.data.size(), device=self.device)
+            par = nn.parameter.Parameter(param.data, requires_grad=True)
+            param.data.copy_(untrainedParams[name])
+            param.grad.copy_(grad)
+
+        self.model = copy.deepcopy(model)
+
+
 
     # Procedure for implementing differential privacy
     def __privacyPreserve(

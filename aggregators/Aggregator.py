@@ -135,30 +135,23 @@ class Aggregator:
 
     def handle_free_riders(self, models: List[nn.Module]):
         """Function to handle when we want to detect the presence of free-riders"""
-        named_params = {}
-        means = torch.zeros(len(models))
-        stds = torch.zeros(len(models))
         for id, model in enumerate(models):
-            # print("HI", id)
             mean = 0
             std = 0
-            for name, param in model.named_parameters():
-                # print(name)
-                # print(param.mean())
-                # print(param.std())
-                if "weight" in name:
-                    mean += param.mean()
-                    std += param.std()
-            # means[id] = mean
-            # stds[id] = std
+            for param in model.parameters():
+                # If it is a free-rider
+                if param.grad is None:
+                    R = 3e-3
+                    grad = R * torch.randn(param.data.size(), device=self.device)
+                    mean += grad.mean()
+                    std += grad.std()
+                else:
+                    mean += param.grad.mean()
+                    std += param.grad.std()
             self.means[id][self.round] = mean
             self.stds[id][self.round] = std
-        #     named_params[id] = {"mean":mean.item(), "std":std.item()}
-        # print(named_params)
 
-        # plt.figure()
-        # plt.plot(range(30), stds)
-        # plt.show()
+
         self.round += 1
 
 

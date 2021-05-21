@@ -32,39 +32,6 @@ from aggregators.FedAvg import FAAggregator
 from aggregators.COMED import COMEDAggregator
 from aggregators.MKRUM import MKRUMAggregator
 
-# Determines how much data each client gets (normalised)
-PERC_USERS: List[float] = [
-    0.1,
-    0.15,
-    0.2,
-    0.2,
-    0.1,
-    0.15,
-    0.1,
-    0.15,
-    0.2,
-    0.2,
-    0.1,
-    0.15,
-    0.2,
-    0.2,
-    0.1,
-    0.15,
-    0.1,
-    0.15,
-    0.2,
-    0.2,
-    0.1,
-    0.15,
-    0.2,
-    0.2,
-    0.1,
-    0.15,
-    0.1,
-    0.15,
-    0.2,
-    0.2,
-]
 
 # Colours used for graphing, add more if necessary
 COLOURS: List[str] = [
@@ -251,16 +218,31 @@ def __runExperiment(config: DefaultExperimentConfiguration, datasetLoader, class
         "faulty": aggregator.faultyBlocked,
         "freeRider": aggregator.freeRidersBlocked
     }
-    # plt.figure()
-    # for i in range(30):
-    #     plt.plot(aggregator.means[i].detach().numpy())
-    # plt.legend(range(30))
-    # plt.show()
-    # plt.figure()
-    # for i in range(30):
-    #     plt.plot(aggregator.stds[i].detach().numpy())
-    # plt.legend(range(30))
-    # plt.show()
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    for i in range(30):
+        if clients[i].free or clients[i].byz or clients[i].flip:
+            ax.plot(aggregator.means[i].detach().numpy(), color="red", label="free")
+        else:
+            ax.plot(aggregator.means[i].detach().numpy(), color="grey", label="normal")
+    handles, labels = ax.get_legend_handles_labels()
+    plt.legend([handles[0], handles[3]], [labels[0], labels[3]])
+    if not (os.path.exists("test")):
+        os.makedirs("test")
+    # plt.savefig(f"test/std_{config.name}.png")
+    plt.show()
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    for i in range(30):
+        if clients[i].free or clients[i].byz or clients[i].flip:
+            ax.plot(aggregator.stds[i].detach().numpy(), color="red", label="free")
+        else:
+            ax.plot(aggregator.stds[i].detach().numpy(), color="grey", label="normal")
+    handles, labels = ax.get_legend_handles_labels()
+    plt.legend([handles[0], handles[3]], [labels[0], labels[3]])
+    # plt.savefig(f"test/mean_{config.name}.png")
+    plt.show()
     # exit(0)
     return errors, blocked
 
@@ -339,13 +321,6 @@ def experiment(exp: Callable[[], None]):
 @experiment
 def program() -> None:
     config = CustomConfig()
-    percUsers = torch.tensor(PERC_USERS)
-
-    config.aggregators = [GroupWiseAggregation]
-    config.percUsers = percUsers
-    # config.freeRiderDetect = True
-    config.rounds = 30
-    config.clustering = True
 
     for attackName in config.scenario_conversion():
 
