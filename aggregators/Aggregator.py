@@ -1,3 +1,4 @@
+from utils.FreeRider import FreeRider
 from datasetLoaders.DatasetInterface import DatasetInterface
 from torch import Tensor, nn, device
 from client import Client
@@ -15,6 +16,7 @@ IdRoundPair = NewType("IdRoundPair", Tuple[int, int])
 
 class Aggregator:
     def __init__(self, clients: List[Client], model: nn.Module, rounds: int, device: device, detectFreeRiders:bool, useAsyncClients: bool = False):
+        self.prev_model: nn.Module = None
         self.model = model.to(device)
         self.clients: List[Client] = clients
         self.rounds: int = rounds
@@ -136,93 +138,16 @@ class Aggregator:
     def handle_free_riders(self, models: List[nn.Module]):
         """Function to handle when we want to detect the presence of free-riders"""
         for id, model in enumerate(models):
-            mean = 0
-            std = 0
-            for param in model.parameters():
-                # If it is a free-rider
-                if param.grad is None:
-                    R = 3e-3
-                    grad = R * torch.randn(param.data.size(), device=self.device)
-                    mean += grad.mean()
-                    std += grad.std()
-                else:
-                    mean += param.grad.mean()
-                    std += param.grad.std()
-            self.means[id][self.round] = mean
-            self.stds[id][self.round] = std
+            if self.clients[id].free:
+                mean, std = FreeRider.free_grads(model, self.prev_model)
+            else:
+                mean, std = FreeRider.normal_grads(model)
 
+            self.means[id][self.round] = mean.to(self.device)
+            self.stds[id][self.round] = std.to(self.device)
 
         self.round += 1
-
-
-    def pca3D(self, X):
-        pca = PCA(3).fit(X)
-        pca_3d = pca.transform(X)
-
-        fig = plt.figure()
-        ax = fig.add_subplot(projection="3d")
-        c1, c2, c3, c4 = None, None, None, None
-        for i in range(len(pca_3d)):
-            if self.clients[i].flip:
-                c1 = ax.scatter(pca_3d[i,0],pca_3d[i,1],pca_3d[i,2],c='r',marker='+')
-            elif self.clients[i].byz:
-                c2 = ax.scatter(pca_3d[i,0],pca_3d[i,1],pca_3d[i,2],c='g',marker='o')
-            elif self.clients[i].free:
-                c3 = ax.scatter(pca_3d[i,0],pca_3d[i,1],pca_3d[i,2],c='b',marker='*')
-            else:
-                c4 = ax.scatter(pca_3d[i,0],pca_3d[i,1],pca_3d[i,2],c='y',marker='.')
-
-        plt.legend([c1, c2, c3, c4], ['Byz', 'Faulty', "Free", 'Benign'])
-        plt.title('Iris dataset with 3 clusters and known outcomes')
-        plt.show()
-
-
-    def pca2D(self, X):
-        pca = PCA(2).fit(X)
-        pca_2d = pca.transform(X)
-
-        plt.figure()
-        c1, c2, c3, c4 = None, None, None, None
-        for i in range(len(pca_2d)):
-            if self.clients[i].flip:
-                c1 = plt.scatter(pca_2d[i,0],pca_2d[i,1],c='r',marker='+')
-            elif self.clients[i].byz:
-                c2 = plt.scatter(pca_2d[i,0],pca_2d[i,1],c='g',marker='o')
-            elif self.clients[i].free:
-                c3 = plt.scatter(pca_2d[i,0],pca_2d[i,1],c='b',marker='*')
-            else:
-                c4 = plt.scatter(pca_2d[i,0],pca_2d[i,1],c='y',marker='.')
-
-        plt.legend([c1, c2, c3, c4], ['Byz', 'Faulty', "Free", 'Benign'])
-        plt.title('Iris dataset with 3 clusters and known outcomes')
-        plt.show()
-
-
-    def pca1D(self, X):
-        pca = PCA(1).fit(X)
-        pca_2d = pca.transform(X)
-
-        plt.figure()
-        c1, c2, c3, c4 = None, None, None, None
-        for i in range(len(pca_2d)):
-            if self.clients[i].flip:
-                c1 = plt.scatter(pca_2d[i],pca_2d[i],c='r',marker='+')
-            elif self.clients[i].byz:
-                c2 = plt.scatter(pca_2d[i],pca_2d[i],c='g',marker='o')
-            elif self.clients[i].free:
-                c3 = plt.scatter(pca_2d[i],pca_2d[i],c='b',marker='*')
-            else:
-                c4 = plt.scatter(pca_2d[i],pca_2d[i],c='y',marker='.')
-
-        plt.legend([c1, c2, c3, c4], ['Byz', 'Faulty', "Free", 'Benign'])
-        plt.title('Iris dataset with 3 clusters and known outcomes')
-        plt.show()
-
-
-    # dim must be between 0 and min(n_samples, n_features)
-    # This is most likely len(self.clients) (e.g. 30) unless you are working with a really small model
-    def pca(self, flattened_models: nn.Module, dim=10) -> Tuple[Union[Tuple, float]]:
-        return PCA(dim).fit_transform(flattened_models)
+        self.prev_model = copy.deepcopy(self.model)
 
 
 

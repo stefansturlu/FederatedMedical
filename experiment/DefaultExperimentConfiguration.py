@@ -1,8 +1,9 @@
 from aggregators.FedAvg import FAAggregator
 import torch
 from aggregators.Aggregator import Aggregator, allAggregators
-from typing import List, Union
+from typing import List, Tuple, Union
 import torch.optim as optim
+import torch.nn as nn
 
 
 class DefaultExperimentConfiguration:
@@ -17,11 +18,11 @@ class DefaultExperimentConfiguration:
         )
         self.batchSize: int = 200  # Local training  batch size
         self.learningRate: float = 0.1
-        self.Loss = torch.nn.CrossEntropyLoss
+        self.Loss = nn.CrossEntropyLoss
         self.Optimizer: optim.Optimizer = torch.optim.SGD
 
         # Big datasets size tuning param: (trainSize, testSize); (None, None) interpreted as full dataset
-        self.datasetSize = (None, None)
+        self.datasetSize: Tuple[int, int] = (None, None)
 
         # Clients setup
         self.percUsers = torch.tensor(

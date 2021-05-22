@@ -60,8 +60,8 @@ class Client:
 
         self.opt = None
         self.sim: Tensor = None
-        self.loss = None
-        self.Loss = Loss
+        self.loss: nn.CrossEntropyLoss = None
+        self.Loss: nn.CrossEntropyLoss = Loss
         self.Optimizer: optim.Optimizer = Optimizer
         self.pEpoch: float = None
         self.badUpdate: bool = False
@@ -96,7 +96,7 @@ class Client:
             )
         else:
             self.opt: optim.Optimizer = self.Optimizer(self.model.parameters(), lr=self.learningRate)
-        self.loss = self.Loss()
+        self.loss: nn.CrossEntropyLoss = self.Loss()
         self.untrainedModel = copy.deepcopy(model)
         torch.cuda.empty_cache()
 
@@ -134,11 +134,9 @@ class Client:
 
     # Function used by aggregators to retrieve the model from the client
     def retrieveModel(self) -> nn.Module:
-        # with torch.no_grad():
         if self.free:
             # Free-rider update
             # The self.model won't update but this is just a logical check
-            # self.__manipulate_grad()
             return self.untrainedModel
 
         if self.byz:
@@ -157,30 +155,6 @@ class Client:
         for name, param in params:
             noise = alpha * torch.randn(param.data.size()).to(self.device)
             param.data.copy_(param.data.to(self.device) + noise)
-
-
-    def __manipulate_grad(self):
-        # paramsDest = mDest.named_parameters()
-        # dictParamsDest = dict(paramsDest)
-        # paramsOrig = mOrig.named_parameters()
-        # for name1, param1 in paramsOrig:
-        #     if name1 in dictParamsDest:
-        #         weightedSum = alphaOrig * param1.data + alphaDest * dictParamsDest[name1].data
-        #         dictParamsDest[name1].data.copy_(weightedSum)
-
-
-
-        model = copy.deepcopy(self.model)
-        untrainedParams = dict(self.untrainedModel.named_parameters())
-        R = 10e-3
-        for name, param in model.named_parameters():
-            grad = R * torch.randn(param.data.size(), device=self.device)
-            par = nn.parameter.Parameter(param.data, requires_grad=True)
-            param.data.copy_(untrainedParams[name])
-            param.grad.copy_(grad)
-
-        self.model = copy.deepcopy(model)
-
 
 
     # Procedure for implementing differential privacy

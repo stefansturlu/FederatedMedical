@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 import math
 import heapq
+from utils.PCA import PCA
 
 # Group-Wise Aggregator based on clustering
 # Even though it itself does not do aggregation, it makes programatic sense to inherit attributes and functions
@@ -116,7 +117,7 @@ class GroupWiseAggregation(Aggregator):
     def generate_cluster_centres(self, models: List[nn.Module]) -> None:
         X = self._generate_weights(models)
         X = [model.tolist() for model in X]
-        pca = self.pca(X, dim=2)
+        pca = PCA.pca(X, dim=2)
         kmeans = KMeans(n_clusters=self.cluster_count, random_state=0).fit(pca)
         y_kmeans = KMeans(n_clusters=self.cluster_count, random_state=0).fit_predict(pca)
 
@@ -135,9 +136,9 @@ class GroupWiseAggregation(Aggregator):
         # plt.show()
 
 
-        # self.pca1D(X)
-        # self.pca2D(X)
-        # self.pca3D(X)
+        # PCA.pca1D(X, self.clients)
+        # PCA.pca2D(X, self.clients)
+        # PCA.pca3D(X, self.clients)
 
 
         self.cluster_labels = kmeans.labels_

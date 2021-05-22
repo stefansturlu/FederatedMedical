@@ -22,7 +22,7 @@ import random
 import torch
 import time
 import gc
-from torch import cuda
+from torch import cuda, Tensor
 
 from aggregators.Aggregator import Aggregator, allAggregators
 from aggregators.AFA import AFAAggregator
@@ -71,7 +71,7 @@ COLOURS: List[str] = [
 #### Types #######################
 ##################################
 
-Errors = NewType("Errors", torch.Tensor)
+Errors = NewType("Errors", Tensor)
 BlockedType = Union[Literal["benign"], Literal["malicious"], Literal["faulty"], Literal["freeRider"]]
 BlockedLocations = NewType("BlockedLocations", Dict[BlockedType, List[Tuple[int, int]]])
 
@@ -135,7 +135,7 @@ def __experimentSetup(
     print(filename)
     __setRandomSeeds()
     gc.collect()
-    torch.cuda.empty_cache()
+    cuda.empty_cache()
     errorsDict: Dict[str, Errors] = {}
     blocked: Dict[str, BlockedLocations] = {}
 
@@ -332,7 +332,7 @@ def program() -> None:
         )
 
 @experiment
-def pipeline():
+def pipeline() -> None:
     ### SET ANY CONFIG PARAMS HERE
     config = DefaultExperimentConfiguration()
 
