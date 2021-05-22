@@ -50,6 +50,8 @@ class DefaultExperimentConfiguration:
         self.needClip: bool = False
         self.clipValue: float = 0.001
         self.needNormalization: bool = False
+        self.privacyAmplification = False
+        self.amplificationP = 0.3
 
         # Anonymization of datasets for k-anonymity
         self.requireDatasetAnonymization: bool = False

@@ -1,17 +1,18 @@
+from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration
 from client import Client
 from logger import logPrint
-from typing import Dict, List
+from typing import List
 import torch
 import copy
 from aggregators.Aggregator import Aggregator
-from torch import nn, device, Tensor
+from torch import nn, Tensor
 from scipy.stats import beta
 from datasetLoaders.DatasetInterface import DatasetInterface
 
 # ADAPTIVE FEDERATED AVERAGING
 class AFAAggregator(Aggregator):
-    def __init__(self, clients: List[Client], model: nn.Module, rounds: int, device: device, detectFreeRiders:bool, useAsyncClients:bool=False):
-        super().__init__(clients, model, rounds, device, detectFreeRiders, useAsyncClients)
+    def __init__(self, clients: List[Client], model: nn.Module, config: DefaultExperimentConfiguration, useAsyncClients:bool=False):
+        super().__init__(clients, model, config, useAsyncClients)
         self.xi: float = 2
         self.deltaXi: float = 0.25
 

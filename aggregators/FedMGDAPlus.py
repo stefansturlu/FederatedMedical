@@ -1,10 +1,11 @@
+from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration
 from client import Client
-from typing import Dict, List
+from typing import List
 from logger import logPrint
 import torch
 import copy
 from aggregators.Aggregator import Aggregator
-from torch import nn, Tensor, device
+from torch import nn, Tensor
 import torch.optim as optim
 
 
@@ -13,13 +14,11 @@ class FedMGDAPlusAggregator(Aggregator):
         self,
         clients:List[Client],
         model:nn.Module,
-        rounds:int,
-        device:device,
-        detectFreeRiders:bool,
+        config: DefaultExperimentConfiguration,
         useAsyncClients:bool=False,
         learningRate:float=0.1,
     ):
-        super().__init__(clients, model, rounds, device, detectFreeRiders, useAsyncClients)
+        super().__init__(clients, model, config, useAsyncClients)
         self.numOfClients = len(clients)
         self.lambdaModel = nn.Parameter(torch.ones(self.numOfClients), requires_grad=True)
         self.LR = learningRate

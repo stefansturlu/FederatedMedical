@@ -202,9 +202,9 @@ def __runExperiment(config: DefaultExperimentConfiguration, datasetLoader, class
     model = classifier().to(config.device)
 
     if config.clustering:
-        aggregator = GroupWiseAggregation(clients, model, config.rounds, config.device, config.freeRiderDetect, config=config)
+        aggregator = GroupWiseAggregation(clients, model, config)
     else:
-        aggregator = aggregator(clients, model, config.rounds, config.device, config.freeRiderDetect)
+        aggregator = aggregator(clients, model, config)
     if isinstance(aggregator, AFAAggregator):
         aggregator.xi = config.xi
         aggregator.deltaXi = config.deltaXi

@@ -1,7 +1,8 @@
-from torch import nn, device, Tensor
+from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration
+from torch import nn, Tensor
 from client import Client
 from logger import logPrint
-from typing import Dict, List
+from typing import List
 import torch
 from aggregators.Aggregator import Aggregator
 from datasetLoaders.DatasetInterface import DatasetInterface
@@ -9,8 +10,8 @@ from copy import deepcopy
 
 # FEDERATED AVERAGING AGGREGATOR
 class FAAggregator(Aggregator):
-    def __init__(self, clients: List[Client], model: nn.Module, rounds: int, device: device, detectFreeRiders:bool, useAsyncClients:bool=False):
-        super().__init__(clients, model, rounds, device, detectFreeRiders, useAsyncClients)
+    def __init__(self, clients: List[Client], model: nn.Module, config:DefaultExperimentConfiguration, useAsyncClients:bool=False):
+        super().__init__(clients, model, config, useAsyncClients)
 
     def trainAndTest(self, testDataset: DatasetInterface) -> Tensor:
         roundsError = torch.zeros(self.rounds)

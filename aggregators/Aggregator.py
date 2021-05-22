@@ -1,3 +1,4 @@
+from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration
 from utils.FreeRider import FreeRider
 from datasetLoaders.DatasetInterface import DatasetInterface
 from torch import Tensor, nn, device
@@ -7,26 +8,29 @@ from logger import logPrint
 from threading import Thread
 from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
-from typing import List, NewType, Tuple, Dict, Union
+from typing import List, NewType, Tuple
 import torch
 import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA
+from random import uniform
 
 IdRoundPair = NewType("IdRoundPair", Tuple[int, int])
 
 class Aggregator:
-    def __init__(self, clients: List[Client], model: nn.Module, rounds: int, device: device, detectFreeRiders:bool, useAsyncClients: bool = False):
-        self.prev_model: nn.Module = None
+    def __init__(self, clients: List[Client], model: nn.Module, config: DefaultExperimentConfiguration, useAsyncClients: bool = False):
         self.model = model.to(device)
         self.clients: List[Client] = clients
-        self.rounds: int = rounds
+        self.rounds: int = config.rounds
+        self.config = config
 
-        self.device = device
+        self.device = config.device
         self.useAsyncClients = useAsyncClients
-        self.detectFreeRiders = detectFreeRiders
+        self.detectFreeRiders = config.detectFreeRiders
 
-        self.stds = torch.zeros((len(clients), rounds))
-        self.means = torch.zeros((len(clients), rounds))
+        # Used for free-rider detection
+        self.stds = torch.zeros((len(clients), self.rounds))
+        self.means = torch.zeros((len(clients), self.rounds))
+        self.prev_model: nn.Module = None
+
         self.round = 0
 
         # List of malicious users blocked in tuple of client_id and iteration
@@ -55,6 +59,9 @@ class Aggregator:
         if models == None and labels == None:
             models = [self.model]
             labels = [0]*len(self.clients)
+
+        if self.config.privacyAmplification:
+            chosen_indices = [i for i in range(len(self.clients)) if uniform(0, 1) > self.config.amplificationP]
 
         if self.useAsyncClients:
             threads = []
