@@ -58,6 +58,9 @@ class Client:
         # and after client local training, when DP is used
         self.untrainedModel: nn.Module = copy.deepcopy(model).to("cpu") if model else False
 
+        # Used for free-riders delta weights attacks
+        self.prev_model: nn.Module = None
+
         self.opt = None
         self.sim: Tensor = None
         self.loss: nn.CrossEntropyLoss = None
@@ -89,6 +92,7 @@ class Client:
         # FedMGDA+ params
 
     def updateModel(self, model: nn.Module) -> None:
+        self.prev_model = copy.deepcopy(self.model)
         self.model = model.to(self.device)
         if self.Optimizer == optim.SGD:
             self.opt = self.Optimizer(

@@ -29,7 +29,6 @@ class Aggregator:
         # Used for free-rider detection
         self.stds = torch.zeros((len(clients), self.rounds))
         self.means = torch.zeros((len(clients), self.rounds))
-        self.prev_model: nn.Module = None
 
         self.round = 0
 
@@ -41,6 +40,10 @@ class Aggregator:
         self.faultyBlocked: List[IdRoundPair] = []
         # List of free-riding users blocked
         self.freeRidersBlocked: List[IdRoundPair] = []
+
+        # Privacy amplification data
+        self.chosen_indices = []
+
 
     def trainAndTest(self, testDataset: DatasetInterface) -> Tensor:
         raise Exception(
@@ -60,14 +63,16 @@ class Aggregator:
             models = [self.model]
             labels = [0]*len(self.clients)
 
+        self.chosen_indices = [i for i in range(len(self.clients))]
+
         if self.config.privacyAmplification:
-            chosen_indices = [i for i in range(len(self.clients)) if uniform(0, 1) <= self.config.amplificationP]
-            print(chosen_indices)
-            print(len(chosen_indices))
+            self.chosen_indices = [i for i in range(len(self.clients)) if uniform(0, 1) <= self.config.amplificationP]
+
+        chosen_clients = [self.clients[i] for i in self.chosen_indices]
 
         if self.useAsyncClients:
             threads = []
-            for client in self.clients:
+            for client in chosen_clients:
                 model = models[labels[client.id]]
                 t = Thread(target=(lambda: self.__shareModelAndTrainOnClient(client, model)))
                 threads.append(t)
@@ -75,7 +80,7 @@ class Aggregator:
             for thread in threads:
                 thread.join()
         else:
-            for client in self.clients:
+            for client in chosen_clients:
                 model = models[labels[client.id]]
                 self.__shareModelAndTrainOnClient(client, model)
 
@@ -87,7 +92,9 @@ class Aggregator:
 
     def _retrieveClientModelsDict(self):
         models: List[nn.Module] = []
-        for client in self.clients:
+        chosen_clients = [self.clients[i] for i in self.chosen_indices]
+        
+        for client in chosen_clients:
             # If client blocked return an the unchanged version of the model
             if not client.blocked:
                 models.append(client.retrieveModel())
@@ -95,7 +102,7 @@ class Aggregator:
                 models.append(client.model)
 
         if self.detectFreeRiders:
-            self.handle_free_riders(models)
+            self.handle_free_riders(models, chosen_clients)
         return models
 
     def test(self, testDataset) -> float:
@@ -144,19 +151,20 @@ class Aggregator:
             self.benignBlocked.append(pair)
 
 
-    def handle_free_riders(self, models: List[nn.Module]):
+    def handle_free_riders(self, models: List[nn.Module], clients: List[Client]):
         """Function to handle when we want to detect the presence of free-riders"""
-        for id, model in enumerate(models):
-            if self.clients[id].free:
-                mean, std = FreeRider.free_grads(model, self.prev_model)
+        for i, model in enumerate(models):
+            client = clients[i]
+            # Technically the aggregator wouldn't know this but we can't manually set grads so this will do
+            if client.free:
+                mean, std = FreeRider.free_grads(model, client.prev_model)
             else:
                 mean, std = FreeRider.normal_grads(model)
 
-            self.means[id][self.round] = mean.to(self.device)
-            self.stds[id][self.round] = std.to(self.device)
+            self.means[client.id][self.round] = mean.to(self.device)
+            self.stds[client.id][self.round] = std.to(self.device)
 
         self.round += 1
-        self.prev_model = copy.deepcopy(self.model)
 
 
 

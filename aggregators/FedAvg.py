@@ -19,8 +19,10 @@ class FAAggregator(Aggregator):
             logPrint("Round... ", r)
             self._shareModelAndTrainOnClients()
             models = self._retrieveClientModelsDict()
+
             # Merge models
-            self.model = self.aggregate(self.clients, models)
+            chosen_clients = [self.clients[i] for i in self.chosen_indices]
+            self.model = self.aggregate(chosen_clients, models)
 
         roundsError[r] = self.test(testDataset)
 
@@ -30,9 +32,9 @@ class FAAggregator(Aggregator):
         empty_model = deepcopy(self.model)
 
         comb = 0.0
-        for client in clients:
+        for i, client in enumerate(clients):
             self._mergeModels(
-                models[client.id].to(self.device),
+                models[i].to(self.device),
                 empty_model.to(self.device),
                 client.p,
                 comb,
