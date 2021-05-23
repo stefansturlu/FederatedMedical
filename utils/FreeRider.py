@@ -4,7 +4,6 @@ from typing import Tuple
 
 
 class FreeRider(metaclass=ABCMeta):
-
     @staticmethod
     def free_grads(model: nn.Module, prev_global: nn.Module) -> Tuple[Tensor, Tensor]:
         if prev_global is not None:
@@ -24,7 +23,6 @@ class FreeRider(metaclass=ABCMeta):
 
         return mean, std
 
-
     @staticmethod
     def normal_grads(model: nn.Module) -> Tuple[Tensor, Tensor]:
         mean = 0
@@ -35,7 +33,6 @@ class FreeRider(metaclass=ABCMeta):
 
         return mean, std
 
-
     @staticmethod
     def standard_gradient_gen(param: nn.parameter.Parameter) -> Tuple[Tensor, Tensor]:
         R1 = 1e-4
@@ -44,7 +41,6 @@ class FreeRider(metaclass=ABCMeta):
         grad_s = R2 * randn(param.data.size())
 
         return grad_m, grad_s
-
 
     @staticmethod
     def delta_gradient_gen(model: nn.Module, prev_global: nn.Module) -> Tuple[Tensor, Tensor]:
@@ -60,5 +56,3 @@ class FreeRider(metaclass=ABCMeta):
             std += diff.std()
 
         return mean, std
-
-

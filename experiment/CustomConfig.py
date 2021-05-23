@@ -41,7 +41,6 @@ class CustomConfig(DefaultExperimentConfiguration):
         self.internalAggregator = MKRUMAggregator
         self.externalAggregator = MKRUMAggregator
 
-
     def scenario_conversion(self):
         for faulty, malicious, freeRider, attackName in self.scenarios:
 

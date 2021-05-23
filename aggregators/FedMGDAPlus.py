@@ -12,11 +12,11 @@ import torch.optim as optim
 class FedMGDAPlusAggregator(Aggregator):
     def __init__(
         self,
-        clients:List[Client],
-        model:nn.Module,
+        clients: List[Client],
+        model: nn.Module,
         config: AggregatorConfig,
-        useAsyncClients:bool=False,
-        learningRate:float=0.1,
+        useAsyncClients: bool = False,
+        learningRate: float = 0.1,
     ):
         super().__init__(clients, model, config, useAsyncClients)
         self.numOfClients = len(clients)
@@ -55,25 +55,23 @@ class FedMGDAPlusAggregator(Aggregator):
 
             roundsError[r] = self.test(testDataset)
 
-
             blockedCheck = []
             for idx, client in enumerate(self.clients):
-                if (client.blocked):
+                if client.blocked:
                     blockedCheck.append(idx)
 
             size = len(blockedCheck) - len(previousBlockedClients)
 
-
-            if (size != 0):
+            if size != 0:
                 # Increasing / Decreasing LR each global round
                 for g in self.lambdatOpt.param_groups:
-                    g["lr"] *= 0.9**size
+                    g["lr"] *= 0.9 ** size
                     print(f"New LR: {g['lr']}")
 
-                    self.std_multiplier *= 1.05**size
+                    self.std_multiplier *= 1.05 ** size
                     print(f"New std: {self.std_multiplier}")
 
-            elif (old_error <= roundsError[r]):
+            elif old_error <= roundsError[r]:
                 # Increasing / Decreasing LR each global round
                 for g in self.lambdatOpt.param_groups:
                     g["lr"] *= 1.3
@@ -89,9 +87,7 @@ class FedMGDAPlusAggregator(Aggregator):
 
             previousBlockedClients = blockedCheck
 
-
         return roundsError
-
 
     def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
         empty_model = copy.deepcopy(self.model)
@@ -105,7 +101,7 @@ class FedMGDAPlusAggregator(Aggregator):
 
         for idx, client in enumerate(clients):
             self.lambdatOpt.zero_grad()
-            if (client.blocked):
+            if client.blocked:
                 blocked_clients.append(idx)
                 continue
             clientModel = models[client.id].named_parameters()
@@ -124,13 +120,13 @@ class FedMGDAPlusAggregator(Aggregator):
             # Compute the loss = lambda_i * delta_i for each client i
             # Normalise the data
             loss_bottom = self.lambdaModel.max()
-            if (loss_bottom == 0):
+            if loss_bottom == 0:
                 loss_bottom = 1
 
             loss = torch.norm(
                 torch.mul(
                     nn.utils.parameters_to_vector(self.delta.parameters()),
-                    self.lambdaModel[client.id] / loss_bottom
+                    self.lambdaModel[client.id] / loss_bottom,
                 )
             )
 
@@ -148,7 +144,7 @@ class FedMGDAPlusAggregator(Aggregator):
         clientWeights[clientWeights <= 0] = 0
 
         vals = clientWeights[torch.nonzero(clientWeights)]
-        cutoff = vals.mean() - (self.std_multiplier*vals.std())
+        cutoff = vals.mean() - (self.std_multiplier * vals.std())
 
         clientWeights[clientWeights < cutoff] = 0
 
@@ -157,10 +153,8 @@ class FedMGDAPlusAggregator(Aggregator):
             if (weight == 0) and not client.blocked:
                 self.handle_blocked(client, self.round)
 
-
         self.lambdaModel.data = clientWeights
         normalisedClientWeights = clientWeights / clientWeights.sum()
-
 
         comb = 0.0
 

@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import Dataset
 
+
 class DatasetInterface(Dataset):
     def __init__(self, labels):
         self.labels = torch.tensor(labels, dtype=torch.long)

@@ -110,7 +110,6 @@ class DatasetLoaderCOVIDx(DatasetLoader):
         #         )
         #         exit(0)
 
-
         COPY_FILE = True
         if COPY_FILE:
             if not os.path.exists(self.dataPath + "/train"):
@@ -342,4 +341,3 @@ class DatasetLoaderCOVIDx(DatasetLoader):
             #     imageTensor = imageTensor.mean(dim=0,keepdim=True)
             imageTensor = transform(image)
             return imageTensor
-

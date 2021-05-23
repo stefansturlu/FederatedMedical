@@ -1,3 +1,5 @@
+from aggregators.COMED import COMEDAggregator
+from aggregators.MKRUM import MKRUMAggregator
 from experiment.AggregatorConfig import AggregatorConfig
 from aggregators.FedAvg import FAAggregator
 import torch
@@ -55,8 +57,12 @@ class DefaultExperimentConfiguration:
         self.plotResults: bool = True
 
         # Group-Wise config
-        self.internalAggregator: Aggregator = FAAggregator
-        self.externalAggregator: Aggregator = FAAggregator
+        self.internalAggregator: Union[
+            FAAggregator, MKRUMAggregator, COMEDAggregator
+        ] = FAAggregator
+        self.externalAggregator: Union[
+            FAAggregator, MKRUMAggregator, COMEDAggregator
+        ] = FAAggregator
 
         # Pipeline config
         self.clustering: bool = False

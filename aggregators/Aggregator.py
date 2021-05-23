@@ -15,8 +15,15 @@ from random import uniform
 
 IdRoundPair = NewType("IdRoundPair", Tuple[int, int])
 
+
 class Aggregator:
-    def __init__(self, clients: List[Client], model: nn.Module, config: AggregatorConfig, useAsyncClients: bool = False):
+    def __init__(
+        self,
+        clients: List[Client],
+        model: nn.Module,
+        config: AggregatorConfig,
+        useAsyncClients: bool = False,
+    ):
         self.model = model.to(config.device)
         self.clients: List[Client] = clients
         self.rounds: int = config.rounds
@@ -44,7 +51,6 @@ class Aggregator:
         # Privacy amplification data
         self.chosen_indices = []
 
-
     def trainAndTest(self, testDataset: DatasetInterface) -> Tensor:
         raise Exception(
             "Train method should be overridden by child class, "
@@ -57,16 +63,19 @@ class Aggregator:
             "specific to the aggregation strategy."
         )
 
-
-    def _shareModelAndTrainOnClients(self, models:List[nn.Module]=None, labels:List[int]=None):
+    def _shareModelAndTrainOnClients(
+        self, models: List[nn.Module] = None, labels: List[int] = None
+    ):
         if models == None and labels == None:
             models = [self.model]
-            labels = [0]*len(self.clients)
+            labels = [0] * len(self.clients)
 
         self.chosen_indices = [i for i in range(len(self.clients))]
 
         if self.config.privacyAmplification:
-            self.chosen_indices = [i for i in range(len(self.clients)) if uniform(0, 1) <= self.config.amplificationP]
+            self.chosen_indices = [
+                i for i in range(len(self.clients)) if uniform(0, 1) <= self.config.amplificationP
+            ]
 
         chosen_clients = [self.clients[i] for i in self.chosen_indices]
 
@@ -84,7 +93,6 @@ class Aggregator:
                 model = models[labels[client.id]]
                 self.__shareModelAndTrainOnClient(client, model)
 
-
     def __shareModelAndTrainOnClient(self, client: Client, model: nn.Module) -> None:
         broadcastModel = copy.deepcopy(model)
         client.updateModel(broadcastModel)
@@ -93,7 +101,7 @@ class Aggregator:
     def _retrieveClientModelsDict(self):
         models: List[nn.Module] = []
         chosen_clients = [self.clients[i] for i in self.chosen_indices]
-        
+
         for client in chosen_clients:
             # If client blocked return an the unchanged version of the model
             if not client.blocked:
@@ -126,7 +134,9 @@ class Aggregator:
 
     # Function to merge the models
     @staticmethod
-    def _mergeModels(mOrig: nn.Module, mDest: nn.Module, alphaOrig: float, alphaDest: float) -> None:
+    def _mergeModels(
+        mOrig: nn.Module, mDest: nn.Module, alphaOrig: float, alphaDest: float
+    ) -> None:
         paramsDest = mDest.named_parameters()
         dictParamsDest = dict(paramsDest)
         paramsOrig = mOrig.named_parameters()
@@ -150,7 +160,6 @@ class Aggregator:
         else:
             self.benignBlocked.append(pair)
 
-
     def handle_free_riders(self, models: List[nn.Module], clients: List[Client]):
         """Function to handle when we want to detect the presence of free-riders"""
         for i, model in enumerate(models):
@@ -165,7 +174,6 @@ class Aggregator:
             self.stds[client.id][self.round] = std.to(self.device)
 
         self.round += 1
-
 
 
 def allAggregators() -> List[Aggregator]:

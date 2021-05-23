@@ -10,7 +10,13 @@ from copy import deepcopy
 
 # FEDERATED AVERAGING AGGREGATOR
 class FAAggregator(Aggregator):
-    def __init__(self, clients: List[Client], model: nn.Module, config:AggregatorConfig, useAsyncClients:bool=False):
+    def __init__(
+        self,
+        clients: List[Client],
+        model: nn.Module,
+        config: AggregatorConfig,
+        useAsyncClients: bool = False,
+    ):
         super().__init__(clients, model, config, useAsyncClients)
 
     def trainAndTest(self, testDataset: DatasetInterface) -> Tensor:
@@ -42,5 +48,3 @@ class FAAggregator(Aggregator):
             comb = 1.0
 
         return empty_model
-
-

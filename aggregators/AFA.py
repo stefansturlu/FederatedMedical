@@ -11,7 +11,13 @@ from datasetLoaders.DatasetInterface import DatasetInterface
 
 # ADAPTIVE FEDERATED AVERAGING
 class AFAAggregator(Aggregator):
-    def __init__(self, clients: List[Client], model: nn.Module, config: AggregatorConfig, useAsyncClients:bool=False):
+    def __init__(
+        self,
+        clients: List[Client],
+        model: nn.Module,
+        config: AggregatorConfig,
+        useAsyncClients: bool = False,
+    ):
         super().__init__(clients, model, config, useAsyncClients)
         self.xi: float = 2
         self.deltaXi: float = 0.25
@@ -59,7 +65,7 @@ class AFAAggregator(Aggregator):
         return sim
 
     @staticmethod
-    def checkBlockedUser(a:float, b:float, th:float=0.95) -> bool:
+    def checkBlockedUser(a: float, b: float, th: float = 0.95) -> bool:
         return beta.cdf(0.5, a, b) > th
 
     @staticmethod
@@ -73,7 +79,6 @@ class AFAAggregator(Aggregator):
     @staticmethod
     def notBlockedNorBadUpdate(client: Client) -> bool:
         return client.blocked == False | client.badUpdate == False
-
 
     def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
         empty_model = copy.deepcopy(self.model)
@@ -108,7 +113,6 @@ class AFAAggregator(Aggregator):
                     client.sim = self.__modelSimilarity(empty_model, models[client.id])
                     sim[client.id] = client.sim
                     # logPrint("Similarity user ", u.id, ": ", u.sim)
-
 
             meanS = torch.mean(sim)
             medianS = torch.median(sim)

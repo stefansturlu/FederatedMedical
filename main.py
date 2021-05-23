@@ -1,5 +1,5 @@
+from datasetLoaders.DatasetInterface import DatasetInterface
 from aggregators.GroupWise import GroupWiseAggregation
-from datasetLoaders.DatasetLoader import DatasetLoader
 from experiment.CustomConfig import CustomConfig
 import os
 from typing import Callable, Dict, List, Literal, NewType, Tuple, Dict, Union
@@ -24,9 +24,10 @@ import time
 import gc
 from torch import cuda, Tensor
 
-from aggregators.Aggregator import Aggregator, allAggregators
+from aggregators.Aggregator import Aggregator, IdRoundPair, allAggregators
 from aggregators.AFA import AFAAggregator
 from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
+
 # Naked imports for allAggregators function
 from aggregators.FedAvg import FAAggregator
 from aggregators.COMED import COMEDAggregator
@@ -64,7 +65,7 @@ COLOURS: List[str] = [
     "mediumorchid",
     "teal",
     "black",
-    "gold"
+    "gold",
 ]
 
 ##################################
@@ -72,8 +73,10 @@ COLOURS: List[str] = [
 ##################################
 
 Errors = NewType("Errors", Tensor)
-BlockedType = Union[Literal["benign"], Literal["malicious"], Literal["faulty"], Literal["freeRider"]]
-BlockedLocations = NewType("BlockedLocations", Dict[BlockedType, List[Tuple[int, int]]])
+BlockedType = Union[
+    Literal["benign"], Literal["malicious"], Literal["faulty"], Literal["freeRider"]
+]
+BlockedLocations = NewType("BlockedLocations", Dict[BlockedType, IdRoundPair])
 
 ##################################
 ##################################
@@ -88,7 +91,13 @@ def __experimentOnMNIST(
     return __experimentSetup(config, dataLoader, classifier, title, filename, folder)
 
 
-def __experimentOnCOVIDx(config: DefaultExperimentConfiguration, model="COVIDNet", title="", filename="", folder="DEFAULT"):
+def __experimentOnCOVIDx(
+    config: DefaultExperimentConfiguration,
+    model="COVIDNet",
+    title="",
+    filename="",
+    folder="DEFAULT",
+):
     datasetLoader = DatasetLoaderCOVIDx().getDatasets
     if model == "COVIDNet":
         classifier = CovidNet.Classifier
@@ -99,13 +108,16 @@ def __experimentOnCOVIDx(config: DefaultExperimentConfiguration, model="COVIDNet
     __experimentSetup(config, datasetLoader, classifier)
 
 
-def __experimentOnPneumonia(config: DefaultExperimentConfiguration, title="", filename="", folder="DEFAULT"):
+def __experimentOnPneumonia(
+    config: DefaultExperimentConfiguration, title="", filename="", folder="DEFAULT"
+):
     datasetLoader = DatasetLoaderPneumonia().getDatasets
     classifier = Pneumonia.Classifier
     # Each client now only has like 80-170 images so a batch size of 200 is pointless
     config.batchSize = 30
 
     __experimentSetup(config, datasetLoader, classifier)
+
 
 # def __experimentOnDiabetes(config: DefaultExperimentConfiguration):
 #     datasetLoader = DatasetLoaderDiabetes(
@@ -125,7 +137,7 @@ def __experimentOnPneumonia(config: DefaultExperimentConfiguration, title="", fi
 
 def __experimentSetup(
     config: DefaultExperimentConfiguration,
-    datasetLoader: DatasetLoader,
+    datasetLoader: Callable[[Tensor, Tensor, int], Tuple[List[DatasetInterface], DatasetInterface]],
     classifier,
     title: str = "DEFAULT_TITLE",
     filename: str = "DEFAULT_NAME",
@@ -193,7 +205,14 @@ def __experimentSetup(
 
     return errorsDict
 
-def __runExperiment(config: DefaultExperimentConfiguration, datasetLoader, classifier, aggregator: Aggregator, useDifferentialPrivacy: bool) -> Tuple[Errors, BlockedLocations]:
+
+def __runExperiment(
+    config: DefaultExperimentConfiguration,
+    datasetLoader,
+    classifier,
+    aggregator: Aggregator,
+    useDifferentialPrivacy: bool,
+) -> Tuple[Errors, BlockedLocations]:
     trainDatasets, testDataset = datasetLoader(config.percUsers, config.labels, config.datasetSize)
     clients = __initClients(config, trainDatasets, useDifferentialPrivacy)
     # Requires model input size update due to dataset generalisation and categorisation
@@ -202,7 +221,13 @@ def __runExperiment(config: DefaultExperimentConfiguration, datasetLoader, class
     model = classifier().to(config.aggregatorConfig.device)
 
     if config.clustering:
-        aggregator = GroupWiseAggregation(clients, model, config.aggregatorConfig, internal=config.internalAggregator, external=config.externalAggregator)
+        aggregator = GroupWiseAggregation(
+            clients,
+            model,
+            config.aggregatorConfig,
+            internal=config.internalAggregator,
+            external=config.externalAggregator,
+        )
     else:
         aggregator = aggregator(clients, model, config.aggregatorConfig)
     if isinstance(aggregator, AFAAggregator):
@@ -216,10 +241,10 @@ def __runExperiment(config: DefaultExperimentConfiguration, datasetLoader, class
         "benign": aggregator.benignBlocked,
         "malicious": aggregator.maliciousBlocked,
         "faulty": aggregator.faultyBlocked,
-        "freeRider": aggregator.freeRidersBlocked
+        "freeRider": aggregator.freeRidersBlocked,
     }
     fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
+    ax = fig.add_subplot(1, 1, 1)
     for i in range(30):
         if clients[i].free or clients[i].byz or clients[i].flip:
             ax.plot(aggregator.means[i].detach().numpy(), color="red", label="free")
@@ -233,7 +258,7 @@ def __runExperiment(config: DefaultExperimentConfiguration, datasetLoader, class
     plt.show()
 
     fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
+    ax = fig.add_subplot(1, 1, 1)
     for i in range(30):
         if clients[i].free or clients[i].byz or clients[i].flip:
             ax.plot(aggregator.stds[i].detach().numpy(), color="red", label="free")
@@ -247,7 +272,9 @@ def __runExperiment(config: DefaultExperimentConfiguration, datasetLoader, class
     return errors, blocked
 
 
-def __initClients(config: DefaultExperimentConfiguration, trainDatasets, useDifferentialPrivacy) -> List[Client]:
+def __initClients(
+    config: DefaultExperimentConfiguration, trainDatasets, useDifferentialPrivacy
+) -> List[Client]:
     usersNo = config.percUsers.size(0)
     p0 = 1 / usersNo
     logPrint("Creating clients...")
@@ -297,7 +324,7 @@ def __initClients(config: DefaultExperimentConfiguration, trainDatasets, useDiff
 
 
 def __setRandomSeeds(seed=0) -> None:
-    os.environ["PYTHONHASHSEED"]=str(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -306,7 +333,7 @@ def __setRandomSeeds(seed=0) -> None:
 
 # Experiment decorator
 def experiment(exp: Callable[[], None]):
-    @logger.catch # Not necessarily needed but catches errors really nicely
+    @logger.catch  # Not necessarily needed but catches errors really nicely
     def decorator():
         __setRandomSeeds()
         logPrint("Experiment {} began.".format(exp.__name__))
@@ -321,6 +348,11 @@ def experiment(exp: Callable[[], None]):
 @experiment
 def program() -> None:
     config = CustomConfig()
+
+    if config.clustering and config.aggregatorConfig.privacyAmplification:
+        print("Currently doesn't support both at the same time")
+        print("Size of clients is very likely to be smaller than or very close to cluster_count")
+        exit(-1)
 
     for attackName in config.scenario_conversion():
 

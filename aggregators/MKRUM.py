@@ -10,7 +10,13 @@ from torch import nn, Tensor
 
 
 class MKRUMAggregator(Aggregator):
-    def __init__(self, clients: List[Client], model: nn.Module, config: AggregatorConfig, useAsyncClients:bool=False):
+    def __init__(
+        self,
+        clients: List[Client],
+        model: nn.Module,
+        config: AggregatorConfig,
+        useAsyncClients: bool = False,
+    ):
         super().__init__(clients, model, config, useAsyncClients)
 
     def trainAndTest(self, testDataset: DatasetInterface):
@@ -43,7 +49,6 @@ class MKRUMAggregator(Aggregator):
         sim: Tensor = torch.norm(d1 - d2, p=2)
         return sim
 
-
     def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
         empty_model = deepcopy(self.model)
 
@@ -55,10 +60,10 @@ class MKRUMAggregator(Aggregator):
         # Compute distances for all users
         scores = torch.zeros(userNo)
 
-        for i in range(userNo): # Client1 is i
+        for i in range(userNo):  # Client1 is i
             distances = torch.zeros((userNo, userNo))
 
-            for j in range(userNo): # Client 2 is j
+            for j in range(userNo):  # Client 2 is j
                 if i != j:
                     distance = self.__computeModelDistance(
                         models[i].to(self.device),

@@ -57,7 +57,6 @@ class DatasetLoaderPneumonia(DatasetLoader):
             )
             sys.exit(0)
 
-
         logPrint("Loading training images from files...")
         trainDataframe = self.__readDataframe(self.trainPath)
         logPrint("Loading testing images from files...")
@@ -73,7 +72,9 @@ class DatasetLoaderPneumonia(DatasetLoader):
             for img in os.listdir(path):
                 try:
                     img_arr = cv2.imread(os.path.join(path, img), cv2.IMREAD_GRAYSCALE)
-                    resized_arr = cv2.resize(img_arr, (self.img_size, self.img_size)) # Reshaping images to preferred size
+                    resized_arr = cv2.resize(
+                        img_arr, (self.img_size, self.img_size)
+                    )  # Reshaping images to preferred size
                     data.append([resized_arr, class_num])
                 except Exception as e:
                     print(e)
@@ -89,13 +90,11 @@ class DatasetLoaderPneumonia(DatasetLoader):
         )
         # Might also want to check the number of files or subfolders
 
-
     def __readDataframe(self, path: str) -> DataFrame:
         img = self.get_img_data(path)
         dataFrame = DataFrame(img, columns=["img", "labels"])
 
         return dataFrame
-
 
     def __download_data(self) -> None:
         if self.__datasetNotFound():
@@ -103,8 +102,10 @@ class DatasetLoaderPneumonia(DatasetLoader):
                 logPrint("Need to download the KAGGLE Pneumonia Detection Dataset")
                 os.makedirs(self.dataPath)
 
-                kaggle.api.authenticate() # Get json file from kaggle account or just manually download
-                kaggle.api.dataset_download_files("paultimothymooney/chest-xray-pneumonia" , self.dataPath)
+                kaggle.api.authenticate()  # Get json file from kaggle account or just manually download
+                kaggle.api.dataset_download_files(
+                    "paultimothymooney/chest-xray-pneumonia", self.dataPath
+                )
                 with zipfile.ZipFile(self.dataPath + "/chest-xray-pneumonia.zip", "r") as zip_ref:
                     zip_ref.extractall(self.dataPath)
             except:
@@ -138,4 +139,3 @@ class DatasetLoaderPneumonia(DatasetLoader):
             )
             imageTensor = transform(image)
             return imageTensor
-

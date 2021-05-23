@@ -17,15 +17,23 @@ from utils.PCA import PCA
 # Group-Wise Aggregator based on clustering
 # Even though it itself does not do aggregation, it makes programatic sense to inherit attributes and functions
 class GroupWiseAggregation(Aggregator):
-    def __init__(self, clients: List[Client], model: nn.Module, config: AggregatorConfig, internal: Aggregator, external: Aggregator, useAsyncClients:bool=False):
+    def __init__(
+        self,
+        clients: List[Client],
+        model: nn.Module,
+        config: AggregatorConfig,
+        internal: Aggregator,
+        external: Aggregator,
+        useAsyncClients: bool = False,
+    ):
         super().__init__(clients, model, config, useAsyncClients)
 
         self.config = config
 
         self.cluster_count = 5
-        self.cluster_centres: List[nn.Module] = [None]*self.cluster_count
+        self.cluster_centres: List[nn.Module] = [None] * self.cluster_count
         self.cluster_centres_len = torch.zeros(self.cluster_count)
-        self.cluster_labels = [0]*len(self.clients)
+        self.cluster_labels = [0] * len(self.clients)
 
         self.internalAggregator = self._init_aggregator(internal)
         self.externalAggregator = self._init_aggregator(external)
@@ -47,25 +55,25 @@ class GroupWiseAggregation(Aggregator):
             with torch.no_grad():
                 self.generate_cluster_centres(models)
 
-
                 if True:
                     # Assume p value is based on size of cluster
                     best_models, ps, indices = self._use_most_similar_clusters()
                     conc_ps = [ps[i] for i in indices]
-                    conc_ps = [p/sum(conc_ps) for p in conc_ps]
+                    conc_ps = [p / sum(conc_ps) for p in conc_ps]
 
+                    general = self.externalAggregator.aggregate(
+                        [FakeClient(p, i) for (i, p) in enumerate(ps)], self.cluster_centres
+                    )
 
-                    general = self.externalAggregator.aggregate([FakeClient(p, i) for (i, p) in enumerate(ps)], self.cluster_centres)
-
-
-                    concentrated = self.externalAggregator.aggregate([FakeClient(p, i) for (i, p) in enumerate(conc_ps)], best_models)
+                    concentrated = self.externalAggregator.aggregate(
+                        [FakeClient(p, i) for (i, p) in enumerate(conc_ps)], best_models
+                    )
 
                     # for i in range(len(self.cluster_centres)):
                     #     # if i in indices:
                     #     # self.cluster_centres[i] = concentrated
                     #     # else:
                     #     self.cluster_centres[i] = general
-
 
                     print("Concentrated test")
                     self.model = concentrated
@@ -76,7 +84,6 @@ class GroupWiseAggregation(Aggregator):
                     roundsError[r] = self.test(testDataset)
 
         return roundsError
-
 
     def _init_aggregator(self, aggregator: Aggregator) -> Aggregator:
         agg = aggregator(self.clients, self.model, self.config)
@@ -96,7 +103,6 @@ class GroupWiseAggregation(Aggregator):
 
         return model
 
-
     def _generate_weights(self, models: List[nn.Module]) -> List[Tensor]:
         X = []
         for model in models:
@@ -111,7 +117,6 @@ class GroupWiseAggregation(Aggregator):
             coords = torch.cat((coords, param.data.view(-1)))
 
         return coords
-
 
     def generate_cluster_centres(self, models: List[nn.Module]) -> None:
         X = self._generate_weights(models)
@@ -134,11 +139,9 @@ class GroupWiseAggregation(Aggregator):
         # plt.legend()
         # plt.show()
 
-
         # PCA.pca1D(X, self.clients)
         # PCA.pca2D(X, self.clients)
         # PCA.pca3D(X, self.clients)
-
 
         self.cluster_labels = kmeans.labels_
         indices = [[] for _ in range(self.cluster_count)]
@@ -154,18 +157,13 @@ class GroupWiseAggregation(Aggregator):
         for i, ins in enumerate(indices):
             self.cluster_centres[i] = self._gen_cluster_centre(ins, models)
 
-
-
-
     def _use_most_similar_clusters(self) -> None:
-        num_to_take = math.floor(self.cluster_count/2) + 1
+        num_to_take = math.floor(self.cluster_count / 2) + 1
 
         X = self._generate_weights(self.cluster_centres)
         Xl = [model.tolist() for model in X]
         kmeans = KMeans(n_clusters=num_to_take, random_state=0).fit(Xl)
         print(kmeans.labels_)
-
-
 
         sims = [[] for _ in range(self.cluster_count)]
         cos = nn.CosineSimilarity(0)
@@ -194,7 +192,7 @@ class GroupWiseAggregation(Aggregator):
         print(best_indices)
 
         mean = 1 / self.cluster_count
-        ps = Tensor([p/sum(sims[besti]) for p in sims[besti]])
+        ps = Tensor([p / sum(sims[besti]) for p in sims[besti]])
         std = torch.std(ps[ps.nonzero()])
         cutoff = mean - std
         print("cutoff")
@@ -210,8 +208,7 @@ class GroupWiseAggregation(Aggregator):
         return best_models, ps, best_indices
 
 
-
 class FakeClient:
-    def __init__(self, p:float, id:int):
+    def __init__(self, p: float, id: int):
         self.p = p
         self.id = id

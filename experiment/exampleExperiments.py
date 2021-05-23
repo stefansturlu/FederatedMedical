@@ -6,6 +6,7 @@ import torch
 from aggregators.Aggregator import allAggregators
 from aggregators.AFA import AFAAggregator
 from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
+
 # Naked imports for allAggregators function
 from aggregators.FedAvg import FAAggregator
 from aggregators.COMED import COMEDAggregator
@@ -189,7 +190,6 @@ def Aggregator_Limitations_Test_MNIST():
             filename=f"{attackName}",
             folder="MNIST_Limitations",
         )
-
 
 
 @experiment

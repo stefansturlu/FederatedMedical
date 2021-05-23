@@ -52,7 +52,7 @@ class Client:
         self.id: int = idx  # ID for the user
         self.byz: bool = byzantine  # Boolean indicating whether the user is faulty or not
         self.flip: bool = flipping  # Boolean indicating whether the user is malicious or not (label flipping attack)
-        self.free: bool = freeRiding # Boolean indicating whether the user is a free-rider or not
+        self.free: bool = freeRiding  # Boolean indicating whether the user is a free-rider or not
 
         # Used for computing dW, i.e. the change in model before
         # and after client local training, when DP is used
@@ -99,7 +99,9 @@ class Client:
                 self.model.parameters(), lr=self.learningRate, momentum=self.momentum
             )
         else:
-            self.opt: optim.Optimizer = self.Optimizer(self.model.parameters(), lr=self.learningRate)
+            self.opt: optim.Optimizer = self.Optimizer(
+                self.model.parameters(), lr=self.learningRate
+            )
         self.loss: nn.CrossEntropyLoss = self.Loss()
         self.untrainedModel = copy.deepcopy(model)
         cuda.empty_cache()
@@ -159,7 +161,6 @@ class Client:
         for name, param in params:
             noise = alpha * torch.randn(param.data.size()).to(self.device)
             param.data.copy_(param.data.to(self.device) + noise)
-
 
     # Procedure for implementing differential privacy
     def __privacyPreserve(

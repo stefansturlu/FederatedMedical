@@ -8,9 +8,9 @@ import pandas as pd
 import torch
 from torch.tensor import Tensor
 from pandas import DataFrame
+
 # from cn.protect import Protect
 # from cn.protect.privacy import KAnonymity
-
 
 
 class DatasetLoader:
@@ -23,13 +23,17 @@ class DatasetLoader:
         )
 
     @staticmethod
-    def _filterDataByLabel(labels: Tensor, trainDataframe: DataFrame, testDataframe: DataFrame) -> Tuple[DataFrame, DataFrame]:
+    def _filterDataByLabel(
+        labels: Tensor, trainDataframe: DataFrame, testDataframe: DataFrame
+    ) -> Tuple[DataFrame, DataFrame]:
         trainDataframe = trainDataframe[trainDataframe["labels"].isin(labels)]
         testDataframe = testDataframe[testDataframe["labels"].isin(labels)]
         return trainDataframe, testDataframe
 
     @staticmethod
-    def _splitTrainDataIntoClientDatasets(percUsers: Tensor, trainDataframe: DataFrame, DatasetType: DatasetInterface) -> List[DatasetInterface]:
+    def _splitTrainDataIntoClientDatasets(
+        percUsers: Tensor, trainDataframe: DataFrame, DatasetType: DatasetInterface
+    ) -> List[DatasetInterface]:
         DatasetLoader._setRandomSeeds()
         percUsers = percUsers / percUsers.sum()
 
@@ -51,7 +55,7 @@ class DatasetLoader:
 
     @staticmethod
     def _setRandomSeeds(seed=0) -> None:
-        os.environ['PYTHONHASHSEED']=str(seed)
+        os.environ["PYTHONHASHSEED"] = str(seed)
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)

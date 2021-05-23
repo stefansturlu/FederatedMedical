@@ -11,7 +11,13 @@ from datasetLoaders.DatasetInterface import DatasetInterface
 
 # ROBUST AGGREGATION ALGORITHM - computes the median of the clients updates
 class COMEDAggregator(Aggregator):
-    def __init__(self, clients: List[Client], model: nn.Module, config: AggregatorConfig, useAsyncClients=False):
+    def __init__(
+        self,
+        clients: List[Client],
+        model: nn.Module,
+        config: AggregatorConfig,
+        useAsyncClients=False,
+    ):
         super().__init__(clients, model, config, useAsyncClients)
 
     def trainAndTest(self, testDataset: DatasetInterface) -> Tensor:
@@ -48,4 +54,3 @@ class COMEDAggregator(Aggregator):
             dictParamsm[name1].data.copy_(med.view(dictParamsm[name1].data.size()))
             # logPrint("Median computed, size: ", med.size())
         return modelCopy.to(self.device)
-

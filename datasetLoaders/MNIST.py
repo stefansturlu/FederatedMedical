@@ -8,9 +8,10 @@ from logger import logPrint
 import torch
 
 
-
 class DatasetLoaderMNIST(DatasetLoader):
-    def getDatasets(self, percUsers: Tensor, labels: Tensor, size=None) -> Tuple[List[DatasetInterface], DatasetInterface]:
+    def getDatasets(
+        self, percUsers: Tensor, labels: Tensor, size=None
+    ) -> Tuple[List[DatasetInterface], DatasetInterface]:
         logPrint("Loading MNIST...")
         self._setRandomSeeds()
         data = self.__loadMNISTData()
@@ -61,4 +62,3 @@ class DatasetLoaderMNIST(DatasetLoader):
 
         def __getitem__(self, index):
             return self.data[index], self.labels[index]
-
