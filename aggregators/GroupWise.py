@@ -17,8 +17,8 @@ from utils.PCA import PCA
 # Group-Wise Aggregator based on clustering
 # Even though it itself does not do aggregation, it makes programatic sense to inherit attributes and functions
 class GroupWiseAggregation(Aggregator):
-    def __init__(self, clients: List[Client], model: nn.Module, config: AggregatorConfig, useAsyncClients:bool=False):
-        super().__init__(clients, model, useAsyncClients)
+    def __init__(self, clients: List[Client], model: nn.Module, config: AggregatorConfig, internal: Aggregator, external: Aggregator, useAsyncClients:bool=False):
+        super().__init__(clients, model, config, useAsyncClients)
 
         self.config = config
 
@@ -27,8 +27,8 @@ class GroupWiseAggregation(Aggregator):
         self.cluster_centres_len = torch.zeros(self.cluster_count)
         self.cluster_labels = [0]*len(self.clients)
 
-        self.internalAggregator = self._init_aggregator(config.internalAggregator)
-        self.externalAggregator = self._init_aggregator(config.externalAggregator)
+        self.internalAggregator = self._init_aggregator(internal)
+        self.externalAggregator = self._init_aggregator(external)
 
         self.blocked_ps = []
 
@@ -79,7 +79,7 @@ class GroupWiseAggregation(Aggregator):
 
 
     def _init_aggregator(self, aggregator: Aggregator) -> Aggregator:
-        agg = aggregator(self.clients, self.model, self.rounds, self.device, self.detectFreeRiders)
+        agg = aggregator(self.clients, self.model, self.config)
         if isinstance(agg, AFAAggregator):
             agg.xi = self.config.xi
             agg.deltaXi = self.config.deltaXi

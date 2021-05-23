@@ -22,7 +22,9 @@ class MKRUMAggregator(Aggregator):
             self._shareModelAndTrainOnClients()
             models = self._retrieveClientModelsDict()
 
-            self.model = self.aggregate(self.clients, models)
+            # Merge models
+            chosen_clients = [self.clients[i] for i in self.chosen_indices]
+            self.model = self.aggregate(chosen_clients, models)
 
             roundsError[r] = self.test(testDataset)
 
@@ -52,30 +54,34 @@ class MKRUMAggregator(Aggregator):
         mk = userNo - f
         # Compute distances for all users
         scores = torch.zeros(userNo)
-        for client in clients:
+
+        for i in range(userNo): # Client1 is i
             distances = torch.zeros((userNo, userNo))
-            for client2 in clients:
-                if client.id != client2.id:
+
+            for j in range(userNo): # Client 2 is j
+                if i != j:
                     distance = self.__computeModelDistance(
-                        models[client.id].to(self.device),
-                        models[client2.id].to(self.device),
+                        models[i].to(self.device),
+                        models[j].to(self.device),
                     )
-                    distances[client.id][client2.id] = distance
-            dd = distances[client.id][:].sort()[0]
+                    distances[i][j] = distance
+            dd = distances[i][:].sort()[0]
             dd = dd.cumsum(0)
-            scores[client.id] = dd[th]
+            scores[i] = dd[th]
 
         _, idx = scores.sort()
         selected_users = idx[: mk - 1] + 1
         # logPrint("Selected users: ", selected_users)
 
         comb = 0.0
-        for client in clients:
-            if client.id in selected_users:
+        for i in range(userNo):
+            if i in selected_users:
                 self._mergeModels(
-                    models[client.id].to(self.device),
+                    models[i].to(self.device),
                     empty_model.to(self.device),
                     1 / mk,
                     comb,
                 )
                 comb = 1.0
+
+        return empty_model

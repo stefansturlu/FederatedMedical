@@ -1,3 +1,6 @@
+from aggregators.MKRUM import MKRUMAggregator
+from aggregators.GroupWise import GroupWiseAggregation
+from aggregators.COMED import COMEDAggregator
 from aggregators.FedAvg import FAAggregator
 from typing import List, Tuple
 import torch
@@ -30,9 +33,13 @@ class CustomConfig(DefaultExperimentConfiguration):
         self.percUsers = torch.tensor(PERC_USERS, device=self.aggregatorConfig.device)
 
         self.aggregatorConfig.detectFreeRiders = True
-        self.aggregatorConfig.privacyAmplification = True
+        # self.aggregatorConfig.privacyAmplification = True
+        self.clustering = True
 
-        self.aggregators = [FAAggregator]
+        self.aggregators = [GroupWiseAggregation]
+
+        self.internalAggregator = MKRUMAggregator
+        self.externalAggregator = MKRUMAggregator
 
 
     def scenario_conversion(self):

@@ -202,7 +202,7 @@ def __runExperiment(config: DefaultExperimentConfiguration, datasetLoader, class
     model = classifier().to(config.aggregatorConfig.device)
 
     if config.clustering:
-        aggregator = GroupWiseAggregation(clients, model, config.aggregatorConfig)
+        aggregator = GroupWiseAggregation(clients, model, config.aggregatorConfig, internal=config.internalAggregator, external=config.externalAggregator)
     else:
         aggregator = aggregator(clients, model, config.aggregatorConfig)
     if isinstance(aggregator, AFAAggregator):

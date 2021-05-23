@@ -24,21 +24,21 @@ class COMEDAggregator(Aggregator):
             models = self._retrieveClientModelsDict()
 
             # Merge models
-            self.model = self.aggregate(models)
+            chosen_clients = [self.clients[i] for i in self.chosen_indices]
+            self.model = self.aggregate(chosen_clients, models)
 
             roundsError[r] = self.test(testDataset)
 
         return roundsError
 
     def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
-        client1 = clients[0]
-        model = models[client1.id]
+        model = models[0]
         modelCopy = deepcopy(model)
         params = model.named_parameters()
         for name1, param1 in params:
             m = []
-            for client2 in clients:
-                params2 = models[client2.id].named_parameters()
+            for i in range(len(clients)):
+                params2 = models[i].named_parameters()
                 dictParams2 = dict(params2)
                 m.append(dictParams2[name1].data.view(-1).to("cpu").numpy())
                 # logPrint("Size: ", dictParams2[name1].data.size())
