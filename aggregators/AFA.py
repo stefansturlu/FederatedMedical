@@ -1,4 +1,4 @@
-from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration
+from experiment.AggregatorConfig import AggregatorConfig
 from client import Client
 from logger import logPrint
 from typing import List
@@ -11,7 +11,7 @@ from datasetLoaders.DatasetInterface import DatasetInterface
 
 # ADAPTIVE FEDERATED AVERAGING
 class AFAAggregator(Aggregator):
-    def __init__(self, clients: List[Client], model: nn.Module, config: DefaultExperimentConfiguration, useAsyncClients:bool=False):
+    def __init__(self, clients: List[Client], model: nn.Module, config: AggregatorConfig, useAsyncClients:bool=False):
         super().__init__(clients, model, config, useAsyncClients)
         self.xi: float = 2
         self.deltaXi: float = 0.25

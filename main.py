@@ -199,17 +199,17 @@ def __runExperiment(config: DefaultExperimentConfiguration, datasetLoader, class
     # Requires model input size update due to dataset generalisation and categorisation
     if config.requireDatasetAnonymization:
         classifier.inputSize = testDataset.getInputSize()
-    model = classifier().to(config.device)
+    model = classifier().to(config.aggregatorConfig.device)
 
     if config.clustering:
-        aggregator = GroupWiseAggregation(clients, model, config)
+        aggregator = GroupWiseAggregation(clients, model, config.aggregatorConfig)
     else:
-        aggregator = aggregator(clients, model, config)
+        aggregator = aggregator(clients, model, config.aggregatorConfig)
     if isinstance(aggregator, AFAAggregator):
-        aggregator.xi = config.xi
-        aggregator.deltaXi = config.deltaXi
+        aggregator.xi = config.aggregatorConfig.xi
+        aggregator.deltaXi = config.aggregatorConfig.deltaXi
     elif isinstance(aggregator, FedMGDAPlusAggregator):
-        aggregator.reinitialise(config.innerLR)
+        aggregator.reinitialise(config.aggregatorConfig.innerLR)
 
     errors: Errors = aggregator.trainAndTest(testDataset)
     blocked: BlockedLocations = {
@@ -265,7 +265,7 @@ def __initClients(config: DefaultExperimentConfiguration, trainDatasets, useDiff
                 beta=config.beta,
                 Loss=config.Loss,
                 Optimizer=config.Optimizer,
-                device=config.device,
+                device=config.aggregatorConfig.device,
                 useDifferentialPrivacy=useDifferentialPrivacy,
                 epsilon1=config.epsilon1,
                 epsilon3=config.epsilon3,
@@ -330,19 +330,6 @@ def program() -> None:
             filename=f"{attackName}",
             folder="test",
         )
-
-@experiment
-def pipeline() -> None:
-    ### SET ANY CONFIG PARAMS HERE
-    config = DefaultExperimentConfiguration()
-
-    # Sample settings
-    config.freeRiderDetect = True
-    config.privacyPreserve = True
-
-    ### FREE-RIDER DETECTION BIT
-    if config.freeRiderDetect:
-        pass
 
 
 # Running the program here

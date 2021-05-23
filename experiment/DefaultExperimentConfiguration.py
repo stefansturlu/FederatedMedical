@@ -1,3 +1,4 @@
+from experiment.AggregatorConfig import AggregatorConfig
 from aggregators.FedAvg import FAAggregator
 import torch
 from aggregators.Aggregator import Aggregator, allAggregators
@@ -11,11 +12,11 @@ class DefaultExperimentConfiguration:
         # DEFAULT PARAMETERS
         self.name: str = None
 
-        # Federated learning parameters
-        self.rounds: int = 30  # Total number of training rounds
-        self.epochs: int = (
-            2  # Epochs num locally run by clients before sending back the model update
-        )
+        self.aggregatorConfig = AggregatorConfig()
+
+        # Epochs num locally run by clients before sending back the model update
+        self.epochs: int = 2
+
         self.batchSize: int = 200  # Local training  batch size
         self.learningRate: float = 0.1
         self.Loss = nn.CrossEntropyLoss
@@ -36,11 +37,6 @@ class DefaultExperimentConfiguration:
         # AFA Parameters:
         self.alpha: float = 4
         self.beta: float = 4
-        self.xi: float = 2
-        self.deltaXi: float = 0.25
-
-        # FedMGDA+ Parameters:
-        self.innerLR: float = 0.1
 
         # Client privacy preserving module setup
         self.privacyPreserve: Union[bool, None] = False  # if None, run with AND without DP
@@ -50,8 +46,6 @@ class DefaultExperimentConfiguration:
         self.needClip: bool = False
         self.clipValue: float = 0.001
         self.needNormalization: bool = False
-        self.privacyAmplification = False
-        self.amplificationP = 0.3
 
         # Anonymization of datasets for k-anonymity
         self.requireDatasetAnonymization: bool = False
@@ -60,13 +54,9 @@ class DefaultExperimentConfiguration:
 
         self.plotResults: bool = True
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # self.device = torch.device("cpu")
-
-        # Pipeline config
-        self.freeRiderDetect: bool = False
-        self.clustering: bool = False
-
         # Group-Wise config
         self.internalAggregator: Aggregator = FAAggregator
         self.externalAggregator: Aggregator = FAAggregator
+
+        # Pipeline config
+        self.clustering: bool = False

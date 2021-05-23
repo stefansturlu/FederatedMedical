@@ -1,4 +1,4 @@
-from DefaultExperimentConfiguration import DefaultExperimentConfiguration
+from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration
 import plotly.graph_objects as go
 from datetime import datetime
 from itertools import product

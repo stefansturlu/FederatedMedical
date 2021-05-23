@@ -2,7 +2,7 @@ import copy
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch import Tensor
+from torch import Tensor, cuda
 
 from torch.utils.data import DataLoader
 from numpy import clip, percentile
@@ -98,7 +98,7 @@ class Client:
             self.opt: optim.Optimizer = self.Optimizer(self.model.parameters(), lr=self.learningRate)
         self.loss: nn.CrossEntropyLoss = self.Loss()
         self.untrainedModel = copy.deepcopy(model)
-        torch.cuda.empty_cache()
+        cuda.empty_cache()
 
     # Function to train the model for a specific user
     def trainModel(self):
@@ -141,7 +141,7 @@ class Client:
 
         if self.byz:
             # Faulty model update
-            # logPrint("Malicous update for user ",u.id)
+            # logPrint("Malicious update for user ",u.id)
             self.__manipulateModel()
 
         if self.useDifferentialPrivacy:

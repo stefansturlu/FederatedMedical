@@ -1,4 +1,4 @@
-from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration
+from experiment.AggregatorConfig import AggregatorConfig
 from utils.FreeRider import FreeRider
 from datasetLoaders.DatasetInterface import DatasetInterface
 from torch import Tensor, nn, device
@@ -16,8 +16,8 @@ from random import uniform
 IdRoundPair = NewType("IdRoundPair", Tuple[int, int])
 
 class Aggregator:
-    def __init__(self, clients: List[Client], model: nn.Module, config: DefaultExperimentConfiguration, useAsyncClients: bool = False):
-        self.model = model.to(device)
+    def __init__(self, clients: List[Client], model: nn.Module, config: AggregatorConfig, useAsyncClients: bool = False):
+        self.model = model.to(config.device)
         self.clients: List[Client] = clients
         self.rounds: int = config.rounds
         self.config = config
@@ -61,7 +61,9 @@ class Aggregator:
             labels = [0]*len(self.clients)
 
         if self.config.privacyAmplification:
-            chosen_indices = [i for i in range(len(self.clients)) if uniform(0, 1) > self.config.amplificationP]
+            chosen_indices = [i for i in range(len(self.clients)) if uniform(0, 1) <= self.config.amplificationP]
+            print(chosen_indices)
+            print(len(chosen_indices))
 
         if self.useAsyncClients:
             threads = []

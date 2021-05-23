@@ -1,4 +1,4 @@
-from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration
+from experiment.AggregatorConfig import AggregatorConfig
 from client import Client
 from typing import List
 from logger import logPrint
@@ -14,7 +14,7 @@ class FedMGDAPlusAggregator(Aggregator):
         self,
         clients:List[Client],
         model:nn.Module,
-        config: DefaultExperimentConfiguration,
+        config: AggregatorConfig,
         useAsyncClients:bool=False,
         learningRate:float=0.1,
     ):

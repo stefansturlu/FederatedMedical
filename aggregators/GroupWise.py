@@ -1,6 +1,6 @@
+from experiment.AggregatorConfig import AggregatorConfig
 from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
 from aggregators.AFA import AFAAggregator
-from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration
 from torch import nn, Tensor
 from client import Client
 from logger import logPrint
@@ -17,7 +17,7 @@ from utils.PCA import PCA
 # Group-Wise Aggregator based on clustering
 # Even though it itself does not do aggregation, it makes programatic sense to inherit attributes and functions
 class GroupWiseAggregation(Aggregator):
-    def __init__(self, clients: List[Client], model: nn.Module, config: DefaultExperimentConfiguration, useAsyncClients:bool=False):
+    def __init__(self, clients: List[Client], model: nn.Module, config: AggregatorConfig, useAsyncClients:bool=False):
         super().__init__(clients, model, useAsyncClients)
 
         self.config = config

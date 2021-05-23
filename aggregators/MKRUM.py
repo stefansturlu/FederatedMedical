@@ -1,5 +1,5 @@
 from copy import deepcopy
-from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration
+from experiment.AggregatorConfig import AggregatorConfig
 from datasetLoaders.DatasetInterface import DatasetInterface
 from client import Client
 from logger import logPrint
@@ -10,7 +10,7 @@ from torch import nn, Tensor
 
 
 class MKRUMAggregator(Aggregator):
-    def __init__(self, clients: List[Client], model: nn.Module, config: DefaultExperimentConfiguration, useAsyncClients:bool=False):
+    def __init__(self, clients: List[Client], model: nn.Module, config: AggregatorConfig, useAsyncClients:bool=False):
         super().__init__(clients, model, config, useAsyncClients)
 
     def trainAndTest(self, testDataset: DatasetInterface):

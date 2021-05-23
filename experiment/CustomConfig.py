@@ -1,8 +1,6 @@
 from aggregators.FedAvg import FAAggregator
 from typing import List, Tuple
 import torch
-
-from torch._C import device
 from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration
 
 MaliciousList = List[int]
@@ -14,7 +12,7 @@ AttacksType = List[Tuple[FaultyList, MaliciousList, FreeRiderList, AttackName]]
 
 class CustomConfig(DefaultExperimentConfiguration):
     def __init__(self):
-        super(CustomConfig, self).__init__()
+        super().__init__()
         self.scenarios: AttacksType = (
             # ([], [], [3], "1_free"),
             # ([], [], [3, 6], "2_free"),
@@ -29,9 +27,10 @@ class CustomConfig(DefaultExperimentConfiguration):
             # ([], [1,2,3,4,5,6,7,8,9,10,12,13,14,15,16,17,18,19,20], [], "20_mal"),
             # ([], [], [], "nothing"),
         )
-        self.percUsers = torch.tensor(PERC_USERS, device=self.device)
+        self.percUsers = torch.tensor(PERC_USERS, device=self.aggregatorConfig.device)
 
-        self.freeRiderDetect = True
+        self.aggregatorConfig.detectFreeRiders = True
+        self.aggregatorConfig.privacyAmplification = True
 
         self.aggregators = [FAAggregator]
 
