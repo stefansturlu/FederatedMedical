@@ -1,10 +1,11 @@
+from utils.typings import Errors
 from experiment.AggregatorConfig import AggregatorConfig
 from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
 from aggregators.AFA import AFAAggregator
 from torch import nn, Tensor
 from client import Client
 from logger import logPrint
-from typing import List, Tuple
+from typing import List, Tuple, Type
 import torch
 from aggregators.Aggregator import Aggregator
 from datasetLoaders.DatasetInterface import DatasetInterface
@@ -22,8 +23,8 @@ class GroupWiseAggregation(Aggregator):
         clients: List[Client],
         model: nn.Module,
         config: AggregatorConfig,
-        internal: Aggregator,
-        external: Aggregator,
+        internal: Type[Aggregator],
+        external: Type[Aggregator],
         useAsyncClients: bool = False,
     ):
         super().__init__(clients, model, config, useAsyncClients)
@@ -40,8 +41,8 @@ class GroupWiseAggregation(Aggregator):
 
         self.blocked_ps = []
 
-    def trainAndTest(self, testDataset: DatasetInterface) -> Tensor:
-        roundsError = torch.zeros(self.config.rounds)
+    def trainAndTest(self, testDataset: DatasetInterface) -> Errors:
+        roundsError = Errors(torch.zeros(self.config.rounds))
         for r in range(self.config.rounds):
             logPrint("Round... ", r)
             if True:
@@ -86,7 +87,7 @@ class GroupWiseAggregation(Aggregator):
 
         return roundsError
 
-    def _init_aggregator(self, aggregator: Aggregator) -> Aggregator:
+    def _init_aggregator(self, aggregator: Type[Aggregator]) -> Aggregator:
         agg = aggregator(self.clients, self.model, self.config)
         if isinstance(agg, AFAAggregator):
             agg.xi = self.config.xi
@@ -119,7 +120,7 @@ class GroupWiseAggregation(Aggregator):
 
         return coords
 
-    def generate_cluster_centres(self, models: List[nn.Module]) -> Tuple[List[nn.Module], Tensor, List[int]]:
+    def generate_cluster_centres(self, models: List[nn.Module]) -> None:
         X = self._generate_weights(models)
         X = [model.tolist() for model in X]
         pca = PCA.pca(X, dim=2)
@@ -158,7 +159,7 @@ class GroupWiseAggregation(Aggregator):
         for i, ins in enumerate(indices):
             self.cluster_centres[i] = self._gen_cluster_centre(ins, models)
 
-    def _use_most_similar_clusters(self) -> None:
+    def _use_most_similar_clusters(self) -> Tuple[List[nn.Module], Tensor, List[int]]:
         num_to_take = math.floor(self.cluster_count / 2) + 1
 
         X = self._generate_weights(self.cluster_centres)
@@ -193,7 +194,7 @@ class GroupWiseAggregation(Aggregator):
         print(best_indices)
 
         mean = 1 / self.cluster_count
-        ps = Tensor([p / sum(sims[besti]) for p in sims[besti]])
+        ps: Tensor = Tensor([p / sum(sims[besti]) for p in sims[besti]])
         std = torch.std(ps[ps.nonzero()])
         cutoff = mean - std
         print("cutoff")

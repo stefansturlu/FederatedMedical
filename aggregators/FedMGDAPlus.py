@@ -1,3 +1,4 @@
+from utils.typings import Errors
 from experiment.AggregatorConfig import AggregatorConfig
 from client import Client
 from typing import List
@@ -22,14 +23,14 @@ class FedMGDAPlusAggregator(Aggregator):
         self.numOfClients = len(clients)
         self.lambdaModel = nn.Parameter(torch.ones(self.numOfClients), requires_grad=True)
         self.LR = learningRate
-        self.lambdatOpt = optim.SGD([self.lambdaModel], lr=self.LR1, momentum=0.5)
+        self.lambdatOpt = optim.SGD([self.lambdaModel], lr=self.LR, momentum=0.5)
 
         # self.delta is going to store the values of the g_i according to the paper FedMGDA
         # More accurately, it stores the difference between the previous model params and
         # the clients' params
         # Using a model to do this is overly complex but it allows for the parameter names to
         # be kept (probably still a better way to do it)
-        self.delta = copy.deepcopy(model) if model else False
+        self.delta = copy.deepcopy(model) if model else None
 
         self.std_multiplier = 1.5
 
@@ -38,8 +39,8 @@ class FedMGDAPlusAggregator(Aggregator):
         self.LR = lr
         self.lambdatOpt = optim.SGD([self.lambdaModel], lr=lr, momentum=0.5)
 
-    def trainAndTest(self, testDataset) -> Tensor:
-        roundsError = torch.zeros(self.rounds)
+    def trainAndTest(self, testDataset) -> Errors:
+        roundsError = Errors(torch.zeros(self.rounds))
         previousBlockedClients = []
         old_error = 100
 
@@ -49,7 +50,7 @@ class FedMGDAPlusAggregator(Aggregator):
             self._shareModelAndTrainOnClients()
             sentClientModels = self._retrieveClientModelsDict()
 
-            self.previousGlobalModel = copy.deepcopy(self.model) if self.model else False
+            self.previousGlobalModel = copy.deepcopy(self.model) if self.model else None
 
             self.model = self.aggregate(self.clients, sentClientModels)
 

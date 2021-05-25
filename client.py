@@ -122,7 +122,7 @@ class Client:
                 err, pred = self._trainClassifier(x, y)
             # logPrint("Client:{}; Epoch{}; Batch:{}; \tError:{}"
             #          "".format(self.id, i + 1, iBatch + 1, err))
-        torch.cuda.empty_cache()
+        cuda.empty_cache()
         self.model = self.model
         return err, pred
 

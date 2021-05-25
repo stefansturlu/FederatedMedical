@@ -1,8 +1,9 @@
+from utils.typings import BlockedLocations, Errors
 from datasetLoaders.DatasetInterface import DatasetInterface
 from aggregators.GroupWise import GroupWiseAggregation
 from experiment.CustomConfig import CustomConfig
 import os
-from typing import Callable, Dict, List, Literal, NewType, Tuple, Dict, Union
+from typing import Callable, Dict, List, Literal, NewType, Tuple, Dict, Type, Union
 import json
 from loguru import logger
 
@@ -24,14 +25,10 @@ import time
 import gc
 from torch import cuda, Tensor, nn
 
-from aggregators.Aggregator import Aggregator, IdRoundPair, allAggregators
+from aggregators.Aggregator import Aggregator, allAggregators
 from aggregators.AFA import AFAAggregator
 from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
 
-# Naked imports for allAggregators function
-from aggregators.FedAvg import FAAggregator
-from aggregators.COMED import COMEDAggregator
-from aggregators.MKRUM import MKRUMAggregator
 
 
 # Colours used for graphing, add more if necessary
@@ -68,16 +65,6 @@ COLOURS: List[str] = [
     "gold",
 ]
 
-##################################
-#### Types #######################
-##################################
-
-Errors = NewType("Errors", Tensor)
-BlockedLocations = NewType("BlockedLocations", Dict[str, IdRoundPair])
-
-##################################
-##################################
-##################################
 
 
 def __experimentOnMNIST(
@@ -149,9 +136,9 @@ def __experimentSetup(
     blocked: Dict[str, BlockedLocations] = {}
 
     for aggregator in config.aggregators:
-        name: str = aggregator.__name__.replace("Aggregator", "")
+        name = aggregator.__name__.replace("Aggregator", "")
         name = name.replace("Plus", "+")
-        name += ":" + config.name if config.name else ""
+        # name += ":" + config.name if config.name else ""
         logPrint("TRAINING {}".format(name))
         if config.privacyPreserve is not None:
             errors, block = __runExperiment(
@@ -207,15 +194,17 @@ def __runExperiment(
     config: DefaultExperimentConfiguration,
     datasetLoader,
     classifier: nn.Module,
-    aggregator: Aggregator,
+    agg: Type[Aggregator],
     useDifferentialPrivacy: bool,
 ) -> Tuple[Errors, BlockedLocations]:
+
     trainDatasets, testDataset = datasetLoader(config.percUsers, config.labels, config.datasetSize)
     clients = __initClients(config, trainDatasets, useDifferentialPrivacy)
     # Requires model input size update due to dataset generalisation and categorisation
     if config.requireDatasetAnonymization:
         classifier.inputSize = testDataset.getInputSize()
     model = classifier().to(config.aggregatorConfig.device)
+    name = agg.__name__.replace("Aggregator", "")
 
     if config.clustering:
         aggregator = GroupWiseAggregation(
@@ -226,7 +215,8 @@ def __runExperiment(
             external=config.externalAggregator,
         )
     else:
-        aggregator = aggregator(clients, model, config.aggregatorConfig)
+        aggregator = agg(clients, model, config.aggregatorConfig)
+
     if isinstance(aggregator, AFAAggregator):
         aggregator.xi = config.aggregatorConfig.xi
         aggregator.deltaXi = config.aggregatorConfig.deltaXi
@@ -240,32 +230,45 @@ def __runExperiment(
         "faulty": aggregator.faultyBlocked,
         "freeRider": aggregator.freeRidersBlocked,
     })
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
-    for i in range(30):
-        if clients[i].free or clients[i].byz or clients[i].flip:
-            ax.plot(aggregator.means[i].detach().numpy(), color="red", label="free")
-        else:
-            ax.plot(aggregator.means[i].detach().numpy(), color="grey", label="normal")
-    handles, labels = ax.get_legend_handles_labels()
-    plt.legend([handles[0], handles[3]], [labels[0], labels[3]])
-    if not (os.path.exists("test")):
-        os.makedirs("test")
-    # plt.savefig(f"test/std_{config.name}.png")
-    plt.show()
 
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
-    for i in range(30):
-        if clients[i].free or clients[i].byz or clients[i].flip:
-            ax.plot(aggregator.stds[i].detach().numpy(), color="red", label="free")
-        else:
-            ax.plot(aggregator.stds[i].detach().numpy(), color="grey", label="normal")
-    handles, labels = ax.get_legend_handles_labels()
-    plt.legend([handles[0], handles[3]], [labels[0], labels[3]])
-    # plt.savefig(f"test/mean_{config.name}.png")
-    plt.show()
-    # exit(0)
+
+    if config.aggregatorConfig.detectFreeRiders:
+
+        if not os.path.exists(f"free_rider_detect_basic/std/{name}"):
+            os.makedirs(f"free_rider_detect_basic/std/{name}")
+        if not os.path.exists(f"free_rider_detect_basic/mean/{name}"):
+            os.makedirs(f"free_rider_detect_basic/mean/{name}")
+
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        for i in range(30):
+            if clients[i].free or clients[i].byz or clients[i].flip:
+                ax.plot(aggregator.means[i].detach().numpy(), color="red", label="free")
+            else:
+                ax.plot(aggregator.means[i].detach().numpy(), color="grey", label="normal")
+        handles, labels = ax.get_legend_handles_labels()
+        plt.legend([handles[0], handles[2]], [labels[0], labels[2]])
+        if not (os.path.exists("test")):
+            os.makedirs("test")
+        plt.savefig(f"free_rider_detect_basic/std/{name}/{config.name}.png")
+        # plt.show()
+
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+        for i in range(30):
+            if clients[i].free or clients[i].byz or clients[i].flip:
+                ax.plot(aggregator.stds[i].detach().numpy(), color="red", label="free")
+            else:
+                ax.plot(aggregator.stds[i].detach().numpy(), color="grey", label="normal")
+        handles, labels = ax.get_legend_handles_labels()
+        plt.legend([handles[0], handles[2]], [labels[0], labels[2]])
+        plt.savefig(f"free_rider_detect_basic/mean/{name}/{config.name}.png")
+        # plt.show()
+
+
+
+
+
     return errors, blocked
 
 
@@ -355,9 +358,9 @@ def program() -> None:
 
         errors = __experimentOnMNIST(
             config,
-            title=f"Aggregator Limitations Test MNIST \n Attacks: {attackName}",
+            title=f"Free-Rider Detection MNIST \n Basic Attack \n Attacks: {attackName}",
             filename=f"{attackName}",
-            folder="test",
+            folder="free_rider_detect_basic",
         )
 
 

@@ -1,3 +1,4 @@
+from utils.typings import Errors
 from experiment.AggregatorConfig import AggregatorConfig
 from client import Client
 from logger import logPrint
@@ -7,6 +8,7 @@ import copy
 from aggregators.Aggregator import Aggregator
 from torch import nn, Tensor
 from scipy.stats import beta
+import scipy
 from datasetLoaders.DatasetInterface import DatasetInterface
 
 # ADAPTIVE FEDERATED AVERAGING
@@ -22,8 +24,8 @@ class AFAAggregator(Aggregator):
         self.xi: float = 2
         self.deltaXi: float = 0.25
 
-    def trainAndTest(self, testDataset: DatasetInterface):
-        roundsError = torch.zeros(self.rounds)
+    def trainAndTest(self, testDataset: DatasetInterface) -> Errors:
+        roundsError = Errors(torch.zeros(self.rounds))
 
         for r in range(self.rounds):
 
@@ -38,6 +40,7 @@ class AFAAggregator(Aggregator):
             models = self._retrieveClientModelsDict()
 
             self.model = self.aggregate(self.clients, models)
+            self.round = r
 
             roundsError[r] = self.test(testDataset)
 
@@ -182,7 +185,5 @@ class AFAAggregator(Aggregator):
         for client in clients:
             if not client.blocked:
                 client.badUpdate = False
-
-        self.round += 1
 
         return empty_model

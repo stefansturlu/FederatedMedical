@@ -4,7 +4,7 @@ from experiment.AggregatorConfig import AggregatorConfig
 from aggregators.FedAvg import FAAggregator
 import torch
 from aggregators.Aggregator import Aggregator, allAggregators
-from typing import List, Tuple, Union
+from typing import List, Tuple, Type, Union
 import torch.optim as optim
 import torch.nn as nn
 
@@ -12,7 +12,7 @@ import torch.nn as nn
 class DefaultExperimentConfiguration:
     def __init__(self):
         # DEFAULT PARAMETERS
-        self.name: str = None
+        self.name: str = ""
 
         self.aggregatorConfig = AggregatorConfig()
 
@@ -22,7 +22,7 @@ class DefaultExperimentConfiguration:
         self.batchSize: int = 200  # Local training  batch size
         self.learningRate: float = 0.1
         self.Loss = nn.CrossEntropyLoss
-        self.Optimizer: optim.Optimizer = torch.optim.SGD
+        self.Optimizer: optim.Optimizer = optim.SGD
 
         # Big datasets size tuning param: (trainSize, testSize); (None, None) interpreted as full dataset
         self.datasetSize: Tuple[int, int] = (None, None)
@@ -52,16 +52,16 @@ class DefaultExperimentConfiguration:
         # Anonymization of datasets for k-anonymity
         self.requireDatasetAnonymization: bool = False
 
-        self.aggregators: List[Aggregator] = allAggregators()  # Aggregation strategies
+        self.aggregators: List[Type[Aggregator]] = allAggregators()  # Aggregation strategies
 
         self.plotResults: bool = True
 
         # Group-Wise config
         self.internalAggregator: Union[
-            FAAggregator, MKRUMAggregator, COMEDAggregator
+            Type[FAAggregator], Type[MKRUMAggregator], Type[COMEDAggregator]
         ] = FAAggregator
         self.externalAggregator: Union[
-            FAAggregator, MKRUMAggregator, COMEDAggregator
+            Type[FAAggregator], Type[MKRUMAggregator], Type[COMEDAggregator]
         ] = FAAggregator
 
         # Pipeline config

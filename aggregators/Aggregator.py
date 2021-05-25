@@ -1,3 +1,4 @@
+from utils.typings import Errors, FreeRiderAttack, IdRoundPair
 from experiment.AggregatorConfig import AggregatorConfig
 from utils.FreeRider import FreeRider
 from datasetLoaders.DatasetInterface import DatasetInterface
@@ -8,12 +9,10 @@ from logger import logPrint
 from threading import Thread
 from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
-from typing import List, NewType, Optional, Tuple
+from typing import List, NewType, Optional, Tuple, Type
 import torch
 import matplotlib.pyplot as plt
 from random import uniform
-
-IdRoundPair = NewType("IdRoundPair", Tuple[int, int])
 
 
 class Aggregator:
@@ -36,6 +35,7 @@ class Aggregator:
         # Used for free-rider detection
         self.stds = torch.zeros((len(clients), self.rounds))
         self.means = torch.zeros((len(clients), self.rounds))
+        self.free_rider_util = FreeRider(self.device, self.config.freeRiderAttack)
 
         self.round = 0
 
@@ -49,9 +49,9 @@ class Aggregator:
         self.freeRidersBlocked: List[IdRoundPair] = []
 
         # Privacy amplification data
-        self.chosen_indices = []
+        self.chosen_indices = [i for i in range(len(self.clients))]
 
-    def trainAndTest(self, testDataset: DatasetInterface) -> Tensor:
+    def trainAndTest(self, testDataset: DatasetInterface) -> Errors:
         raise Exception(
             "Train method should be overridden by child class, "
             "specific to the aggregation strategy."
@@ -69,8 +69,6 @@ class Aggregator:
         if models == None and labels == None:
             models = [self.model]
             labels = [0] * len(self.clients)
-
-        self.chosen_indices = [i for i in range(len(self.clients))]
 
         if self.config.privacyAmplification:
             self.chosen_indices = [
@@ -164,17 +162,19 @@ class Aggregator:
         """Function to handle when we want to detect the presence of free-riders"""
         for i, model in enumerate(models):
             client = clients[i]
-            # Technically the aggregator wouldn't know this but we can't manually set grads so this will do
-            if client.free:
-                mean, std = FreeRider.free_grads(model, client.prev_model)
-            else:
-                mean, std = FreeRider.normal_grads(model)
 
-            self.means[client.id][self.round] = mean.to(self.device)
-            self.stds[client.id][self.round] = std.to(self.device)
+            if not client.blocked:
+                # Technically the aggregator wouldn't know this but we can't manually set grads so this will do
+                if client.free:
+                    mean, std = self.free_rider_util.free_grads(model, client.prev_model)
+                else:
+                    mean, std = self.free_rider_util.normal_grads(model)
+
+                self.means[client.id][self.round] = mean.to(self.device)
+                self.stds[client.id][self.round] = std.to(self.device)
 
         self.round += 1
 
 
-def allAggregators() -> List[Aggregator]:
+def allAggregators() -> List[Type[Aggregator]]:
     return Aggregator.__subclasses__()

@@ -1,5 +1,5 @@
+from utils.typings import FreeRiderAttack
 from torch import device, cuda
-
 
 class AggregatorConfig:
     def __init__(self):
@@ -12,6 +12,7 @@ class AggregatorConfig:
 
         # Pipeline config
         self.detectFreeRiders: bool = False
+        self.freeRiderAttack: FreeRiderAttack = FreeRiderAttack.NOISY
 
         # Privacy Amplification settings
         self.privacyAmplification = False

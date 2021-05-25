@@ -1,4 +1,5 @@
 from copy import deepcopy
+from utils.typings import Errors
 from experiment.AggregatorConfig import AggregatorConfig
 from datasetLoaders.DatasetInterface import DatasetInterface
 from client import Client
@@ -19,8 +20,8 @@ class MKRUMAggregator(Aggregator):
     ):
         super().__init__(clients, model, config, useAsyncClients)
 
-    def trainAndTest(self, testDataset: DatasetInterface):
-        roundsError = torch.zeros(self.rounds)
+    def trainAndTest(self, testDataset: DatasetInterface) -> Errors:
+        roundsError = Errors(torch.zeros(self.rounds))
 
         for r in range(self.rounds):
             logPrint("Round... ", r)

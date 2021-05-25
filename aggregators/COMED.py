@@ -1,3 +1,4 @@
+from utils.typings import Errors
 from experiment.AggregatorConfig import AggregatorConfig
 from torch import nn, Tensor
 from client import Client
@@ -20,8 +21,8 @@ class COMEDAggregator(Aggregator):
     ):
         super().__init__(clients, model, config, useAsyncClients)
 
-    def trainAndTest(self, testDataset: DatasetInterface) -> Tensor:
-        roundsError = torch.zeros(self.rounds)
+    def trainAndTest(self, testDataset: DatasetInterface) -> Errors:
+        roundsError = Errors(torch.zeros(self.rounds))
 
         for r in range(self.rounds):
             logPrint("Round... ", r)

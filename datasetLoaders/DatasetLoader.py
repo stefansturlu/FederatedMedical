@@ -37,7 +37,7 @@ class DatasetLoader:
         DatasetLoader._setRandomSeeds()
         percUsers = percUsers / percUsers.sum()
 
-        dataSplitCount = (percUsers * len(trainDataframe)).floor().numpy()
+        dataSplitCount = (percUsers.cpu() * len(trainDataframe)).floor().numpy()
         _, *dataSplitIndex = [
             int(sum(dataSplitCount[range(i)])) for i in range(len(dataSplitCount))
         ]
