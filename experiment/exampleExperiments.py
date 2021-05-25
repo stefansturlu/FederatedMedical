@@ -1,4 +1,4 @@
-from experiment.CustomConfig import CustomConfig
+from experiment.CustomConfig import CustomConfig, PERC_USERS
 from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration
 from itertools import product
 import torch
@@ -12,7 +12,7 @@ from aggregators.FedAvg import FAAggregator
 from aggregators.COMED import COMEDAggregator
 from aggregators.MKRUM import MKRUMAggregator
 
-from main import __experimentOnMNIST, experiment, PERC_USERS, __experimentOnCOVIDx
+from main import __experimentOnMNIST, experiment, __experimentOnCOVIDx
 
 
 @experiment

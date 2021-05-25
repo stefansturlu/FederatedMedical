@@ -22,7 +22,7 @@ import random
 import torch
 import time
 import gc
-from torch import cuda, Tensor
+from torch import cuda, Tensor, nn
 
 from aggregators.Aggregator import Aggregator, IdRoundPair, allAggregators
 from aggregators.AFA import AFAAggregator
@@ -73,10 +73,7 @@ COLOURS: List[str] = [
 ##################################
 
 Errors = NewType("Errors", Tensor)
-BlockedType = Union[
-    Literal["benign"], Literal["malicious"], Literal["faulty"], Literal["freeRider"]
-]
-BlockedLocations = NewType("BlockedLocations", Dict[BlockedType, IdRoundPair])
+BlockedLocations = NewType("BlockedLocations", Dict[str, IdRoundPair])
 
 ##################################
 ##################################
@@ -152,7 +149,7 @@ def __experimentSetup(
     blocked: Dict[str, BlockedLocations] = {}
 
     for aggregator in config.aggregators:
-        name = aggregator.__name__.replace("Aggregator", "")
+        name: str = aggregator.__name__.replace("Aggregator", "")
         name = name.replace("Plus", "+")
         name += ":" + config.name if config.name else ""
         logPrint("TRAINING {}".format(name))
@@ -209,7 +206,7 @@ def __experimentSetup(
 def __runExperiment(
     config: DefaultExperimentConfiguration,
     datasetLoader,
-    classifier,
+    classifier: nn.Module,
     aggregator: Aggregator,
     useDifferentialPrivacy: bool,
 ) -> Tuple[Errors, BlockedLocations]:
@@ -237,12 +234,12 @@ def __runExperiment(
         aggregator.reinitialise(config.aggregatorConfig.innerLR)
 
     errors: Errors = aggregator.trainAndTest(testDataset)
-    blocked: BlockedLocations = {
+    blocked = BlockedLocations({
         "benign": aggregator.benignBlocked,
         "malicious": aggregator.maliciousBlocked,
         "faulty": aggregator.faultyBlocked,
         "freeRider": aggregator.freeRidersBlocked,
-    }
+    })
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
     for i in range(30):

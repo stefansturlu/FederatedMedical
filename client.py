@@ -1,4 +1,5 @@
 import copy
+from typing import Optional
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -36,7 +37,7 @@ class Client:
         byzantine=None,
         flipping=None,
         freeRiding=False,
-        model=None,
+        model:Optional[nn.Module]=None,
         alpha=3.0,
         beta=3.0,
     ):
@@ -44,7 +45,7 @@ class Client:
         self.name: str = "client" + str(idx)
         self.device: torch.device = device
 
-        self.model: nn.Module = model
+        self.model: Optional[nn.Module] = model
         self.trainDataset = trainDataset
         self.dataLoader = DataLoader(self.trainDataset, batch_size=batchSize, shuffle=True)
         self.n: int = len(trainDataset)  # Number of training points provided
@@ -56,12 +57,12 @@ class Client:
 
         # Used for computing dW, i.e. the change in model before
         # and after client local training, when DP is used
-        self.untrainedModel: nn.Module = copy.deepcopy(model).to("cpu") if model else False
+        self.untrainedModel: Optional[nn.Module] = copy.deepcopy(model).to("cpu") if model else None
 
         # Used for free-riders delta weights attacks
-        self.prev_model: nn.Module = None
+        self.prev_model: Optional[nn.Module] = None
 
-        self.opt = None
+        self.opt: optim.Optimizer = None
         self.sim: Tensor = None
         self.loss: nn.CrossEntropyLoss = None
         self.Loss: nn.CrossEntropyLoss = Loss
@@ -99,7 +100,7 @@ class Client:
                 self.model.parameters(), lr=self.learningRate, momentum=self.momentum
             )
         else:
-            self.opt: optim.Optimizer = self.Optimizer(
+            self.opt = self.Optimizer(
                 self.model.parameters(), lr=self.learningRate
             )
         self.loss: nn.CrossEntropyLoss = self.Loss()

@@ -4,7 +4,7 @@ from aggregators.AFA import AFAAggregator
 from torch import nn, Tensor
 from client import Client
 from logger import logPrint
-from typing import List
+from typing import List, Tuple
 import torch
 from aggregators.Aggregator import Aggregator
 from datasetLoaders.DatasetInterface import DatasetInterface
@@ -69,6 +69,7 @@ class GroupWiseAggregation(Aggregator):
                         [FakeClient(p, i) for (i, p) in enumerate(conc_ps)], best_models
                     )
 
+                    # give reference to customised fed learning
                     # for i in range(len(self.cluster_centres)):
                     #     # if i in indices:
                     #     # self.cluster_centres[i] = concentrated
@@ -95,7 +96,7 @@ class GroupWiseAggregation(Aggregator):
 
         return agg
 
-    def _gen_cluster_centre(self, indices: Tensor, models: List[nn.Module]) -> nn.Module:
+    def _gen_cluster_centre(self, indices: List[int], models: List[nn.Module]) -> nn.Module:
         """ Takes the average of the clients assigned to each cluster to generate a new centre """
         # Here you should be using other robust aggregation algorithms to perform the centre calculation and blocking
 
@@ -118,7 +119,7 @@ class GroupWiseAggregation(Aggregator):
 
         return coords
 
-    def generate_cluster_centres(self, models: List[nn.Module]) -> None:
+    def generate_cluster_centres(self, models: List[nn.Module]) -> Tuple[List[nn.Module], Tensor, List[int]]:
         X = self._generate_weights(models)
         X = [model.tolist() for model in X]
         pca = PCA.pca(X, dim=2)
@@ -144,7 +145,7 @@ class GroupWiseAggregation(Aggregator):
         # PCA.pca3D(X, self.clients)
 
         self.cluster_labels = kmeans.labels_
-        indices = [[] for _ in range(self.cluster_count)]
+        indices: List[List[int]] = [[] for _ in range(self.cluster_count)]
         self.cluster_centres_len.zero_()
 
         for i, l in enumerate(self.cluster_labels):
@@ -176,7 +177,7 @@ class GroupWiseAggregation(Aggregator):
         print(sims)
 
         best_val = 0
-        best_indices = None
+        best_indices: List[int] = []
         besti = -1
 
         for i, s in enumerate(sims):

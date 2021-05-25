@@ -10,7 +10,7 @@ MaliciousList = List[int]
 FaultyList = List[int]
 FreeRiderList = List[int]
 AttackName = str
-AttacksType = List[Tuple[FaultyList, MaliciousList, FreeRiderList, AttackName]]
+AttacksType = Tuple[Tuple[FaultyList, MaliciousList, FreeRiderList, AttackName]]
 
 
 class CustomConfig(DefaultExperimentConfiguration):

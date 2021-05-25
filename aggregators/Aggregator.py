@@ -8,7 +8,7 @@ from logger import logPrint
 from threading import Thread
 from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
-from typing import List, NewType, Tuple
+from typing import List, NewType, Optional, Tuple
 import torch
 import matplotlib.pyplot as plt
 from random import uniform
@@ -64,7 +64,7 @@ class Aggregator:
         )
 
     def _shareModelAndTrainOnClients(
-        self, models: List[nn.Module] = None, labels: List[int] = None
+        self, models: Optional[List[nn.Module]] = None, labels: Optional[List[int]] = None
     ):
         if models == None and labels == None:
             models = [self.model]
@@ -149,7 +149,7 @@ class Aggregator:
         logPrint("USER ", client.id, " BLOCKED!!!")
         client.p = 0
         client.blocked = True
-        pair: IdRoundPair = (client.id, round)
+        pair = IdRoundPair((client.id, round))
         if client.byz or client.flip or client.free:
             if client.byz:
                 self.faultyBlocked.append(pair)
