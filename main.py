@@ -264,7 +264,7 @@ def __runExperiment(
             else:
                 ax.plot(aggregator.stds[i].detach().numpy(), color="grey", label="normal")
         handles, labels = ax.get_legend_handles_labels()
-        plt.legend([handles[0], handles[2]], [labels[0], labels[2]])
+        plt.legend([handles[1], handles[2]], [labels[1], labels[2]])
         plt.savefig(f"{folder}/mean/{name}/{config.name}.png")
         # plt.show()
 
@@ -362,9 +362,9 @@ def program() -> None:
 
         errors = __experimentOnMNIST(
             config,
-            title=f"Free-Rider Detection MNIST \n Delta Attack \n Attacks: {attackName}",
+            title=f"Free-Rider Detection MNIST \n Basic Attack \n Attacks: {attackName}",
             filename=f"{attackName}",
-            folder="free_rider_detect_delta",
+            folder="free_rider_detect_basic",
         )
 
 
@@ -382,9 +382,9 @@ def program() -> None:
 
         errors = __experimentOnMNIST(
             config,
-            title=f"Free-Rider Detection MNIST \n Delta Attack \n Attacks: {attackName}",
+            title=f"Free-Rider Detection MNIST \n Noisy Attack \n Attacks: {attackName}",
             filename=f"{attackName}",
-            folder="free_rider_detect_delta",
+            folder="free_rider_detect_noisy",
         )
 
 
