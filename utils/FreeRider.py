@@ -31,7 +31,6 @@ class FreeRider:
                 # We do the manipulation here for simplicity sake even if it makes more
                 # sense to do it elsewhere due to grad values being None
                 grad_m, grad_s = self.standard_gradient_gen(param)
-                # grad_m, grad_s = self.delta_gradient_gen(param)
                 mean += grad_m.mean()
                 std += grad_s.std()
 

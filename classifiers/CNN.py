@@ -13,5 +13,5 @@ class Classifier(nn.Module):
             self.cnn = models.resnext50_32x4d(pretrained=True)
             self.cnn.classifier = nn.Linear(1280, classes)
 
-    def forward(self, x: Tensor):
+    def forward(self, x: Tensor) -> Tensor:
         return self.cnn(x)

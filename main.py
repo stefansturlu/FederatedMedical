@@ -1,4 +1,4 @@
-from utils.typings import BlockedLocations, Errors
+from utils.typings import BlockedLocations, Errors, FreeRiderAttack
 from datasetLoaders.DatasetInterface import DatasetInterface
 from aggregators.GroupWise import GroupWiseAggregation
 from experiment.CustomConfig import CustomConfig
@@ -142,7 +142,7 @@ def __experimentSetup(
         logPrint("TRAINING {}".format(name))
         if config.privacyPreserve is not None:
             errors, block = __runExperiment(
-                config, datasetLoader, classifier, aggregator, config.privacyPreserve
+                config, datasetLoader, classifier, aggregator, config.privacyPreserve, folder
             )
         else:
             errors, block = __runExperiment(
@@ -150,7 +150,8 @@ def __experimentSetup(
                 datasetLoader,
                 classifier,
                 aggregator,
-                useDifferentialPrivacy=False,
+                False,
+                folder
             )
             logPrint("TRAINING {} with DP".format(name))
             errors, block = __runExperiment(
@@ -158,7 +159,8 @@ def __experimentSetup(
                 datasetLoader,
                 classifier,
                 aggregator,
-                useDifferentialPrivacy=True,
+                True,
+                folder
             )
 
         errorsDict[name] = errors
@@ -196,6 +198,7 @@ def __runExperiment(
     classifier: nn.Module,
     agg: Type[Aggregator],
     useDifferentialPrivacy: bool,
+    folder:str="test"
 ) -> Tuple[Errors, BlockedLocations]:
 
     trainDatasets, testDataset = datasetLoader(config.percUsers, config.labels, config.datasetSize)
@@ -231,13 +234,14 @@ def __runExperiment(
         "freeRider": aggregator.freeRidersBlocked,
     })
 
-
+    print(config.aggregatorConfig.detectFreeRiders)
     if config.aggregatorConfig.detectFreeRiders:
 
-        if not os.path.exists(f"free_rider_detect_basic/std/{name}"):
-            os.makedirs(f"free_rider_detect_basic/std/{name}")
-        if not os.path.exists(f"free_rider_detect_basic/mean/{name}"):
-            os.makedirs(f"free_rider_detect_basic/mean/{name}")
+        if not os.path.exists(f"{folder}/std/{name}"):
+            os.makedirs(f"{folder}/std/{name}")
+        if not os.path.exists(f"{folder}/mean/{name}"):
+            os.makedirs(f"{folder}/mean/{name}")
+
 
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
@@ -248,9 +252,8 @@ def __runExperiment(
                 ax.plot(aggregator.means[i].detach().numpy(), color="grey", label="normal")
         handles, labels = ax.get_legend_handles_labels()
         plt.legend([handles[0], handles[2]], [labels[0], labels[2]])
-        if not (os.path.exists("test")):
-            os.makedirs("test")
-        plt.savefig(f"free_rider_detect_basic/std/{name}/{config.name}.png")
+
+        plt.savefig(f"{folder}/std/{name}/{config.name}.png")
         # plt.show()
 
         fig = plt.figure()
@@ -262,7 +265,7 @@ def __runExperiment(
                 ax.plot(aggregator.stds[i].detach().numpy(), color="grey", label="normal")
         handles, labels = ax.get_legend_handles_labels()
         plt.legend([handles[0], handles[2]], [labels[0], labels[2]])
-        plt.savefig(f"free_rider_detect_basic/mean/{name}/{config.name}.png")
+        plt.savefig(f"{folder}/mean/{name}/{config.name}.png")
         # plt.show()
 
 
@@ -347,6 +350,7 @@ def experiment(exp: Callable[[], None]):
 
 @experiment
 def program() -> None:
+
     config = CustomConfig()
 
     if config.clustering and config.aggregatorConfig.privacyAmplification:
@@ -358,9 +362,49 @@ def program() -> None:
 
         errors = __experimentOnMNIST(
             config,
-            title=f"Free-Rider Detection MNIST \n Basic Attack \n Attacks: {attackName}",
+            title=f"Free-Rider Detection MNIST \n Delta Attack \n Attacks: {attackName}",
             filename=f"{attackName}",
-            folder="free_rider_detect_basic",
+            folder="free_rider_detect_delta",
+        )
+
+
+
+
+    config = CustomConfig()
+    config.aggregatorConfig.freeRiderAttack = FreeRiderAttack.NOISY
+
+    if config.clustering and config.aggregatorConfig.privacyAmplification:
+        print("Currently doesn't support both at the same time")
+        print("Size of clients is very likely to be smaller than or very close to cluster_count")
+        exit(-1)
+
+    for attackName in config.scenario_conversion():
+
+        errors = __experimentOnMNIST(
+            config,
+            title=f"Free-Rider Detection MNIST \n Delta Attack \n Attacks: {attackName}",
+            filename=f"{attackName}",
+            folder="free_rider_detect_delta",
+        )
+
+
+
+
+    config = CustomConfig()
+    config.aggregatorConfig.freeRiderAttack = FreeRiderAttack.DELTA
+
+    if config.clustering and config.aggregatorConfig.privacyAmplification:
+        print("Currently doesn't support both at the same time")
+        print("Size of clients is very likely to be smaller than or very close to cluster_count")
+        exit(-1)
+
+    for attackName in config.scenario_conversion():
+
+        errors = __experimentOnMNIST(
+            config,
+            title=f"Free-Rider Detection MNIST \n Delta Attack \n Attacks: {attackName}",
+            filename=f"{attackName}",
+            folder="free_rider_detect_delta",
         )
 
 

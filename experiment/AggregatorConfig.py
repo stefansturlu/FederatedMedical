@@ -12,7 +12,7 @@ class AggregatorConfig:
 
         # Pipeline config
         self.detectFreeRiders: bool = False
-        self.freeRiderAttack: FreeRiderAttack = FreeRiderAttack.NOISY
+        self.freeRiderAttack: FreeRiderAttack = FreeRiderAttack.BASIC
 
         # Privacy Amplification settings
         self.privacyAmplification = False
