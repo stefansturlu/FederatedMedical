@@ -1,9 +1,10 @@
+from typing import Union
 from torch import nn
 
 
 class Classifier(nn.Module):
     defaultInputSize = 8
-    inputSize = None
+    inputSize: Union[int, None] = None
 
     def __init__(self):
         super(Classifier, self).__init__()

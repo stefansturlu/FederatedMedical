@@ -2,11 +2,11 @@ from datasetLoaders.DatasetInterface import DatasetInterface
 import os
 import random
 import re
-from typing import List, Tuple
+from typing import List, Tuple, Type
 import numpy as np
 import pandas as pd
 import torch
-from torch.tensor import Tensor
+from torch import Tensor, cuda
 from pandas import DataFrame
 
 # from cn.protect import Protect
@@ -32,7 +32,7 @@ class DatasetLoader:
 
     @staticmethod
     def _splitTrainDataIntoClientDatasets(
-        percUsers: Tensor, trainDataframe: DataFrame, DatasetType: DatasetInterface
+        percUsers: Tensor, trainDataframe: DataFrame, DatasetType: Type[DatasetInterface]
     ) -> List[DatasetInterface]:
         DatasetLoader._setRandomSeeds()
         percUsers = percUsers / percUsers.sum()
@@ -59,7 +59,7 @@ class DatasetLoader:
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
-        torch.cuda.manual_seed(seed)
+        cuda.manual_seed(seed)
 
     # When anonymizing the clients' datasets using  _anonymizeClientDatasets the function passed as
     #  parameter should take as parameter the cn.protect object and set ds specific generalisations
@@ -192,7 +192,7 @@ class DatasetLoader:
         return map1 if map1Generality <= map2Generality else map2
 
     @staticmethod
-    def __legitMapping(entry, mapping):
+    def __legitMapping(entry, mapping) -> bool:
         for col in mapping:
             if not isinstance(mapping[col], str):
                 if entry[col] != mapping[col]:

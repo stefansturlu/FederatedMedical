@@ -64,7 +64,7 @@ class DatasetLoaderCOVIDx(DatasetLoader):
             return True
         return False
 
-    def __readDataframe(self, file, size):
+    def __readDataframe(self, file: str, size: int):
         dataFrame = pd.read_csv(
             file,
             names=["id", "fileNames", "labels"],

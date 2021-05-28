@@ -251,9 +251,13 @@ def __runExperiment(
             else:
                 ax.plot(aggregator.means[i].detach().numpy(), color="grey", label="normal")
         handles, labels = ax.get_legend_handles_labels()
-        plt.legend([handles[0], handles[2]], [labels[0], labels[2]])
+        plt.legend([handles[1], handles[2]], [labels[1], labels[2]])
+        plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
+        plt.ylabel("Mean of Weights")
+        plt.title("Mean of Weights over Time", loc="center", wrap=True)
+        plt.xlim(0, 30)
 
-        plt.savefig(f"{folder}/std/{name}/{config.name}.png")
+        plt.savefig(f"{folder}/mean/{name}/{config.name}.png")
         # plt.show()
 
         fig = plt.figure()
@@ -265,7 +269,11 @@ def __runExperiment(
                 ax.plot(aggregator.stds[i].detach().numpy(), color="grey", label="normal")
         handles, labels = ax.get_legend_handles_labels()
         plt.legend([handles[1], handles[2]], [labels[1], labels[2]])
-        plt.savefig(f"{folder}/mean/{name}/{config.name}.png")
+        plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
+        plt.ylabel("StD of Weights")
+        plt.title("Standard Deviation of Weights over Time", loc="center", wrap=True)
+        plt.xlim(0, 30)
+        plt.savefig(f"{folder}/std/{name}/{config.name}.png")
         # plt.show()
 
 
@@ -350,28 +358,19 @@ def experiment(exp: Callable[[], None]):
 
 @experiment
 def program() -> None:
-
-    config = CustomConfig()
-
-    if config.clustering and config.aggregatorConfig.privacyAmplification:
-        print("Currently doesn't support both at the same time")
-        print("Size of clients is very likely to be smaller than or very close to cluster_count")
-        exit(-1)
-
-    for attackName in config.scenario_conversion():
-
-        errors = __experimentOnMNIST(
-            config,
-            title=f"Free-Rider Detection MNIST \n Basic Attack \n Attacks: {attackName}",
-            filename=f"{attackName}",
-            folder="free_rider_detect_basic",
-        )
-
-
-
-
     config = CustomConfig()
     config.aggregatorConfig.freeRiderAttack = FreeRiderAttack.NOISY
+    config.scenarios = [
+        ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3], "12_free"),
+        ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6], "13_free"),
+        ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9], "14_free"),
+        ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12], "15_free"),
+        ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15], "16_free"),
+        ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18], "17_free"),
+        ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21], "18_free"),
+        ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21, 24], "19_free"),
+        ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21, 24, 27], "20_free"),
+    ]
 
     if config.clustering and config.aggregatorConfig.privacyAmplification:
         print("Currently doesn't support both at the same time")

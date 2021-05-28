@@ -122,13 +122,13 @@ class DatasetLoaderPneumonia(DatasetLoader):
             self.imgs: List[np.ndarray] = dataframe["img"]
             super().__init__(dataframe["labels"].values.tolist())
 
-        def __getitem__(self, index: int) -> Tuple[Tensor, Tensor]:
+        def __getitem__(self, index: int) -> Tuple[np.ndarray, Tensor]:
             imageTensor = self.__load_image(self.imgs[index])
             labelTensor = self.labels[index]
             return imageTensor, labelTensor
 
         @staticmethod
-        def __load_image(image: np.ndarray) -> Tensor:
+        def __load_image(image: np.ndarray) -> np.ndarray:
             transform = transforms.Compose(
                 [
                     transforms.ToTensor(),
