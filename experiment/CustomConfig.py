@@ -40,10 +40,7 @@ class CustomConfig(DefaultExperimentConfiguration):
         ]
         self.percUsers = torch.tensor(PERC_USERS, device=self.aggregatorConfig.device)
 
-        self.aggregatorConfig.detectFreeRiders = True
-        # self.aggregatorConfig.privacyAmplification = True
-
-        self.aggregators = [FAAggregator, COMEDAggregator, MKRUMAggregator, AFAAggregator, FedMGDAPlusAggregator]
+        self.aggregators = [FAAggregator, COMEDAggregator, MKRUMAggregator]
 
     def scenario_conversion(self):
         for faulty, malicious, freeRider, attackName in self.scenarios:

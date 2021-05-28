@@ -16,7 +16,7 @@ class AggregatorConfig:
 
         # Privacy Amplification settings
         self.privacyAmplification = False
-        self.amplificationP = 0.3
+        self.amplificationP = 0.7
 
         # FedMGDA+ Parameters:
         self.innerLR: float = 0.1

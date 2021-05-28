@@ -234,7 +234,6 @@ def __runExperiment(
         "freeRider": aggregator.freeRidersBlocked,
     })
 
-    print(config.aggregatorConfig.detectFreeRiders)
     if config.aggregatorConfig.detectFreeRiders:
 
         if not os.path.exists(f"{folder}/std/{name}"):
@@ -359,18 +358,6 @@ def experiment(exp: Callable[[], None]):
 @experiment
 def program() -> None:
     config = CustomConfig()
-    config.aggregatorConfig.freeRiderAttack = FreeRiderAttack.NOISY
-    config.scenarios = [
-        ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3], "12_free"),
-        ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6], "13_free"),
-        ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9], "14_free"),
-        ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12], "15_free"),
-        ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15], "16_free"),
-        ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18], "17_free"),
-        ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21], "18_free"),
-        ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21, 24], "19_free"),
-        ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21, 24, 27], "20_free"),
-    ]
 
     if config.clustering and config.aggregatorConfig.privacyAmplification:
         print("Currently doesn't support both at the same time")
@@ -381,29 +368,9 @@ def program() -> None:
 
         errors = __experimentOnMNIST(
             config,
-            title=f"Free-Rider Detection MNIST \n Noisy Attack \n Attacks: {attackName}",
+            title=f"Free-Rider Detection MNIST \n Delta Attack with Privacy Amplification \n Attacks: {attackName}",
             filename=f"{attackName}",
-            folder="free_rider_detect_noisy",
-        )
-
-
-
-
-    config = CustomConfig()
-    config.aggregatorConfig.freeRiderAttack = FreeRiderAttack.DELTA
-
-    if config.clustering and config.aggregatorConfig.privacyAmplification:
-        print("Currently doesn't support both at the same time")
-        print("Size of clients is very likely to be smaller than or very close to cluster_count")
-        exit(-1)
-
-    for attackName in config.scenario_conversion():
-
-        errors = __experimentOnMNIST(
-            config,
-            title=f"Free-Rider Detection MNIST \n Delta Attack \n Attacks: {attackName}",
-            filename=f"{attackName}",
-            folder="free_rider_detect_delta",
+            folder="free_rider_detect_delta_amplification",
         )
 
 
