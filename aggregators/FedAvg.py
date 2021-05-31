@@ -37,6 +37,7 @@ class FAAggregator(Aggregator):
 
     def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
         empty_model = deepcopy(self.model)
+        # TODO: RENORMALISE THE WEIGHTS FOR PRIV AMP
 
         comb = 0.0
         for i, client in enumerate(clients):
