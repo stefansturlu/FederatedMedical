@@ -9,7 +9,6 @@ import copy
 from aggregators.Aggregator import Aggregator
 from torch import nn, Tensor
 from scipy.stats import beta
-import scipy
 from datasetLoaders.DatasetInterface import DatasetInterface
 
 # ADAPTIVE FEDERATED AVERAGING
@@ -93,6 +92,7 @@ class AFAAggregator(Aggregator):
 
     def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
         empty_model = copy.deepcopy(self.model)
+        self.renormalise_weights(clients)
 
         badCount: int = 2
         slack = self.xi
@@ -172,11 +172,11 @@ class AFAAggregator(Aggregator):
         for client in clients:
             if self.notBlockedNorBadUpdate(client):
                 client.pEpoch = client.n * client.score
-                pT_epoch = pT_epoch + client.pEpoch
+                pT_epoch += client.pEpoch
 
         for client in clients:
             if self.notBlockedNorBadUpdate(client):
-                client.pEpoch = client.pEpoch / pT_epoch
+                client.pEpoch /= pT_epoch
         # logPrint("Updated scores:{}".format([client.pEpoch for client in clients]))
         comb = 0.0
         for i, client in enumerate(clients):

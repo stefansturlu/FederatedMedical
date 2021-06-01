@@ -175,6 +175,13 @@ class Aggregator:
 
         self.round += 1
 
+    def renormalise_weights(self, clients: List[Client]):
+        """ Renormalising weights for privacy amplification """
+        # Shouldn't change unless number of clients is less than len(self.clients)
+        weight_total = sum([c.p for c in clients])
+        for c in clients:
+            c.p /= weight_total
+
 
 def allAggregators() -> List[Type[Aggregator]]:
     return Aggregator.__subclasses__()

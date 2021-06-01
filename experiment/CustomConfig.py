@@ -1,4 +1,4 @@
-from utils.typings import AttacksType
+from utils.typings import AttacksType, FreeRiderAttack
 from aggregators.Aggregator import allAggregators
 from aggregators.GroupWise import GroupWiseAggregation
 from typing import List
@@ -40,7 +40,10 @@ class CustomConfig(DefaultExperimentConfiguration):
         ]
         self.percUsers = torch.tensor(PERC_USERS, device=self.aggregatorConfig.device)
 
-        self.aggregators = [FAAggregator, COMEDAggregator, MKRUMAggregator]
+        self.aggregators = [FAAggregator, COMEDAggregator, MKRUMAggregator, AFAAggregator]
+        self.aggregatorConfig.privacyAmplification = True
+        self.aggregatorConfig.freeRiderAttack = FreeRiderAttack.DELTA
+        self.aggregatorConfig.detectFreeRiders = True
 
     def scenario_conversion(self):
         for faulty, malicious, freeRider, attackName in self.scenarios:
