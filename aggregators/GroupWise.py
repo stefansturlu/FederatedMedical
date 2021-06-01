@@ -23,8 +23,6 @@ class GroupWiseAggregation(Aggregator):
         clients: List[Client],
         model: nn.Module,
         config: AggregatorConfig,
-        internal: Type[Aggregator],
-        external: Type[Aggregator],
         useAsyncClients: bool = False,
     ):
         super().__init__(clients, model, config, useAsyncClients)
@@ -36,8 +34,8 @@ class GroupWiseAggregation(Aggregator):
         self.cluster_centres_len = torch.zeros(self.cluster_count)
         self.cluster_labels = [0] * len(self.clients)
 
-        self.internalAggregator = self._init_aggregator(internal)
-        self.externalAggregator = self._init_aggregator(external)
+        self.internalAggregator: Aggregator = None
+        self.externalAggregator: Aggregator = None
 
         self.blocked_ps = []
 
@@ -45,7 +43,7 @@ class GroupWiseAggregation(Aggregator):
         roundsError = Errors(torch.zeros(self.config.rounds))
         for r in range(self.config.rounds):
             logPrint("Round... ", r)
-            if True:
+            if r == 0:
                 self._shareModelAndTrainOnClients()
             else:
                 self._shareModelAndTrainOnClients(self.cluster_centres, self.cluster_labels)
@@ -70,12 +68,15 @@ class GroupWiseAggregation(Aggregator):
                         [FakeClient(p, i) for (i, p) in enumerate(conc_ps)], best_models
                     )
 
-                    # give reference to customised fed learning
-                    # for i in range(len(self.cluster_centres)):
-                    #     # if i in indices:
-                    #     # self.cluster_centres[i] = concentrated
-                    #     # else:
-                    #     self.cluster_centres[i] = general
+                    # Personalised Federated Learning
+                    for i in range(len(self.cluster_centres)):
+                        # print(i)
+                        # self.model = self.cluster_centres[i]
+                        # self.test(testDataset)
+                        if i in indices:
+                            self.cluster_centres[i] = concentrated
+                        else:
+                            self.cluster_centres[i] = general
 
                     print("Concentrated test")
                     self.model = concentrated
@@ -87,7 +88,11 @@ class GroupWiseAggregation(Aggregator):
 
         return roundsError
 
-    def _init_aggregator(self, aggregator: Type[Aggregator]) -> Aggregator:
+    def _init_aggregators(self, internal: Type[Aggregator], external: Type[Aggregator]) -> None:
+        self.internalAggregator = self.__init_aggregator(internal)
+        self.externalAggregator = self.__init_aggregator(external)
+
+    def __init_aggregator(self, aggregator: Type[Aggregator]) -> Aggregator:
         agg = aggregator(self.clients, self.model, self.config)
         if isinstance(agg, AFAAggregator):
             agg.xi = self.config.xi
@@ -97,11 +102,12 @@ class GroupWiseAggregation(Aggregator):
 
         return agg
 
+
     def _gen_cluster_centre(self, indices: List[int], models: List[nn.Module]) -> nn.Module:
         """ Takes the average of the clients assigned to each cluster to generate a new centre """
         # Here you should be using other robust aggregation algorithms to perform the centre calculation and blocking
 
-        model = self.internalAggregator.aggregate([self.clients[i] for i in indices], models)
+        model = self.internalAggregator.aggregate([self.clients[i] for i in indices], [models[i] for i in indices])
 
         return model
 
@@ -190,12 +196,55 @@ class GroupWiseAggregation(Aggregator):
                 best_indices = indices
                 besti = i
 
+
+
+        # dists = [[] for _ in range(self.cluster_count)]
+
+        # for i, m1 in enumerate(X):
+        #     for m2 in X:
+        #         l2_dist = (m1 - m2).square().sum()
+        #         # sim = cos(m1, m2)
+        #         dists[i].append(l2_dist)
+        # print("dists")
+        # print(dists)
+
+        # best_val = 100000000000
+        # best_indices: List[int] = []
+        # besti = -1
+
+        # for i, s in enumerate(dists):
+        #     indices = heapq.nsmallest(num_to_take, range(len(s)), s.__getitem__)
+        #     print(indices)
+        #     val = sum(s[i] for i in indices)
+        #     if val < best_val:
+        #         best_val = val
+        #         best_indices = indices
+        #         besti = i
+
+
+        # sims = dists
+
+
+
+
+
         print("best indices")
         print(best_indices)
+        print(sims[besti])
 
         mean = 1 / self.cluster_count
         ps: Tensor = Tensor([p / sum(sims[besti]) for p in sims[besti]])
+
+        #############
+        # ps = 1 - ps
+        # ps /= ps.sum()
+        #############
+        # ps = 1 / ps
+        # ps /= ps.sum()
+
+
         std = torch.std(ps[ps.nonzero()])
+        # mean = torch.mean(ps[ps.nonzero()])
         cutoff = mean - std
         print("cutoff")
         print(cutoff)

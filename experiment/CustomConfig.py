@@ -16,34 +16,22 @@ class CustomConfig(DefaultExperimentConfiguration):
     def __init__(self):
         super().__init__()
         self.scenarios: AttacksType = [
-            ([], [], [], "no_free"),
-            ([], [], [2], "1_free"),
-            ([], [], [2, 5], "2_free"),
-            ([], [], [2, 5, 8], "3_free"),
-            ([], [], [2, 5, 8, 11], "4_free"),
-            ([], [], [2, 5, 8, 11, 14], "5_free"),
-            ([], [], [2, 5, 8, 11, 14, 17], "6_free"),
-            ([], [], [2, 5, 8, 11, 14, 17, 20], "7_free"),
-            ([], [], [2, 5, 8, 11, 14, 17, 20, 23], "8_free"),
-            ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26], "9_free"),
-            ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29], "10_free"),
-            ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0], "11_free"),
-            ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3], "12_free"),
-            ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6], "13_free"),
-            ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9], "14_free"),
-            ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12], "15_free"),
-            ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15], "16_free"),
-            ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18], "17_free"),
-            ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21], "18_free"),
-            ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21, 24], "19_free"),
-            ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21, 24, 27], "20_free"),
+            # ([], [], [], "no_mal"),
+            # ([], [2], [], "1_mal"),
+            # ([], [2, 5], [], "2_mal"),
+            # ([], [2, 5, 8], [], "3_mal"),
+            # ([], [2, 5, 8, 11], [], "4_mal"),
+            # ([], [2, 5, 8, 11, 14], [], "5_mal"),
+            # ([], [2, 5, 8, 11, 14, 17], [], "6_mal"),
+            # ([], [2, 5, 8, 11, 14, 17, 20], [], "7_mal"),
+            # ([], [2, 5, 8, 11, 14, 17, 20, 23], [], "8_mal"),
+            # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26], [], "9_mal"),
+            ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [], "10_mal"),
+            # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21, 24, 27], [], "20_mal"),
         ]
         self.percUsers = torch.tensor(PERC_USERS, device=self.aggregatorConfig.device)
 
-        self.aggregators = [FAAggregator, COMEDAggregator, MKRUMAggregator, AFAAggregator]
-        self.aggregatorConfig.privacyAmplification = True
-        self.aggregatorConfig.freeRiderAttack = FreeRiderAttack.DELTA
-        self.aggregatorConfig.detectFreeRiders = True
+        self.aggregators = [GroupWiseAggregation]
 
     def scenario_conversion(self):
         for faulty, malicious, freeRider, attackName in self.scenarios:

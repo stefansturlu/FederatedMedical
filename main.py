@@ -209,22 +209,16 @@ def __runExperiment(
     model = classifier().to(config.aggregatorConfig.device)
     name = agg.__name__.replace("Aggregator", "")
 
-    if config.clustering:
-        aggregator = GroupWiseAggregation(
-            clients,
-            model,
-            config.aggregatorConfig,
-            internal=config.internalAggregator,
-            external=config.externalAggregator,
-        )
-    else:
-        aggregator = agg(clients, model, config.aggregatorConfig)
+    aggregator = agg(clients, model, config.aggregatorConfig)
 
     if isinstance(aggregator, AFAAggregator):
         aggregator.xi = config.aggregatorConfig.xi
         aggregator.deltaXi = config.aggregatorConfig.deltaXi
     elif isinstance(aggregator, FedMGDAPlusAggregator):
         aggregator.reinitialise(config.aggregatorConfig.innerLR)
+    elif isinstance(aggregator, GroupWiseAggregation):
+        aggregator._init_aggregators(config.internalAggregator, config.externalAggregator)
+
 
     errors: Errors = aggregator.trainAndTest(testDataset)
     blocked = BlockedLocations({
@@ -359,7 +353,7 @@ def experiment(exp: Callable[[], None]):
 def program() -> None:
     config = CustomConfig()
 
-    if config.clustering and config.aggregatorConfig.privacyAmplification:
+    if GroupWiseAggregation in config.aggregators and config.aggregatorConfig.privacyAmplification:
         print("Currently doesn't support both at the same time")
         print("Size of clients is very likely to be smaller than or very close to cluster_count")
         exit(-1)
@@ -368,9 +362,9 @@ def program() -> None:
 
         errors = __experimentOnMNIST(
             config,
-            title=f"Free-Rider Detection MNIST \n Delta Attack with Privacy Amplification \n Attacks: {attackName}",
+            title=f"Group-Wise Test \n Attacks: {attackName}",
             filename=f"{attackName}",
-            folder="free_rider_detect_delta_amplification",
+            folder="test",
         )
 
 
