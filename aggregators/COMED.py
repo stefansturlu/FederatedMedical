@@ -39,6 +39,8 @@ class COMEDAggregator(Aggregator):
         return roundsError
 
     def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
+        if (len(models)) == 0:
+            return self.model.to(self.device)
         model = models[0]
         modelCopy = deepcopy(model)
         params = model.named_parameters()

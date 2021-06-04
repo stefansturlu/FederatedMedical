@@ -78,12 +78,12 @@ class GroupWiseAggregation(Aggregator):
                         else:
                             self.cluster_centres[i] = general
 
-                    print("Concentrated test")
-                    self.model = concentrated
-                    roundsError[r] = self.test(testDataset)
-
                     print("General test")
                     self.model = general
+                    roundsError[r] = self.test(testDataset)
+
+                    print("Concentrated test")
+                    self.model = concentrated
                     roundsError[r] = self.test(testDataset)
 
         return roundsError
@@ -169,9 +169,6 @@ class GroupWiseAggregation(Aggregator):
         num_to_take = math.floor(self.cluster_count / 2) + 1
 
         X = self._generate_weights(self.cluster_centres)
-        Xl = [model.tolist() for model in X]
-        kmeans = KMeans(n_clusters=num_to_take, random_state=0).fit(Xl)
-        print(kmeans.labels_)
 
         sims = [[] for _ in range(self.cluster_count)]
         cos = nn.CosineSimilarity(0)
@@ -197,57 +194,68 @@ class GroupWiseAggregation(Aggregator):
                 besti = i
 
 
-
-        # dists = [[] for _ in range(self.cluster_count)]
-
-        # for i, m1 in enumerate(X):
-        #     for m2 in X:
-        #         l2_dist = (m1 - m2).square().sum()
-        #         # sim = cos(m1, m2)
-        #         dists[i].append(l2_dist)
-        # print("dists")
-        # print(dists)
-
-        # best_val = 100000000000
-        # best_indices: List[int] = []
-        # besti = -1
-
-        # for i, s in enumerate(dists):
-        #     indices = heapq.nsmallest(num_to_take, range(len(s)), s.__getitem__)
-        #     print(indices)
-        #     val = sum(s[i] for i in indices)
-        #     if val < best_val:
-        #         best_val = val
-        #         best_indices = indices
-        #         besti = i
-
-
-        # sims = dists
-
-
-
-
-
         print("best indices")
         print(best_indices)
         print(sims[besti])
 
-        mean = 1 / self.cluster_count
+
         ps: Tensor = Tensor([p / sum(sims[besti]) for p in sims[besti]])
 
-        #############
-        # ps = 1 - ps
-        # ps /= ps.sum()
-        #############
-        # ps = 1 / ps
-        # ps /= ps.sum()
-
-
         std = torch.std(ps[ps.nonzero()])
-        # mean = torch.mean(ps[ps.nonzero()])
+        mean = torch.mean(ps[ps.nonzero()])
         cutoff = mean - std
         print("cutoff")
         print(cutoff)
+
+        best_models = [self.cluster_centres[i] for i in best_indices]
+        ps[ps < cutoff] = 0
+        ps = ps.mul(self.cluster_centres_len)
+        ps /= ps.sum()
+        print("ps")
+        print(ps)
+
+        return best_models, ps, best_indices
+
+
+    def _use_closest_clusters(self) -> Tuple[List[nn.Module], Tensor, List[int]]:
+        num_to_take = math.floor(self.cluster_count / 2) + 1
+
+        X = self._generate_weights(self.cluster_centres)
+
+        dists = [[] for _ in range(self.cluster_count)]
+
+        for i, m1 in enumerate(X):
+            for m2 in X:
+                l2_dist = (m1 - m2).square().sum()
+                dists[i].append(l2_dist)
+        print("dists")
+        print(dists)
+
+        best_val = 100000000000
+        best_indices: List[int] = []
+        besti = -1
+
+        for i, s in enumerate(dists):
+            indices = heapq.nsmallest(num_to_take, range(len(s)), s.__getitem__)
+            print(indices)
+            val = sum(s[i] for i in indices)
+            if val < best_val:
+                best_val = val
+                best_indices = indices
+                besti = i
+
+
+        print("best indices")
+        print(best_indices)
+        print(dists[besti])
+
+        ps: Tensor = Tensor([p / sum(dists[besti]) for p in dists[besti]])
+        ps = 1 - ps
+        ps /= ps.sum()
+
+        std = torch.std(ps[ps.nonzero()])
+        mean = torch.mean(ps[ps.nonzero()])
+        cutoff = mean - std
 
         best_models = [self.cluster_centres[i] for i in best_indices]
         ps[ps < cutoff] = 0

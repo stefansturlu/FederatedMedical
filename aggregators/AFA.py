@@ -91,6 +91,9 @@ class AFAAggregator(Aggregator):
         return client.blocked == False | client.badUpdate == False
 
     def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
+        if len(models) == 0:
+            return self.model
+
         empty_model = copy.deepcopy(self.model)
         self.renormalise_weights(clients)
 

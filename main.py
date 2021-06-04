@@ -1,3 +1,4 @@
+from aggregators.MKRUM import MKRUMAggregator
 from utils.typings import BlockedLocations, Errors, FreeRiderAttack
 from datasetLoaders.DatasetInterface import DatasetInterface
 from aggregators.GroupWise import GroupWiseAggregation
@@ -28,6 +29,8 @@ from torch import cuda, Tensor, nn
 from aggregators.Aggregator import Aggregator, allAggregators
 from aggregators.AFA import AFAAggregator
 from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
+from aggregators.FedAvg import FAAggregator
+from aggregators.COMED import COMEDAggregator
 
 
 
@@ -352,20 +355,46 @@ def experiment(exp: Callable[[], None]):
 @experiment
 def program() -> None:
     config = CustomConfig()
+    config.aggregators = [MKRUMAggregator]
+    config.plotResults = False
+    config.aggregatorConfig.privacyAmplification = True
 
-    if GroupWiseAggregation in config.aggregators and config.aggregatorConfig.privacyAmplification:
-        print("Currently doesn't support both at the same time")
-        print("Size of clients is very likely to be smaller than or very close to cluster_count")
+    if (GroupWiseAggregation in config.aggregators or FedMGDAPlusAggregator in config.aggregators) and config.aggregatorConfig.privacyAmplification:
+        print("Currently doesn't support both at the same time.")
+        print("Size of clients is very likely to be smaller than or very close to cluster_count.")
+        print("FedMGDA+ relies on every client being present and training at every federated round.")
         exit(-1)
 
-    for attackName in config.scenario_conversion():
+    errorsDict = {}
 
-        errors = __experimentOnMNIST(
-            config,
-            title=f"Group-Wise Test \n Attacks: {attackName}",
-            filename=f"{attackName}",
-            folder="test",
-        )
+    for p in [0.05, 0.1, 0.2, 0.3, 0.4, 0.5]:
+        for attackName in config.scenario_conversion():
+            config.aggregatorConfig.amplificationP = p
+
+            errors = __experimentOnMNIST(
+                config,
+                title=f"Privacy Amplification Test on p-value",
+                filename=f"{p}",
+                folder="amplification_p_test/mkrum",
+            )
+
+            errorsDict[p] = errors["MKRUM"]
+
+    plt.figure()
+    i = 0
+    for name, err in errorsDict.items():
+        plt.plot(err, color=COLOURS[i], alpha=0.6)
+        i += 1
+    plt.legend(errorsDict.keys())
+    plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
+    plt.ylabel("Error Rate (%)")
+    plt.title(
+        f"Privacy Amplification Test on p-value \n MKRUM",
+        loc="center",
+        wrap=True,
+    )
+    plt.ylim(0, 1.0)
+    plt.savefig(f"amplification_p_test/mkrum.png", dpi=400)
 
 
 # Running the program here

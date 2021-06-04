@@ -1,5 +1,5 @@
 import copy
-from typing import Optional
+from typing import Optional, Type
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -45,7 +45,7 @@ class Client:
         self.name: str = "client" + str(idx)
         self.device: torch.device = device
 
-        self.model: Optional[nn.Module] = model
+        self.model: nn.Module = model
         self.trainDataset = trainDataset
         self.dataLoader = DataLoader(self.trainDataset, batch_size=batchSize, shuffle=True)
         self.n: int = len(trainDataset)  # Number of training points provided
@@ -60,13 +60,13 @@ class Client:
         self.untrainedModel: Optional[nn.Module] = copy.deepcopy(model).to("cpu") if model else None
 
         # Used for free-riders delta weights attacks
-        self.prev_model: Optional[nn.Module] = None
+        self.prev_model: nn.Module = None
 
         self.opt: optim.Optimizer = None
         self.sim: Tensor = None
         self.loss: nn.CrossEntropyLoss = None
         self.Loss: nn.CrossEntropyLoss = Loss
-        self.Optimizer: optim.Optimizer = Optimizer
+        self.Optimizer: Type[optim.Optimizer] = Optimizer
         self.pEpoch: float = None
         self.badUpdate: bool = False
         self.epochs: int = epochs

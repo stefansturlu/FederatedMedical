@@ -1,4 +1,6 @@
-from typing import List, Tuple
+from typing import List, Optional, Tuple
+
+import numpy as np
 from datasetLoaders.DatasetLoader import DatasetLoader
 from datasetLoaders.DatasetInterface import DatasetInterface
 from pandas import DataFrame
@@ -10,7 +12,7 @@ import torch
 
 class DatasetLoaderMNIST(DatasetLoader):
     def getDatasets(
-        self, percUsers: Tensor, labels: Tensor, size=None
+        self, percUsers: Tensor, labels: Tensor, size:Optional[Tuple[int, int]]=None
     ) -> Tuple[List[DatasetInterface], DatasetInterface]:
         logPrint("Loading MNIST...")
         self._setRandomSeeds()
@@ -31,18 +33,18 @@ class DatasetLoaderMNIST(DatasetLoader):
         testSet = datasets.MNIST("data", train=False, transform=trans, download=True)
 
         # Scale pixel intensities to [-1, 1]
-        xTrain = trainSet.train_data
+        xTrain: Tensor = trainSet.train_data
         xTrain = 2 * (xTrain.float() / 255.0) - 1
         # list of 2D images to 1D pixel intensities
         xTrain = xTrain.flatten(1, 2).numpy()
         yTrain = trainSet.train_labels.numpy()
 
         # Scale pixel intensities to [-1, 1]
-        xTest = testSet.test_data.clone().detach()
-        xTest = 2 * (xTest.float() / 255.0) - 1
+        xtest: Tensor = testSet.test_data.clone().detach()
+        xtest = 2 * (xtest.float() / 255.0) - 1
         # list of 2D images to 1D pixel intensities
-        xTest = xTest.flatten(1, 2).numpy()
-        yTest = testSet.test_labels.numpy()
+        xTest: np.ndarray = xtest.flatten(1, 2).numpy()
+        yTest: np.ndarray = testSet.test_labels.numpy()
 
         trainDataframe = DataFrame(zip(xTrain, yTrain))
         testDataframe = DataFrame(zip(xTest, yTest))

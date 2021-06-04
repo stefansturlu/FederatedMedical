@@ -22,10 +22,10 @@ class DefaultExperimentConfiguration:
         self.batchSize: int = 200  # Local training  batch size
         self.learningRate: float = 0.1
         self.Loss = nn.CrossEntropyLoss
-        self.Optimizer: optim.Optimizer = optim.SGD
+        self.Optimizer: Type[optim.Optimizer] = optim.SGD
 
         # Big datasets size tuning param: (trainSize, testSize); (None, None) interpreted as full dataset
-        self.datasetSize: Tuple[int, int] = (None, None)
+        self.datasetSize: Tuple[int, int] = (0, 0)
 
         # Clients setup
         self.percUsers = torch.tensor(

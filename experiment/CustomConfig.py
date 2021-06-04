@@ -16,7 +16,7 @@ class CustomConfig(DefaultExperimentConfiguration):
     def __init__(self):
         super().__init__()
         self.scenarios: AttacksType = [
-            # ([], [], [], "no_mal"),
+            ([], [], [], "no_attack"),
             # ([], [2], [], "1_mal"),
             # ([], [2, 5], [], "2_mal"),
             # ([], [2, 5, 8], [], "3_mal"),
@@ -26,7 +26,7 @@ class CustomConfig(DefaultExperimentConfiguration):
             # ([], [2, 5, 8, 11, 14, 17, 20], [], "7_mal"),
             # ([], [2, 5, 8, 11, 14, 17, 20, 23], [], "8_mal"),
             # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26], [], "9_mal"),
-            ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [], "10_mal"),
+            # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [], "10_mal"),
             # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21, 24, 27], [], "20_mal"),
         ]
         self.percUsers = torch.tensor(PERC_USERS, device=self.aggregatorConfig.device)
