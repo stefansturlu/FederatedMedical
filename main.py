@@ -1,7 +1,5 @@
-from aggregators.MKRUM import MKRUMAggregator
 from utils.typings import BlockedLocations, Errors, FreeRiderAttack
 from datasetLoaders.DatasetInterface import DatasetInterface
-from aggregators.GroupWise import GroupWiseAggregation
 from experiment.CustomConfig import CustomConfig
 import os
 from typing import Callable, Dict, List, Literal, NewType, Tuple, Dict, Type, Union
@@ -31,6 +29,9 @@ from aggregators.AFA import AFAAggregator
 from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
 from aggregators.FedAvg import FAAggregator
 from aggregators.COMED import COMEDAggregator
+from aggregators.Clustering import ClusteringAggregator
+from aggregators.MKRUM import MKRUMAggregator
+from aggregators.GroupWise import GroupWiseAggregation
 
 
 
@@ -219,7 +220,7 @@ def __runExperiment(
         aggregator.deltaXi = config.aggregatorConfig.deltaXi
     elif isinstance(aggregator, FedMGDAPlusAggregator):
         aggregator.reinitialise(config.aggregatorConfig.innerLR)
-    elif isinstance(aggregator, GroupWiseAggregation):
+    elif isinstance(aggregator, GroupWiseAggregation) or isinstance(aggregator, ClusteringAggregator):
         aggregator._init_aggregators(config.internalAggregator, config.externalAggregator)
 
 
@@ -355,9 +356,9 @@ def experiment(exp: Callable[[], None]):
 @experiment
 def program() -> None:
     config = CustomConfig()
-    config.aggregators = [MKRUMAggregator]
+    config.aggregators = [ClusteringAggregator]
     config.plotResults = False
-    config.aggregatorConfig.privacyAmplification = True
+    config.epochs = 10
 
     if (GroupWiseAggregation in config.aggregators or FedMGDAPlusAggregator in config.aggregators) and config.aggregatorConfig.privacyAmplification:
         print("Currently doesn't support both at the same time.")
@@ -365,36 +366,44 @@ def program() -> None:
         print("FedMGDA+ relies on every client being present and training at every federated round.")
         exit(-1)
 
-    errorsDict = {}
 
-    for p in [0.05, 0.1, 0.2, 0.3, 0.4, 0.5]:
-        for attackName in config.scenario_conversion():
-            config.aggregatorConfig.amplificationP = p
+    internal = [FAAggregator, COMEDAggregator, MKRUMAggregator]
+    external = [COMEDAggregator, MKRUMAggregator]
 
-            errors = __experimentOnMNIST(
-                config,
-                title=f"Privacy Amplification Test on p-value",
-                filename=f"{p}",
-                folder="amplification_p_test/mkrum",
+    for attackName in config.scenario_conversion():
+        for e in external:
+            errorsDict = {}
+            config.externalAggregator = e
+            eName = e.__name__.replace("Aggregator", "")
+
+            for i in internal:
+                config.internalAggregator = i
+                iName = i.__name__.replace("Aggregator", "")
+
+                errors = __experimentOnMNIST(
+                    config,
+                    title=f"Basic Clustering Test \n External: {eName} \n Internal: {iName} \n Attack: {attackName}",
+                    filename=f"{iName}",
+                    folder=f"clustering_test/{attackName}/{eName}",
+                )
+
+                errorsDict[iName] = errors[list(errors.keys())[0]]
+
+            plt.figure()
+            i = 0
+            for name, err in errorsDict.items():
+                plt.plot(err, color=COLOURS[i], alpha=0.6)
+                i += 1
+            plt.legend(errorsDict.keys())
+            plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
+            plt.ylabel("Error Rate (%)")
+            plt.title(
+                f"Basic Clustering Test \n External: {eName} \n Attack: {attackName}",
+                loc="center",
+                wrap=True,
             )
-
-            errorsDict[p] = errors["MKRUM"]
-
-    plt.figure()
-    i = 0
-    for name, err in errorsDict.items():
-        plt.plot(err, color=COLOURS[i], alpha=0.6)
-        i += 1
-    plt.legend(errorsDict.keys())
-    plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
-    plt.ylabel("Error Rate (%)")
-    plt.title(
-        f"Privacy Amplification Test on p-value \n MKRUM",
-        loc="center",
-        wrap=True,
-    )
-    plt.ylim(0, 1.0)
-    plt.savefig(f"amplification_p_test/mkrum.png", dpi=400)
+            plt.ylim(0, 1.0)
+            plt.savefig(f"clustering_test/{attackName}/{eName}.png", dpi=400)
 
 
 # Running the program here

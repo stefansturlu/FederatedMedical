@@ -17,7 +17,7 @@ class DefaultExperimentConfiguration:
         self.aggregatorConfig = AggregatorConfig()
 
         # Epochs num locally run by clients before sending back the model update
-        self.epochs: int = 10
+        self.epochs: int = 2
 
         self.batchSize: int = 200  # Local training  batch size
         self.learningRate: float = 0.1
@@ -59,7 +59,7 @@ class DefaultExperimentConfiguration:
         # Group-Wise config
         self.internalAggregator: Union[
             Type[FAAggregator], Type[MKRUMAggregator], Type[COMEDAggregator]
-        ] = FAAggregator
+        ] = COMEDAggregator
         self.externalAggregator: Union[
             Type[FAAggregator], Type[MKRUMAggregator], Type[COMEDAggregator]
-        ] = FAAggregator
+        ] = COMEDAggregator

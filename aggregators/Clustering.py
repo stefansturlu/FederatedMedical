@@ -12,7 +12,7 @@ from utils.PCA import PCA
 
 # Group-Wise Aggregator based on clustering
 # Even though it itself does not do aggregation, it makes programatic sense to inherit attributes and functions
-class ClusteringAggregation(Aggregator):
+class ClusteringAggregator(Aggregator):
     def __init__(
         self,
         clients: List[Client],
