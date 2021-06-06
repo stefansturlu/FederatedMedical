@@ -356,9 +356,10 @@ def experiment(exp: Callable[[], None]):
 @experiment
 def program() -> None:
     config = CustomConfig()
-    config.aggregators = [ClusteringAggregator]
     config.plotResults = False
+    config.aggregators = [ClusteringAggregator]
     config.epochs = 10
+    config.aggregatorConfig.rounds = 15
 
     if (GroupWiseAggregation in config.aggregators or FedMGDAPlusAggregator in config.aggregators) and config.aggregatorConfig.privacyAmplification:
         print("Currently doesn't support both at the same time.")
@@ -367,43 +368,20 @@ def program() -> None:
         exit(-1)
 
 
-    internal = [FAAggregator, COMEDAggregator, MKRUMAggregator]
-    external = [COMEDAggregator, MKRUMAggregator]
 
     for attackName in config.scenario_conversion():
-        for e in external:
-            errorsDict = {}
-            config.externalAggregator = e
-            eName = e.__name__.replace("Aggregator", "")
+        mins = []
+        final = []
 
-            for i in internal:
-                config.internalAggregator = i
-                iName = i.__name__.replace("Aggregator", "")
 
-                errors = __experimentOnMNIST(
-                    config,
-                    title=f"Basic Clustering Test \n External: {eName} \n Internal: {iName} \n Attack: {attackName}",
-                    filename=f"{iName}",
-                    folder=f"clustering_test/{attackName}/{eName}",
-                )
+        errors = __experimentOnMNIST(
+            config,
+            title=f"test",
+            filename=f"test",
+            folder=f"test",
+        )
 
-                errorsDict[iName] = errors[list(errors.keys())[0]]
 
-            plt.figure()
-            i = 0
-            for name, err in errorsDict.items():
-                plt.plot(err, color=COLOURS[i], alpha=0.6)
-                i += 1
-            plt.legend(errorsDict.keys())
-            plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
-            plt.ylabel("Error Rate (%)")
-            plt.title(
-                f"Basic Clustering Test \n External: {eName} \n Attack: {attackName}",
-                loc="center",
-                wrap=True,
-            )
-            plt.ylim(0, 1.0)
-            plt.savefig(f"clustering_test/{attackName}/{eName}.png", dpi=400)
 
 
 # Running the program here

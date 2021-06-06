@@ -24,3 +24,6 @@ class AggregatorConfig:
         # AFA Parameters:
         self.xi: float = 2
         self.deltaXi: float = 0.25
+
+        # Clustering Config:
+        self.cluster_count: int = 5

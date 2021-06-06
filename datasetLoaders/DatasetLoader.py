@@ -26,8 +26,8 @@ class DatasetLoader:
     def _filterDataByLabel(
         labels: Tensor, trainDataframe: DataFrame, testDataframe: DataFrame
     ) -> Tuple[DataFrame, DataFrame]:
-        trainDataframe = trainDataframe[trainDataframe["labels"].isin(labels)]
-        testDataframe = testDataframe[testDataframe["labels"].isin(labels)]
+        trainDataframe = trainDataframe[trainDataframe["labels"].isin(labels.tolist())]
+        testDataframe = testDataframe[testDataframe["labels"].isin(labels.tolist())]
         return trainDataframe, testDataframe
 
     @staticmethod

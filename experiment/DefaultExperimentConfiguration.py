@@ -59,7 +59,8 @@ class DefaultExperimentConfiguration:
         # Group-Wise config
         self.internalAggregator: Union[
             Type[FAAggregator], Type[MKRUMAggregator], Type[COMEDAggregator]
-        ] = COMEDAggregator
+        ] = FAAggregator
         self.externalAggregator: Union[
             Type[FAAggregator], Type[MKRUMAggregator], Type[COMEDAggregator]
         ] = COMEDAggregator
+

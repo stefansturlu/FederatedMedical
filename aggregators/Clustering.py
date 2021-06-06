@@ -1,3 +1,5 @@
+from copy import deepcopy
+import os
 from utils.typings import Errors
 from experiment.AggregatorConfig import AggregatorConfig
 from torch import nn, Tensor
@@ -9,9 +11,11 @@ from aggregators.Aggregator import Aggregator
 from datasetLoaders.DatasetInterface import DatasetInterface
 from sklearn.cluster import KMeans
 from utils.PCA import PCA
+import matplotlib.pyplot as plt
 
 # Group-Wise Aggregator based on clustering
 # Even though it itself does not do aggregation, it makes programatic sense to inherit attributes and functions
+# USE 10 EPOCHS PER ROUND FOR CLUSTERING
 class ClusteringAggregator(Aggregator):
     def __init__(
         self,
@@ -24,7 +28,7 @@ class ClusteringAggregator(Aggregator):
 
         self.config = config
 
-        self.cluster_count = 5
+        self.cluster_count = config.cluster_count
         self.cluster_centres: List[nn.Module] = [None] * self.cluster_count
         self.cluster_centres_len = torch.zeros(self.cluster_count)
         self.cluster_labels = [0] * len(self.clients)
@@ -37,6 +41,7 @@ class ClusteringAggregator(Aggregator):
     def trainAndTest(self, testDataset: DatasetInterface) -> Errors:
         roundsError = Errors(torch.zeros(self.config.rounds))
         for r in range(self.config.rounds):
+            self.round = r
             logPrint("Round... ", r)
             self._shareModelAndTrainOnClients()
 
@@ -85,11 +90,13 @@ class ClusteringAggregator(Aggregator):
     def generate_cluster_centres(self, models: List[nn.Module]) -> None:
         X = self._generate_weights(models)
         X = [model.tolist() for model in X]
+        # self.__elbow_test(X, models)
         kmeans = KMeans(n_clusters=self.cluster_count, random_state=0).fit(X)
 
         # PCA.pca1D(X, self.clients)
         # PCA.pca2D(X, self.clients)
         # PCA.pca3D(X, self.clients)
+        PCA.optimal_component_plot(X)
 
         self.cluster_labels = kmeans.labels_
         indices: List[List[int]] = [[] for _ in range(self.cluster_count)]
@@ -104,6 +111,55 @@ class ClusteringAggregator(Aggregator):
         self.cluster_centres_len /= len(self.clients)
         for i, ins in enumerate(indices):
             self.cluster_centres[i] = self._gen_cluster_centre(ins, models)
+
+
+    def __elbow_test(self, X, models: List[nn.Module]) -> None:
+        dispersion = []
+
+        for h in range(len(self.clients)):
+            kmeans = KMeans(n_clusters=h+1, random_state=0).fit(X)
+            labels = kmeans.labels_
+
+            indices: List[List[int]] = [[] for _ in range(h+1)]
+            lens = torch.zeros(h+1)
+            lens.zero_()
+
+            centres: List[nn.Module] = []
+
+            for i, l in enumerate(labels):
+                lens[l] += 1
+                indices[l].append(i)
+
+            lens /= len(self.clients)
+            d = 0
+            for i, ins in enumerate(indices):
+                centres.append(self._gen_cluster_centre(ins, models))
+
+            for i, ins in enumerate(indices):
+                ms = [models[j] for j in ins]
+                c_coords = torch.tensor([]).to(self.device)
+                for param in centres[i].parameters():
+                    c_coords = torch.cat((c_coords, param.data.view(-1)))
+
+                for m in ms:
+                    m_coords = torch.tensor([]).to(self.device)
+                    for param in m.parameters():
+                        m_coords = torch.cat((m_coords, param.data.view(-1)))
+
+                    d += (c_coords - m_coords).square().sum()
+
+            dispersion.append(d)
+
+
+        # plt.figure()
+        # plt.plot(range(1, 31), dispersion)
+        # plt.title(f"Sum of Distances from Cluster Centre as K Increases \n 20 Malicious - Round: {self.round}")
+        # plt.xlabel("K-Value")
+        # plt.ylabel("Sum of Distances")
+        # if not os.path.exists("k_means_test/20_mal"):
+        #     os.makedirs("k_means_test/20_mal")
+        # plt.savefig(f"k_means_test/20_mal/{self.round}.png")
+
 
 class FakeClient:
     def __init__(self, p: float, id: int):

@@ -1,5 +1,5 @@
 from abc import ABCMeta
-from torch import nn
+from torch import nn, Tensor
 from typing import List, Tuple, Union
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA as pca_func
@@ -74,5 +74,17 @@ class PCA(metaclass=ABCMeta):
     # dim must be between 0 and min(n_samples, n_features)
     # This is most likely len(client_info) (e.g. 30) unless you are working with a really small model
     @staticmethod
-    def pca(flattened_models: nn.Module, dim=10) -> Tuple[Union[Tuple, float]]:
+    def pca(flattened_models: List[List[float]], dim=10) -> Tuple[Union[Tuple, float]]:
         return pca_func(dim).fit_transform(flattened_models)
+
+
+    @staticmethod
+    def optimal_component_plot(X) -> None:
+        p = pca_func().fit(X)
+
+        plt.figure()
+        plt.plot(p.explained_variance_, linewidth=2)
+        plt.title("Explained Variance of PCA as the Number of Components Increases")
+        plt.xlabel("Components")
+        plt.ylabel("Explained Variance")
+        plt.show()
