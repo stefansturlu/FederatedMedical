@@ -1,4 +1,4 @@
-from utils.typings import BlockedLocations, Errors, FreeRiderAttack
+from utils.typings import BlockedLocations, Errors, FreeRiderAttack, PersonalisationMethod
 from datasetLoaders.DatasetInterface import DatasetInterface
 from experiment.CustomConfig import CustomConfig
 import os
@@ -357,7 +357,7 @@ def experiment(exp: Callable[[], None]):
 def program() -> None:
     config = CustomConfig()
     config.plotResults = False
-    config.aggregators = [ClusteringAggregator]
+    config.aggregators = [GroupWiseAggregation]
     config.epochs = 10
     config.aggregatorConfig.rounds = 15
 
@@ -367,19 +367,65 @@ def program() -> None:
         print("FedMGDA+ relies on every client being present and training at every federated round.")
         exit(-1)
 
-
+    aggs = [FAAggregator, COMEDAggregator]
+    methods = [PersonalisationMethod.SELECTIVE, PersonalisationMethod.GENERAL, PersonalisationMethod.NO_GLOBAL]
+    thr = [False, True]
 
     for attackName in config.scenario_conversion():
-        mins = []
-        final = []
+        for a in aggs:
+            a_name = a.__name__.replace("Aggregator", "")
+            config.externalAggregator = a
+            errorsDict = {}
+
+            for m in methods:
+                config.aggregatorConfig.personalisation = m
+
+                if m == PersonalisationMethod.NO_GLOBAL:
+                    errors = __experimentOnMNIST(
+                        config,
+                        title=f"Personalisation: {m} \n {a_name} - {attackName}",
+                        filename=f"{attackName}",
+                        folder=f"personalisation_tests/{a_name}",
+                    )
+
+                    errorsDict[f"{m}"] = errors["GroupWiseAggregation"]
+                else:
+                    for t in thr:
+                        config.aggregatorConfig.threshold = t
+                        t_name = "No Treshold"
+                        if t:
+                            t_name = "Thresholding"
+
+                        errors = __experimentOnMNIST(
+                            config,
+                            title=f"Personalisation: {m} \n {a_name} - {attackName}",
+                            filename=f"{attackName}",
+                            folder=f"personalisation_tests/{a_name}",
+                        )
+
+                        errorsDict[f"{m} - {t_name}"] = errors["GroupWiseAggregation"]
+
+            plt.figure()
+            i = 0
+            for name, err in errorsDict.items():
+                plt.plot(err, color=COLOURS[i], alpha=0.6)
+                i += 1
+            plt.legend(errorsDict.keys())
+            plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
+            plt.ylabel("Error Rate (%)")
+            plt.title(
+                f"Personalisation Tests with {a_name} \n {attackName}",
+                loc="center",
+                wrap=True,
+            )
+            plt.ylim(0, 1.0)
+            plt.savefig(f"personalisation_tests/{a_name}/{attackName}.png", dpi=400)
 
 
-        errors = __experimentOnMNIST(
-            config,
-            title=f"test",
-            filename=f"test",
-            folder=f"test",
-        )
+
+
+
+    agg = 
 
 
 

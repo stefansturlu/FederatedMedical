@@ -21,3 +21,8 @@ class FreeRiderAttack(Enum):
     BASIC=0
     NOISY=1
     DELTA=2
+
+class PersonalisationMethod(Enum):
+    SELECTIVE="Selective"     # The default
+    GENERAL="General"         # We do SELECTIVE and then send out the general model as well
+    NO_GLOBAL="No Global"     # No external aggregation done

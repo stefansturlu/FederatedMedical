@@ -1,4 +1,4 @@
-from utils.typings import FreeRiderAttack
+from utils.typings import FreeRiderAttack, PersonalisationMethod
 from torch import device, cuda
 
 class AggregatorConfig:
@@ -27,3 +27,5 @@ class AggregatorConfig:
 
         # Clustering Config:
         self.cluster_count: int = 5
+        self.personalisation: PersonalisationMethod = PersonalisationMethod.GENERAL
+        self.threshold: bool = False

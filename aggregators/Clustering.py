@@ -91,12 +91,16 @@ class ClusteringAggregator(Aggregator):
         X = self._generate_weights(models)
         X = [model.tolist() for model in X]
         # self.__elbow_test(X, models)
-        kmeans = KMeans(n_clusters=self.cluster_count, random_state=0).fit(X)
+        p = PCA.pca(X, 4) # 4
+        kmeans = KMeans(n_clusters=self.cluster_count, random_state=0).fit(p)
 
-        # PCA.pca1D(X, self.clients)
+        # if self.round % 5 == 0:
+            # PCA.pca1D(X, self.clients)
         # PCA.pca2D(X, self.clients)
         # PCA.pca3D(X, self.clients)
-        PCA.optimal_component_plot(X)
+        PCA.pca4D(X, self.clients)
+        # if self.round % 5 == 0:
+        # PCA.optimal_component_plot(X)
 
         self.cluster_labels = kmeans.labels_
         indices: List[List[int]] = [[] for _ in range(self.cluster_count)]

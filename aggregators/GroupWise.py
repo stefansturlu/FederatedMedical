@@ -1,4 +1,4 @@
-from utils.typings import Errors
+from utils.typings import Errors, PersonalisationMethod
 from experiment.AggregatorConfig import AggregatorConfig
 from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
 from aggregators.AFA import AFAAggregator
@@ -29,7 +29,7 @@ class GroupWiseAggregation(Aggregator):
 
         self.config = config
 
-        self.cluster_count = 5
+        self.cluster_count = self.config.cluster_count
         self.cluster_centres: List[nn.Module] = [None] * self.cluster_count
         self.cluster_centres_len = torch.zeros(self.cluster_count)
         self.cluster_labels = [0] * len(self.clients)
@@ -39,8 +39,11 @@ class GroupWiseAggregation(Aggregator):
 
         self.blocked_ps = []
 
+        self.personalisation: PersonalisationMethod = config.personalisation
+
     def trainAndTest(self, testDataset: DatasetInterface) -> Errors:
         roundsError = Errors(torch.zeros(self.config.rounds))
+        no_global_rounds_error = torch.zeros(self.config.rounds, self.cluster_count)
         for r in range(self.config.rounds):
             logPrint("Round... ", r)
             if r == 0:
@@ -50,41 +53,59 @@ class GroupWiseAggregation(Aggregator):
 
             models = self._retrieveClientModelsDict()
 
+
             # Perform Clustering
             with torch.no_grad():
                 self.generate_cluster_centres(models)
 
-                if True:
-                    # Assume p value is based on size of cluster
-                    best_models, ps, indices = self._use_most_similar_clusters()
-                    conc_ps = [ps[i] for i in indices]
-                    conc_ps = [p / sum(conc_ps) for p in conc_ps]
 
+                if self.personalisation == PersonalisationMethod.NO_GLOBAL:
+                    for i in range(len(self.cluster_centres)):
+                        print(i)
+                        self.model = self.cluster_centres[i]
+                        err = self.test(testDataset)
+                        no_global_rounds_error[r, i] = err
+                    continue
+
+                # Assume p value is based on size of cluster
+                best_models, ps, indices = self._use_closest_clusters()
+                conc_ps = [ps[i] for i in indices]
+                conc_ps = [p / sum(conc_ps) for p in conc_ps]
+
+                concentrated = self.externalAggregator.aggregate(
+                    [FakeClient(p, i) for (i, p) in enumerate(conc_ps)], best_models
+                )
+
+                for i in range(len(self.cluster_centres)):
+                    if i in indices:
+                        self.cluster_centres[i] = concentrated
+
+                if self.personalisation == PersonalisationMethod.GENERAL:
                     general = self.externalAggregator.aggregate(
                         [FakeClient(p, i) for (i, p) in enumerate(ps)], self.cluster_centres
                     )
 
-                    concentrated = self.externalAggregator.aggregate(
-                        [FakeClient(p, i) for (i, p) in enumerate(conc_ps)], best_models
-                    )
-
-                    # Personalised Federated Learning
                     for i in range(len(self.cluster_centres)):
-                        # print(i)
-                        # self.model = self.cluster_centres[i]
-                        # self.test(testDataset)
-                        if i in indices:
-                            self.cluster_centres[i] = concentrated
-                        else:
+                        if i not in indices:
                             self.cluster_centres[i] = general
 
                     print("General test")
                     self.model = general
                     roundsError[r] = self.test(testDataset)
 
-                    print("Concentrated test")
-                    self.model = concentrated
-                    roundsError[r] = self.test(testDataset)
+                print("Concentrated test")
+                self.model = concentrated
+                roundsError[r] = self.test(testDataset)
+
+        if self.personalisation == PersonalisationMethod.NO_GLOBAL:
+            plt.figure()
+            plt.plot(range(self.rounds), no_global_rounds_error)
+
+            plt.xlabel(f"Rounds")
+            plt.ylabel("Error Rate (%)")
+            plt.title("Test", loc="center", wrap=True)
+            plt.ylim(0, 1.0)
+            plt.savefig(f"test/personalisation.png", dpi=400)
 
         return roundsError
 
@@ -129,7 +150,7 @@ class GroupWiseAggregation(Aggregator):
     def generate_cluster_centres(self, models: List[nn.Module]) -> None:
         X = self._generate_weights(models)
         X = [model.tolist() for model in X]
-        pca = PCA.pca(X, dim=2)
+        pca = PCA.pca(X, dim=4)
         kmeans = KMeans(n_clusters=self.cluster_count, random_state=0).fit(pca)
         y_kmeans = KMeans(n_clusters=self.cluster_count, random_state=0).fit_predict(pca)
 
@@ -200,15 +221,14 @@ class GroupWiseAggregation(Aggregator):
 
 
         ps: Tensor = Tensor([p / sum(sims[besti]) for p in sims[besti]])
-
-        std = torch.std(ps[ps.nonzero()])
-        mean = torch.mean(ps[ps.nonzero()])
-        cutoff = mean - std
-        print("cutoff")
-        print(cutoff)
-
         best_models = [self.cluster_centres[i] for i in best_indices]
-        ps[ps < cutoff] = 0
+
+        if self.config.threshold:
+            std = torch.std(ps[ps.nonzero()])
+            mean = torch.mean(ps[ps.nonzero()])
+            cutoff = mean - std
+            ps[ps < cutoff] = 0
+
         ps = ps.mul(self.cluster_centres_len)
         ps /= ps.sum()
         print("ps")
@@ -252,13 +272,14 @@ class GroupWiseAggregation(Aggregator):
         ps: Tensor = Tensor([p / sum(dists[besti]) for p in dists[besti]])
         ps = 1 - ps
         ps /= ps.sum()
-
-        std = torch.std(ps[ps.nonzero()])
-        mean = torch.mean(ps[ps.nonzero()])
-        cutoff = mean - std
-
         best_models = [self.cluster_centres[i] for i in best_indices]
-        ps[ps < cutoff] = 0
+
+        if self.config.threshold:
+            std = torch.std(ps[ps.nonzero()])
+            mean = torch.mean(ps[ps.nonzero()])
+            cutoff = mean - std
+            ps[ps < cutoff] = 0
+
         ps = ps.mul(self.cluster_centres_len)
         ps /= ps.sum()
         print("ps")
