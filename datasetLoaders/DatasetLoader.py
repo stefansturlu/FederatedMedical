@@ -32,25 +32,69 @@ class DatasetLoader:
 
     @staticmethod
     def _splitTrainDataIntoClientDatasets(
-        percUsers: Tensor, trainDataframe: DataFrame, DatasetType: Type[DatasetInterface]
+        percUsers: Tensor, trainDataframe: DataFrame, DatasetType: Type[DatasetInterface], nonIID=True, alpha=0.5
     ) -> List[DatasetInterface]:
         DatasetLoader._setRandomSeeds()
         percUsers = percUsers / percUsers.sum()
 
-        dataSplitCount = (percUsers.cpu() * len(trainDataframe)).floor().numpy()
-        _, *dataSplitIndex = [
-            int(sum(dataSplitCount[range(i)])) for i in range(len(dataSplitCount))
-        ]
+        if not nonIID:
+            dataSplitCount = (percUsers.cpu() * len(trainDataframe)).floor().numpy()
+            _, *dataSplitIndex = [
+                int(sum(dataSplitCount[range(i)])) for i in range(len(dataSplitCount))
+            ]
 
-        # Sample and reset_index shuffles the dataset in-place and resets the index
-        trainDataframes: List[DataFrame] = np.split(
-            trainDataframe.sample(frac=1).reset_index(drop=True), indices_or_sections=dataSplitIndex
-        )
+            # Sample and reset_index shuffles the dataset in-place and resets the index
+            trainDataframes: List[DataFrame] = np.split(
+                trainDataframe.sample(frac=1).reset_index(drop=True), indices_or_sections=dataSplitIndex
+            )
 
-        clientDatasets: List[DatasetInterface] = [
-            DatasetType(clientDataframe.reset_index(drop=True))
-            for clientDataframe in trainDataframes
-        ]
+            clientDatasets: List[DatasetInterface] = [
+                DatasetType(clientDataframe.reset_index(drop=True))
+                for clientDataframe in trainDataframes
+            ]
+
+        else:
+            print(f"SPLITTING THE DATA IN A NON-IID MANNER USING ALPHA={alpha}")
+
+            # Split dataframe by label
+            gb = trainDataframe.groupby(by='labels') # NOTE: What if the labels aren't called labels? Might need it as input
+            label_groups = [gb.get_group(x) for x in gb.groups]
+
+            num_classes = len(label_groups)
+            num_clients = len(percUsers)
+            p = alpha * np.ones(num_clients)
+            percUserPerClass = np.random.dirichlet(p, num_classes)
+
+            clientsData = []
+            for i in range(num_classes):
+                percUsers = percUserPerClass[i]
+
+                dataSplitCount = np.floor(percUsers * len(label_groups[i]))
+                _, *dataSplitIndex = [
+                    int(sum(dataSplitCount[:i])) for i in range(len(dataSplitCount))
+                ]
+
+                # Sample and reset_index shuffles the dataset in-place and resets the index
+                trainDataframes: List[DataFrame] = np.split(
+                    label_groups[i].sample(frac=1).reset_index(drop=True), indices_or_sections=dataSplitIndex
+                )
+
+                clientsData.append(trainDataframes)
+
+            clientsDataMerged = []
+            for j in range(num_clients):
+                tmp = []
+                for i in range(num_classes):
+                    tmp.append(clientsData[i][j])
+                clientsDataMerged.append(pd.concat(tmp, ignore_index=True))
+
+            #for cliData in clientsDataMerged:
+                #print(cliData['labels'].value_counts().sort_index())
+
+            clientDatasets: List[DatasetInterface] = [
+                DatasetType(clientDataframe.reset_index(drop=True))
+                for clientDataframe in clientsDataMerged
+            ]
         return clientDatasets
 
     @staticmethod

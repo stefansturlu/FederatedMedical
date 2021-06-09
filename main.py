@@ -356,10 +356,6 @@ def experiment(exp: Callable[[], None]):
 @experiment
 def program() -> None:
     config = CustomConfig()
-    config.plotResults = False
-    config.aggregators = [ClusteringAggregator]
-    config.epochs = 10
-    config.aggregatorConfig.rounds = 15
 
     if (GroupWiseAggregation in config.aggregators or FedMGDAPlusAggregator in config.aggregators) and config.aggregatorConfig.privacyAmplification:
         print("Currently doesn't support both at the same time.")
@@ -370,15 +366,12 @@ def program() -> None:
 
 
     for attackName in config.scenario_conversion():
-        mins = []
-        final = []
-
-
+        print("Hi! Running this: {attackName}")
         errors = __experimentOnMNIST(
             config,
-            title=f"test",
-            filename=f"test",
-            folder=f"test",
+            title=f"Basic CustomConfig Test \n Attack: {attackName}",
+            filename=f"{attackName}",
+            folder=f"test/",
         )
 
 
