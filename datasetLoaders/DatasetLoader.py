@@ -16,7 +16,7 @@ from pandas import DataFrame
 class DatasetLoader:
     """Parent class used for specifying the data loading workflow """
 
-    def getDatasets(self, percUsers: Tensor, labels: Tensor, size=(None, None)):
+    def getDatasets(self, percUsers: Tensor, labels: Tensor, size=(None, None), nonIID=False, alpha=0.1):
         raise Exception(
             "LoadData method should be override by child class, "
             "specific to the loaded dataset strategy."
@@ -32,7 +32,7 @@ class DatasetLoader:
 
     @staticmethod
     def _splitTrainDataIntoClientDatasets(
-        percUsers: Tensor, trainDataframe: DataFrame, DatasetType: Type[DatasetInterface], nonIID=True, alpha=0.5
+        percUsers: Tensor, trainDataframe: DataFrame, DatasetType: Type[DatasetInterface], nonIID, alpha
     ) -> List[DatasetInterface]:
         DatasetLoader._setRandomSeeds()
         percUsers = percUsers / percUsers.sum()

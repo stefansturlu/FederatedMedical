@@ -12,14 +12,14 @@ import torch
 
 class DatasetLoaderMNIST(DatasetLoader):
     def getDatasets(
-        self, percUsers: Tensor, labels: Tensor, size:Optional[Tuple[int, int]]=None
+        self, percUsers: Tensor, labels: Tensor, size:Optional[Tuple[int, int]]=None, nonIID = False, alpha = 0.1
     ) -> Tuple[List[DatasetInterface], DatasetInterface]:
         logPrint("Loading MNIST...")
         self._setRandomSeeds()
         data = self.__loadMNISTData()
         trainDataframe, testDataframe = self._filterDataByLabel(labels, *data)
         clientDatasets = self._splitTrainDataIntoClientDatasets(
-            percUsers, trainDataframe, self.MNISTDataset
+            percUsers, trainDataframe, self.MNISTDataset, nonIID, alpha
         )
         testDataset = self.MNISTDataset(testDataframe)
         return clientDatasets, testDataset

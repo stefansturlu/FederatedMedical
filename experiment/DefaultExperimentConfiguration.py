@@ -64,3 +64,7 @@ class DefaultExperimentConfiguration:
             Type[FAAggregator], Type[MKRUMAggregator], Type[COMEDAggregator]
         ] = COMEDAggregator
 
+            
+        # Data splitting config
+        self.nonIID = False
+        self.alpha = 0.1 # Parameter for Dirichlet sampling

@@ -7,8 +7,8 @@ class AggregatorConfig:
         # Total number of training rounds
         self.rounds: int = 30
 
-        self.device = device("cuda" if cuda.is_available() else "cpu")
-        # self.device = device("cpu")
+        #self.device = device("cuda" if cuda.is_available() else "cpu")
+        self.device = device("cpu")
 
         # Pipeline config
         self.detectFreeRiders: bool = False
