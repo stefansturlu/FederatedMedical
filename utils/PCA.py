@@ -23,19 +23,19 @@ class PCA(metaclass=ABCMeta):
         ax = fig.add_subplot(projection="3d")
         c1, c2, c3, c4 = None, None, None, None
 
-        pca_min = pca_4d[:, 3].min()
-        pca_max = pca_4d[:, 3].max()
+        pca_min = pca_4d[:][3].min()
+        pca_max = pca_4d[:][3].max()
 
         for i in range(len(pca_4d)):
-            size = PCA.scale(pca_min, pca_max, pca_4d[i, 3])
+            size = PCA.scale(pca_min, pca_max, pca_4d[i][3])
             if client_info[i].flip:
-                c1 = ax.scatter(pca_4d[i, 0], pca_4d[i, 1], pca_4d[i, 2], c="r", s=size)
+                c1 = ax.scatter(pca_4d[i][0], pca_4d[i][1], pca_4d[i][2], c="r", s=size)
             elif client_info[i].byz:
-                c2 = ax.scatter(pca_4d[i, 0], pca_4d[i, 1], pca_4d[i, 2], c="g", s=size)
+                c2 = ax.scatter(pca_4d[i][0], pca_4d[i][1], pca_4d[i][2], c="g", s=size)
             elif client_info[i].free:
-                c3 = ax.scatter(pca_4d[i, 0], pca_4d[i, 1], pca_4d[i, 2], c="b", s=size)
+                c3 = ax.scatter(pca_4d[i][0], pca_4d[i][1], pca_4d[i][2], c="b", s=size)
             else:
-                c4 = ax.scatter(pca_4d[i, 0], pca_4d[i, 1], pca_4d[i, 2], c="y", s=size)
+                c4 = ax.scatter(pca_4d[i][0], pca_4d[i][1], pca_4d[i][2], c="y", s=size)
 
         plt.legend([c1, c2, c3, c4], ["Byz", "Faulty", "Free", "Benign"])
         plt.title("PCA Representative Values of Each Client's Model - 4D")
@@ -51,13 +51,13 @@ class PCA(metaclass=ABCMeta):
         c1, c2, c3, c4 = None, None, None, None
         for i in range(len(pca_3d)):
             if client_info[i].flip:
-                c1 = ax.scatter(pca_3d[i, 0], pca_3d[i, 1], pca_3d[i, 2], c="r", marker="+")
+                c1 = ax.scatter(pca_3d[i][0], pca_3d[i][1], pca_3d[i][2], c="r", marker="+")
             elif client_info[i].byz:
-                c2 = ax.scatter(pca_3d[i, 0], pca_3d[i, 1], pca_3d[i, 2], c="g", marker="o")
+                c2 = ax.scatter(pca_3d[i][0], pca_3d[i][1], pca_3d[i][2], c="g", marker="o")
             elif client_info[i].free:
-                c3 = ax.scatter(pca_3d[i, 0], pca_3d[i, 1], pca_3d[i, 2], c="b", marker="*")
+                c3 = ax.scatter(pca_3d[i][0], pca_3d[i][1], pca_3d[i][2], c="b", marker="*")
             else:
-                c4 = ax.scatter(pca_3d[i, 0], pca_3d[i, 1], pca_3d[i, 2], c="y", marker=".")
+                c4 = ax.scatter(pca_3d[i][0], pca_3d[i][1], pca_3d[i][2], c="y", marker=".")
 
         plt.legend([c1, c2, c3, c4], ["Byz", "Faulty", "Free", "Benign"])
         plt.title("PCA Representative Values of Each Client's Model - 3D")
@@ -72,13 +72,13 @@ class PCA(metaclass=ABCMeta):
         c1, c2, c3, c4 = None, None, None, None
         for i in range(len(pca_2d)):
             if client_info[i].flip:
-                c1 = plt.scatter(pca_2d[i, 0], pca_2d[i, 1], c="r", marker="+")
+                c1 = plt.scatter(pca_2d[i][0], pca_2d[i][1], c="r", marker="+")
             elif client_info[i].byz:
-                c2 = plt.scatter(pca_2d[i, 0], pca_2d[i, 1], c="g", marker="o")
+                c2 = plt.scatter(pca_2d[i][0], pca_2d[i][1], c="g", marker="o")
             elif client_info[i].free:
-                c3 = plt.scatter(pca_2d[i, 0], pca_2d[i, 1], c="b", marker="*")
+                c3 = plt.scatter(pca_2d[i][0], pca_2d[i][1], c="b", marker="*")
             else:
-                c4 = plt.scatter(pca_2d[i, 0], pca_2d[i, 1], c="y", marker=".")
+                c4 = plt.scatter(pca_2d[i][0], pca_2d[i][1], c="y", marker=".")
 
         plt.legend([c1, c2, c3, c4], ["Byz", "Faulty", "Free", "Benign"])
         plt.title("PCA Representative Values of Each Client's Model - 2D")

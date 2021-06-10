@@ -1,3 +1,4 @@
+import os
 from utils.typings import Errors, PersonalisationMethod
 from experiment.AggregatorConfig import AggregatorConfig
 from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
@@ -80,7 +81,11 @@ class GroupWiseAggregation(Aggregator):
                     if i in indices:
                         self.cluster_centres[i] = concentrated
 
-                if self.personalisation == PersonalisationMethod.GENERAL:
+                if self.personalisation == PersonalisationMethod.SELECTIVE:
+                    self.model = concentrated
+                    roundsError[r] = self.test(testDataset)
+
+                elif self.personalisation == PersonalisationMethod.GENERAL:
                     general = self.externalAggregator.aggregate(
                         [FakeClient(p, i) for (i, p) in enumerate(ps)], self.cluster_centres
                     )
@@ -89,23 +94,22 @@ class GroupWiseAggregation(Aggregator):
                         if i not in indices:
                             self.cluster_centres[i] = general
 
-                    print("General test")
                     self.model = general
                     roundsError[r] = self.test(testDataset)
 
-                print("Concentrated test")
-                self.model = concentrated
-                roundsError[r] = self.test(testDataset)
 
         if self.personalisation == PersonalisationMethod.NO_GLOBAL:
+            if not os.path.exists("personalisation_tests_4d/no_global"):
+                os.makedirs("personalisation_tests_4d/no_global")
+
             plt.figure()
             plt.plot(range(self.rounds), no_global_rounds_error)
 
             plt.xlabel(f"Rounds")
             plt.ylabel("Error Rate (%)")
-            plt.title("Test", loc="center", wrap=True)
+            plt.title(f"4D Personalisation Test: No Global \n {self.config.attackName}", loc="center", wrap=True)
             plt.ylim(0, 1.0)
-            plt.savefig(f"test/personalisation.png", dpi=400)
+            plt.savefig(f"personalisation_tests_4d/no_global/{self.config.attackName}.png", dpi=400)
 
         return roundsError
 
@@ -152,25 +156,6 @@ class GroupWiseAggregation(Aggregator):
         X = [model.tolist() for model in X]
         pca = PCA.pca(X, dim=4)
         kmeans = KMeans(n_clusters=self.cluster_count, random_state=0).fit(pca)
-        y_kmeans = KMeans(n_clusters=self.cluster_count, random_state=0).fit_predict(pca)
-
-        # plt.figure()
-        # plt.scatter(pca[y_kmeans==0, 0], pca[y_kmeans==0, 1], s=100, c='red', label ='Cluster 0')
-        # plt.scatter(pca[y_kmeans==1, 0], pca[y_kmeans==1, 1], s=100, c='blue', label ='Cluster 1')
-        # plt.scatter(pca[y_kmeans==2, 0], pca[y_kmeans==2, 1], s=100, c='green', label ='Cluster 2')
-        # plt.scatter(pca[y_kmeans==3, 0], pca[y_kmeans==3, 1], s=100, c='cyan', label ='Cluster 3')
-        # plt.scatter(pca[y_kmeans==4, 0], pca[y_kmeans==4, 1], s=100, c='magenta', label ='Cluster 4')
-        # #Plot the centroid. This time we're going to use the cluster centres  #attribute that returns here the coordinates of the centroid.
-        # plt.scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], s=50, c='yellow', label = 'Centroids')
-        # plt.title('Clusters of Customers')
-        # plt.xlabel('Annual Income(k$)')
-        # plt.ylabel('Spending Score(1-100')
-        # plt.legend()
-        # plt.show()
-
-        # PCA.pca1D(X, self.clients)
-        # PCA.pca2D(X, self.clients)
-        # PCA.pca3D(X, self.clients)
 
         self.cluster_labels = kmeans.labels_
         indices: List[List[int]] = [[] for _ in range(self.cluster_count)]
@@ -198,8 +183,6 @@ class GroupWiseAggregation(Aggregator):
             for m2 in X:
                 sim = cos(m1, m2)
                 sims[i].append(sim)
-        print("sims")
-        print(sims)
 
         best_val = 0
         best_indices: List[int] = []
@@ -207,17 +190,11 @@ class GroupWiseAggregation(Aggregator):
 
         for i, s in enumerate(sims):
             indices = heapq.nlargest(num_to_take, range(len(s)), s.__getitem__)
-            print(indices)
             val = sum(s[i] for i in indices)
             if val > best_val:
                 best_val = val
                 best_indices = indices
                 besti = i
-
-
-        print("best indices")
-        print(best_indices)
-        print(sims[besti])
 
 
         ps: Tensor = Tensor([p / sum(sims[besti]) for p in sims[besti]])
@@ -231,8 +208,6 @@ class GroupWiseAggregation(Aggregator):
 
         ps = ps.mul(self.cluster_centres_len)
         ps /= ps.sum()
-        print("ps")
-        print(ps)
 
         return best_models, ps, best_indices
 
@@ -248,8 +223,6 @@ class GroupWiseAggregation(Aggregator):
             for m2 in X:
                 l2_dist = (m1 - m2).square().sum()
                 dists[i].append(l2_dist)
-        print("dists")
-        print(dists)
 
         best_val = 100000000000
         best_indices: List[int] = []
@@ -257,17 +230,12 @@ class GroupWiseAggregation(Aggregator):
 
         for i, s in enumerate(dists):
             indices = heapq.nsmallest(num_to_take, range(len(s)), s.__getitem__)
-            print(indices)
             val = sum(s[i] for i in indices)
             if val < best_val:
                 best_val = val
                 best_indices = indices
                 besti = i
 
-
-        print("best indices")
-        print(best_indices)
-        print(dists[besti])
 
         ps: Tensor = Tensor([p / sum(dists[besti]) for p in dists[besti]])
         ps = 1 - ps
@@ -282,8 +250,6 @@ class GroupWiseAggregation(Aggregator):
 
         ps = ps.mul(self.cluster_centres_len)
         ps /= ps.sum()
-        print("ps")
-        print(ps)
 
         return best_models, ps, best_indices
 

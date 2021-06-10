@@ -2,7 +2,7 @@ from utils.typings import BlockedLocations, Errors, FreeRiderAttack, Personalisa
 from datasetLoaders.DatasetInterface import DatasetInterface
 from experiment.CustomConfig import CustomConfig
 import os
-from typing import Callable, Dict, List, Literal, NewType, Tuple, Dict, Type, Union
+from typing import Callable, Dict, List, Literal, NewType, Optional, Tuple, Dict, Type, Union
 import json
 from loguru import logger
 
@@ -125,7 +125,7 @@ def __experimentOnPneumonia(
 
 def __experimentSetup(
     config: DefaultExperimentConfiguration,
-    datasetLoader: Callable[[Tensor, Tensor, int], Tuple[List[DatasetInterface], DatasetInterface]],
+    datasetLoader: Callable[[Tensor, Tensor, Optional[Tuple[int, int]]], Tuple[List[DatasetInterface], DatasetInterface]],
     classifier,
     title: str = "DEFAULT_TITLE",
     filename: str = "DEFAULT_NAME",
@@ -198,7 +198,7 @@ def __experimentSetup(
 
 def __runExperiment(
     config: DefaultExperimentConfiguration,
-    datasetLoader,
+    datasetLoader: Callable[[Tensor, Tensor, Optional[Tuple[int, int]]], Tuple[List[DatasetInterface], DatasetInterface]],
     classifier: nn.Module,
     agg: Type[Aggregator],
     useDifferentialPrivacy: bool,
@@ -281,7 +281,7 @@ def __runExperiment(
 
 
 def __initClients(
-    config: DefaultExperimentConfiguration, trainDatasets, useDifferentialPrivacy
+    config: DefaultExperimentConfiguration, trainDatasets: List[DatasetInterface], useDifferentialPrivacy: bool
 ) -> List[Client]:
     usersNo = config.percUsers.size(0)
     p0 = 1 / usersNo
@@ -355,79 +355,78 @@ def experiment(exp: Callable[[], None]):
 
 @experiment
 def program() -> None:
+    # config = CustomConfig()
+    # config.plotResults = False
+    # config.aggregators = [GroupWiseAggregation]
+    # config.epochs = 10
+    # config.aggregatorConfig.rounds = 15
+
+    # if (GroupWiseAggregation in config.aggregators or FedMGDAPlusAggregator in config.aggregators) and config.aggregatorConfig.privacyAmplification:
+    #     print("Currently doesn't support both at the same time.")
+    #     print("Size of clients is very likely to be smaller than or very close to cluster_count.")
+    #     print("FedMGDA+ relies on every client being present and training at every federated round.")
+    #     exit(-1)
+
+    # aggs = [FAAggregator, COMEDAggregator]
+    # methods = [PersonalisationMethod.SELECTIVE, PersonalisationMethod.GENERAL]
+    # thr = [False, True]
+
+    # for attackName in config.scenario_conversion():
+    #     for a in aggs:
+    #         a_name = a.__name__.replace("Aggregator", "")
+    #         config.externalAggregator = a
+    #         errorsDict = {}
+
+    #         for m in methods:
+    #             config.aggregatorConfig.personalisation = m
+
+    #             for t in thr:
+    #                 config.aggregatorConfig.threshold = t
+    #                 t_name = "No Treshold"
+    #                 if t:
+    #                     t_name = "Thresholding"
+
+    #                 errors = __experimentOnMNIST(
+    #                     config,
+    #                     title=f"4D Personalisation: {m} \n {a_name} - {attackName}",
+    #                     filename=f"{attackName}",
+    #                     folder=f"personalisation_tests_4d/{a_name}",
+    #                 )
+
+    #                 errorsDict[f"{m.value} - {t_name}"] = errors["GroupWiseAggregation"]
+
+    #         plt.figure()
+    #         i = 0
+    #         for name, err in errorsDict.items():
+    #             plt.plot(err, color=COLOURS[i], alpha=0.6)
+    #             i += 1
+    #         plt.legend(errorsDict.keys())
+    #         plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
+    #         plt.ylabel("Error Rate (%)")
+    #         plt.title(
+    #             f"4D Personalisation Tests with {a_name} \n {attackName}",
+    #             loc="center",
+    #             wrap=True,
+    #         )
+    #         plt.ylim(0, 1.0)
+    #         plt.savefig(f"personalisation_tests_4d/{a_name}/{attackName}.png", dpi=400)
+
+
     config = CustomConfig()
     config.plotResults = False
     config.aggregators = [GroupWiseAggregation]
     config.epochs = 10
     config.aggregatorConfig.rounds = 15
 
-    if (GroupWiseAggregation in config.aggregators or FedMGDAPlusAggregator in config.aggregators) and config.aggregatorConfig.privacyAmplification:
-        print("Currently doesn't support both at the same time.")
-        print("Size of clients is very likely to be smaller than or very close to cluster_count.")
-        print("FedMGDA+ relies on every client being present and training at every federated round.")
-        exit(-1)
-
-    aggs = [FAAggregator, COMEDAggregator]
-    methods = [PersonalisationMethod.SELECTIVE, PersonalisationMethod.GENERAL, PersonalisationMethod.NO_GLOBAL]
-    thr = [False, True]
+    config.aggregatorConfig.personalisation = PersonalisationMethod.NO_GLOBAL
 
     for attackName in config.scenario_conversion():
-        for a in aggs:
-            a_name = a.__name__.replace("Aggregator", "")
-            config.externalAggregator = a
-            errorsDict = {}
-
-            for m in methods:
-                config.aggregatorConfig.personalisation = m
-
-                if m == PersonalisationMethod.NO_GLOBAL:
-                    errors = __experimentOnMNIST(
-                        config,
-                        title=f"Personalisation: {m} \n {a_name} - {attackName}",
-                        filename=f"{attackName}",
-                        folder=f"personalisation_tests/{a_name}",
-                    )
-
-                    errorsDict[f"{m}"] = errors["GroupWiseAggregation"]
-                else:
-                    for t in thr:
-                        config.aggregatorConfig.threshold = t
-                        t_name = "No Treshold"
-                        if t:
-                            t_name = "Thresholding"
-
-                        errors = __experimentOnMNIST(
-                            config,
-                            title=f"Personalisation: {m} \n {a_name} - {attackName}",
-                            filename=f"{attackName}",
-                            folder=f"personalisation_tests/{a_name}",
-                        )
-
-                        errorsDict[f"{m} - {t_name}"] = errors["GroupWiseAggregation"]
-
-            plt.figure()
-            i = 0
-            for name, err in errorsDict.items():
-                plt.plot(err, color=COLOURS[i], alpha=0.6)
-                i += 1
-            plt.legend(errorsDict.keys())
-            plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
-            plt.ylabel("Error Rate (%)")
-            plt.title(
-                f"Personalisation Tests with {a_name} \n {attackName}",
-                loc="center",
-                wrap=True,
-            )
-            plt.ylim(0, 1.0)
-            plt.savefig(f"personalisation_tests/{a_name}/{attackName}.png", dpi=400)
-
-
-
-
-
-    agg = 
-
-
+        errors = __experimentOnMNIST(
+            config,
+            title=f"test",
+            filename=f"{attackName}",
+            folder=f"test",
+        )
 
 
 # Running the program here

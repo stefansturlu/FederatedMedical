@@ -26,7 +26,7 @@ class CustomConfig(DefaultExperimentConfiguration):
             # ([], [2, 5, 8, 11, 14, 17, 20], [], "7_mal"),
             # # ([], [2, 5, 8, 11, 14, 17, 20, 23], [], "8_mal"),
             # # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26], [], "9_mal"),
-            # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [], "10_mal"),
+            ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [], "10_mal"),
             # # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0], [], "11_mal"),
             # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3], [], "12_mal"),
             # # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6], [], "13_mal"),
@@ -35,7 +35,7 @@ class CustomConfig(DefaultExperimentConfiguration):
             # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21, 24, 27], [], "20_mal"),
             # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 28, 25], [], "22_mal"),
             # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 28, 25, 22, 19], [], "24_mal"),
-            ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 28, 25, 22, 19, 16, 13], [], "26_mal"),
+            # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 28, 25, 22, 19, 16, 13], [], "26_mal"),
         ]
         self.percUsers = torch.tensor(PERC_USERS, device=self.aggregatorConfig.device)
 
@@ -46,6 +46,7 @@ class CustomConfig(DefaultExperimentConfiguration):
             self.malicious = malicious
             self.freeRiding = freeRider
             self.name = attackName
+            self.aggregatorConfig.attackName = attackName
 
             yield attackName
 

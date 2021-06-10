@@ -7,6 +7,9 @@ class AggregatorConfig:
         # Total number of training rounds
         self.rounds: int = 30
 
+        # Name of attack being employed
+        self.attackName = ""
+
         self.device = device("cuda" if cuda.is_available() else "cpu")
         # self.device = device("cpu")
 
