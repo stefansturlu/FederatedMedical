@@ -355,61 +355,61 @@ def experiment(exp: Callable[[], None]):
 
 @experiment
 def program() -> None:
-    # config = CustomConfig()
-    # config.plotResults = False
-    # config.aggregators = [GroupWiseAggregation]
-    # config.epochs = 10
-    # config.aggregatorConfig.rounds = 15
+    config = CustomConfig()
+    config.plotResults = False
+    config.aggregators = [GroupWiseAggregation]
+    config.epochs = 10
+    config.aggregatorConfig.rounds = 15
 
-    # if (GroupWiseAggregation in config.aggregators or FedMGDAPlusAggregator in config.aggregators) and config.aggregatorConfig.privacyAmplification:
-    #     print("Currently doesn't support both at the same time.")
-    #     print("Size of clients is very likely to be smaller than or very close to cluster_count.")
-    #     print("FedMGDA+ relies on every client being present and training at every federated round.")
-    #     exit(-1)
+    if (GroupWiseAggregation in config.aggregators or FedMGDAPlusAggregator in config.aggregators) and config.aggregatorConfig.privacyAmplification:
+        print("Currently doesn't support both at the same time.")
+        print("Size of clients is very likely to be smaller than or very close to cluster_count.")
+        print("FedMGDA+ relies on every client being present and training at every federated round.")
+        exit(-1)
 
-    # aggs = [FAAggregator, COMEDAggregator]
-    # methods = [PersonalisationMethod.SELECTIVE, PersonalisationMethod.GENERAL]
-    # thr = [False, True]
+    aggs = [FAAggregator, COMEDAggregator]
+    methods = [PersonalisationMethod.SELECTIVE]
+    thr = [False, True]
 
-    # for attackName in config.scenario_conversion():
-    #     for a in aggs:
-    #         a_name = a.__name__.replace("Aggregator", "")
-    #         config.externalAggregator = a
-    #         errorsDict = {}
+    for attackName in config.scenario_conversion():
+        for a in aggs:
+            a_name = a.__name__.replace("Aggregator", "")
+            config.externalAggregator = a
+            errorsDict = {}
 
-    #         for m in methods:
-    #             config.aggregatorConfig.personalisation = m
+            for m in methods:
+                config.aggregatorConfig.personalisation = m
 
-    #             for t in thr:
-    #                 config.aggregatorConfig.threshold = t
-    #                 t_name = "No Treshold"
-    #                 if t:
-    #                     t_name = "Thresholding"
+                for t in thr:
+                    config.aggregatorConfig.threshold = t
+                    t_name = "No Treshold"
+                    if t:
+                        t_name = "Thresholding"
 
-    #                 errors = __experimentOnMNIST(
-    #                     config,
-    #                     title=f"4D Personalisation: {m} \n {a_name} - {attackName}",
-    #                     filename=f"{attackName}",
-    #                     folder=f"personalisation_tests_4d/{a_name}",
-    #                 )
+                    errors = __experimentOnMNIST(
+                        config,
+                        title=f"1D Personalisation: {m} \n {a_name} - {attackName}",
+                        filename=f"{attackName}",
+                        folder=f"personalisation_tests_1d/{a_name}",
+                    )
 
-    #                 errorsDict[f"{m.value} - {t_name}"] = errors["GroupWiseAggregation"]
+                    errorsDict[f"{m.value} - {t_name}"] = errors["GroupWiseAggregation"]
 
-    #         plt.figure()
-    #         i = 0
-    #         for name, err in errorsDict.items():
-    #             plt.plot(err, color=COLOURS[i], alpha=0.6)
-    #             i += 1
-    #         plt.legend(errorsDict.keys())
-    #         plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
-    #         plt.ylabel("Error Rate (%)")
-    #         plt.title(
-    #             f"4D Personalisation Tests with {a_name} \n {attackName}",
-    #             loc="center",
-    #             wrap=True,
-    #         )
-    #         plt.ylim(0, 1.0)
-    #         plt.savefig(f"personalisation_tests_4d/{a_name}/{attackName}.png", dpi=400)
+            plt.figure()
+            i = 0
+            for name, err in errorsDict.items():
+                plt.plot(err, color=COLOURS[i], alpha=0.6)
+                i += 1
+            plt.legend(errorsDict.keys())
+            plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
+            plt.ylabel("Error Rate (%)")
+            plt.title(
+                f"1D Personalisation Tests with {a_name} \n {attackName}",
+                loc="center",
+                wrap=True,
+            )
+            plt.ylim(0, 1.0)
+            plt.savefig(f"personalisation_tests_1d/{a_name}/{attackName}.png", dpi=400)
 
 
     config = CustomConfig()

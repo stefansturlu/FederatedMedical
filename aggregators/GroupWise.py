@@ -99,17 +99,17 @@ class GroupWiseAggregation(Aggregator):
 
 
         if self.personalisation == PersonalisationMethod.NO_GLOBAL:
-            if not os.path.exists("personalisation_tests_4d/no_global"):
-                os.makedirs("personalisation_tests_4d/no_global")
+            if not os.path.exists("personalisation_tests_1d/no_global"):
+                os.makedirs("personalisation_tests_1d/no_global")
 
             plt.figure()
             plt.plot(range(self.rounds), no_global_rounds_error)
 
             plt.xlabel(f"Rounds")
             plt.ylabel("Error Rate (%)")
-            plt.title(f"4D Personalisation Test: No Global \n {self.config.attackName}", loc="center", wrap=True)
+            plt.title(f"1D Personalisation Test: No Global \n {self.config.attackName}", loc="center", wrap=True)
             plt.ylim(0, 1.0)
-            plt.savefig(f"personalisation_tests_4d/no_global/{self.config.attackName}.png", dpi=400)
+            plt.savefig(f"personalisation_tests_1d/no_global/{self.config.attackName}.png", dpi=400)
 
         return roundsError
 
@@ -154,7 +154,7 @@ class GroupWiseAggregation(Aggregator):
     def generate_cluster_centres(self, models: List[nn.Module]) -> None:
         X = self._generate_weights(models)
         X = [model.tolist() for model in X]
-        pca = PCA.pca(X, dim=4)
+        pca = PCA.pca(X, dim=1)
         kmeans = KMeans(n_clusters=self.cluster_count, random_state=0).fit(pca)
 
         self.cluster_labels = kmeans.labels_
