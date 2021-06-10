@@ -4,6 +4,7 @@ from typing import List, Tuple
 import kaggle
 import zipfile
 import cv2
+from matplotlib import pyplot as plt
 import numpy as np
 from pandas import DataFrame
 from torch.tensor import Tensor
@@ -30,8 +31,9 @@ class DatasetLoaderPneumonia(DatasetLoader):
         self.assembleDatasets = assembleDatasets
         self.dim = dim
         self.dataPath = "./data/Pneumonia"
-        self.testPath = self.dataPath + "/test"
-        self.trainPath = self.dataPath + "/train"
+        self.fullPath = self.dataPath + "/chest_xray"
+        self.testPath = self.fullPath + "/test"
+        self.trainPath = self.fullPath + "/train"
         self.labels = {"PNEUMONIA": 0, "NORMAL": 1}
         self.img_size = 150
 
@@ -82,11 +84,11 @@ class DatasetLoaderPneumonia(DatasetLoader):
 
     def __datasetNotFound(self) -> bool:
         return (
-            not os.path.exists(self.dataPath)
-            or not os.path.exists(self.dataPath + "/test")
-            or not os.path.exists(self.dataPath + "/train")
-            or not len(os.listdir(self.dataPath + "/test"))
-            or not len(os.listdir(self.dataPath + "/train"))
+            not os.path.exists(self.fullPath)
+            or not os.path.exists(self.fullPath + "/test")
+            or not os.path.exists(self.fullPath + "/train")
+            # or not len(os.listdir(fullPath + "/test"))
+            # or not len(os.listdir(fullPath + "/train"))
         )
         # Might also want to check the number of files or subfolders
 
@@ -134,7 +136,7 @@ class DatasetLoaderPneumonia(DatasetLoader):
                     transforms.ToTensor(),
                     transforms.RandomRotation(30),
                     transforms.RandomHorizontalFlip(),
-                    # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                    # transforms.Normalize(mean=[0.5], std=[0.5]),
                 ]
             )
             imageTensor = transform(image)

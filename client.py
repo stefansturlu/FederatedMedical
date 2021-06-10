@@ -47,6 +47,8 @@ class Client:
 
         self.model: nn.Module = model
         self.trainDataset = trainDataset
+        # weights = 1 / torch.Tensor([3800, 1350])
+        # sampler = torch.utils.data.sampler.WeightedRandomSampler(weights, 2)
         self.dataLoader = DataLoader(self.trainDataset, batch_size=batchSize, shuffle=True)
         self.n: int = len(trainDataset)  # Number of training points provided
         self.p: float = p  # Contribution to the overall model
@@ -64,8 +66,8 @@ class Client:
 
         self.opt: optim.Optimizer = None
         self.sim: Tensor = None
-        self.loss: nn.CrossEntropyLoss = None
-        self.Loss: nn.CrossEntropyLoss = Loss
+        self.loss = None
+        self.Loss = Loss
         self.Optimizer: Type[optim.Optimizer] = Optimizer
         self.pEpoch: float = None
         self.badUpdate: bool = False
@@ -103,7 +105,7 @@ class Client:
             self.opt = self.Optimizer(
                 self.model.parameters(), lr=self.learningRate
             )
-        self.loss: nn.CrossEntropyLoss = self.Loss()
+        self.loss = self.Loss()
         self.untrainedModel = copy.deepcopy(model)
         cuda.empty_cache()
 
@@ -129,7 +131,7 @@ class Client:
     # Function to train the classifier
     def _trainClassifier(self, x: Tensor, y: Tensor):
         x = x.to(self.device)
-        y = y.to(self.device)
+        y = y.to(self.device).float().unsqueeze(1)
         # Reset gradients
         self.opt.zero_grad()
         pred = self.model(x).to(self.device)

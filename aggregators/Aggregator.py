@@ -117,6 +117,8 @@ class Aggregator:
             predLabels, testLabels = zip(*[(self.predict(self.model, x), y) for x, y in dataLoader])
         predLabels = torch.tensor(predLabels, dtype=torch.long)
         testLabels = torch.tensor(testLabels, dtype=torch.long)
+        print(predLabels)
+        print(testLabels)
         # Confusion matrix and normalized confusion matrix
         mconf = confusion_matrix(testLabels, predLabels)
         errors: float = 1 - 1.0 * mconf.diagonal().sum() / len(testDataset)
@@ -124,11 +126,12 @@ class Aggregator:
         return errors
 
     # Function for computing predictions
+    # CURRENTLY BROKEN FOR PNEUMONIA - IN BROKEN STATE
     def predict(self, net: nn.Module, x):
         with torch.no_grad():
             outputs = net(x.to(self.device))
             _, predicted = torch.max(outputs.to(self.device), 1)
-        return predicted.to(self.device)
+        return outputs.squeeze(-1).int().to(self.device)
 
     # Function to merge the models
     @staticmethod

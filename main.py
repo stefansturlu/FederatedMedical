@@ -1,3 +1,4 @@
+from torch import optim
 from utils.typings import BlockedLocations, Errors, FreeRiderAttack, PersonalisationMethod
 from datasetLoaders.DatasetInterface import DatasetInterface
 from experiment.CustomConfig import CustomConfig
@@ -93,7 +94,7 @@ def __experimentOnCOVIDx(
         classifier = CNN.Classifier
     else:
         raise Exception("Invalid Covid model name.")
-    __experimentSetup(config, datasetLoader, classifier)
+    __experimentSetup(config, datasetLoader, classifier, title, filename, folder)
 
 
 def __experimentOnPneumonia(
@@ -103,8 +104,11 @@ def __experimentOnPneumonia(
     classifier = Pneumonia.Classifier
     # Each client now only has like 80-170 images so a batch size of 200 is pointless
     config.batchSize = 30
+    config.labels = torch.tensor([0, 1])
+    config.Loss = nn.BCELoss
+    config.Optimizer = optim.RMSprop
 
-    __experimentSetup(config, datasetLoader, classifier)
+    __experimentSetup(config, datasetLoader, classifier, title, filename, folder)
 
 
 # def __experimentOnDiabetes(config: DefaultExperimentConfiguration):
@@ -356,9 +360,8 @@ def experiment(exp: Callable[[], None]):
 @experiment
 def program() -> None:
     config = CustomConfig()
-    config.plotResults = False
-    config.aggregators = [GroupWiseAggregation]
-    config.epochs = 10
+    config.aggregators = [FAAggregator]
+    config.epochs = 1
     config.aggregatorConfig.rounds = 15
 
     if (GroupWiseAggregation in config.aggregators or FedMGDAPlusAggregator in config.aggregators) and config.aggregatorConfig.privacyAmplification:
@@ -367,66 +370,15 @@ def program() -> None:
         print("FedMGDA+ relies on every client being present and training at every federated round.")
         exit(-1)
 
-    aggs = [FAAggregator, COMEDAggregator]
-    methods = [PersonalisationMethod.SELECTIVE]
-    thr = [False, True]
-
-    for attackName in config.scenario_conversion():
-        for a in aggs:
-            a_name = a.__name__.replace("Aggregator", "")
-            config.externalAggregator = a
-            errorsDict = {}
-
-            for m in methods:
-                config.aggregatorConfig.personalisation = m
-
-                for t in thr:
-                    config.aggregatorConfig.threshold = t
-                    t_name = "No Treshold"
-                    if t:
-                        t_name = "Thresholding"
-
-                    errors = __experimentOnMNIST(
-                        config,
-                        title=f"1D Personalisation: {m} \n {a_name} - {attackName}",
-                        filename=f"{attackName}",
-                        folder=f"personalisation_tests_1d/{a_name}",
-                    )
-
-                    errorsDict[f"{m.value} - {t_name}"] = errors["GroupWiseAggregation"]
-
-            plt.figure()
-            i = 0
-            for name, err in errorsDict.items():
-                plt.plot(err, color=COLOURS[i], alpha=0.6)
-                i += 1
-            plt.legend(errorsDict.keys())
-            plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")
-            plt.ylabel("Error Rate (%)")
-            plt.title(
-                f"1D Personalisation Tests with {a_name} \n {attackName}",
-                loc="center",
-                wrap=True,
-            )
-            plt.ylim(0, 1.0)
-            plt.savefig(f"personalisation_tests_1d/{a_name}/{attackName}.png", dpi=400)
 
 
-    config = CustomConfig()
-    config.plotResults = False
-    config.aggregators = [GroupWiseAggregation]
-    config.epochs = 10
-    config.aggregatorConfig.rounds = 15
+    errors = __experimentOnPneumonia(
+        config,
+        title=f"test",
+        filename=f"test",
+        folder=f"test",
+    )
 
-    config.aggregatorConfig.personalisation = PersonalisationMethod.NO_GLOBAL
-
-    for attackName in config.scenario_conversion():
-        errors = __experimentOnMNIST(
-            config,
-            title=f"test",
-            filename=f"{attackName}",
-            folder=f"test",
-        )
 
 
 # Running the program here
