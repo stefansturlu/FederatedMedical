@@ -205,7 +205,7 @@ def __runExperiment(
     folder:str="test"
 ) -> Tuple[Errors, BlockedLocations]:
 
-    trainDatasets, testDataset = datasetLoader(config.percUsers, config.labels, config.datasetSize, config.nonIID, config.alpha)
+    trainDatasets, testDataset = datasetLoader(config.percUsers, config.labels, config.datasetSize, config.nonIID, config.alphaDirichlet)
     clients = __initClients(config, trainDatasets, useDifferentialPrivacy)
     # Requires model input size update due to dataset generalisation and categorisation
     if config.requireDatasetAnonymization:

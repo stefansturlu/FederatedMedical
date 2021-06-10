@@ -54,7 +54,7 @@ class DatasetLoader:
             ]
 
         else:
-            print(f"SPLITTING THE DATA IN A NON-IID MANNER USING ALPHA={alpha}")
+            #print(f"SPLITTING THE DATA IN A NON-IID MANNER USING ALPHA={alpha}")
 
             # Split dataframe by label
             gb = trainDataframe.groupby(by='labels') # NOTE: What if the labels aren't called labels? Might need it as input
@@ -90,6 +90,7 @@ class DatasetLoader:
 
             #for cliData in clientsDataMerged:
                 #print(cliData['labels'].value_counts().sort_index())
+                #print("length of cliData", len(cliData))
 
             clientDatasets: List[DatasetInterface] = [
                 DatasetType(clientDataframe.reset_index(drop=True))

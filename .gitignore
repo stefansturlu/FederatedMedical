@@ -155,3 +155,7 @@ MedMNIST_Datasets/
 
 # Test folder when trying stuff out
 test/
+
+# Scripts used for running without an active connection
+RUNME.sh
+nohup.out

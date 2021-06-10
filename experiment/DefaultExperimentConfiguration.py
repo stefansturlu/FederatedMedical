@@ -67,4 +67,4 @@ class DefaultExperimentConfiguration:
             
         # Data splitting config
         self.nonIID = False
-        self.alpha = 0.1 # Parameter for Dirichlet sampling
+        self.alphaDirichlet = 0.1 # Parameter for Dirichlet sampling
