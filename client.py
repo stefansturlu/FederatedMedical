@@ -131,7 +131,8 @@ class Client:
     # Function to train the classifier
     def _trainClassifier(self, x: Tensor, y: Tensor):
         x = x.to(self.device)
-        y = y.to(self.device).float().unsqueeze(1)
+        # y = y.to(self.device).float().unsqueeze(1)
+        y = y.to(self.device)
         # Reset gradients
         self.opt.zero_grad()
         pred = self.model(x).to(self.device)

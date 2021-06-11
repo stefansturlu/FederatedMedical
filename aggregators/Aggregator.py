@@ -131,7 +131,8 @@ class Aggregator:
         with torch.no_grad():
             outputs = net(x.to(self.device))
             _, predicted = torch.max(outputs.to(self.device), 1)
-        return outputs.squeeze(-1).int().to(self.device)
+        # return outputs.squeeze(-1).int().to(self.device)
+        return predicted.to(self.device)
 
     # Function to merge the models
     @staticmethod

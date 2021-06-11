@@ -30,5 +30,5 @@ class AggregatorConfig:
 
         # Clustering Config:
         self.cluster_count: int = 5
-        self.personalisation: PersonalisationMethod = PersonalisationMethod.GENERAL
+        self.personalisation: PersonalisationMethod = PersonalisationMethod.NO_GLOBAL
         self.threshold: bool = False
