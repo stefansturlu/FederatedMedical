@@ -99,8 +99,8 @@ class GroupWiseAggregation(Aggregator):
 
 
         if self.personalisation == PersonalisationMethod.NO_GLOBAL:
-            if not os.path.exists("no_global_free_rider_test"):
-                os.makedirs("no_global_free_rider_test")
+            if not os.path.exists("no_global_free_rider_malicious"):
+                os.makedirs("no_global_free_rider_malicious")
 
             plt.figure()
             plt.plot(range(self.rounds), no_global_rounds_error)
@@ -109,7 +109,7 @@ class GroupWiseAggregation(Aggregator):
             plt.ylabel("Error Rate (%)")
             plt.title(f"No Global Personalisation Method - 4D PCA \n {self.config.attackName}", loc="center", wrap=True)
             plt.ylim(0, 1.0)
-            plt.savefig(f"no_global_free_rider_test/{self.config.attackName}.png", dpi=400)
+            plt.savefig(f"no_global_free_rider_malicious/{self.config.attackName}.png", dpi=400)
 
         return roundsError
 

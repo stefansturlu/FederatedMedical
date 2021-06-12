@@ -363,7 +363,6 @@ def program() -> None:
     config.aggregators = [GroupWiseAggregation]
     config.epochs = 10
     config.aggregatorConfig.rounds = 15
-    config.plotResults = False
 
     if (GroupWiseAggregation in config.aggregators or FedMGDAPlusAggregator in config.aggregators) and config.aggregatorConfig.privacyAmplification:
         print("Currently doesn't support both at the same time.")
@@ -371,13 +370,15 @@ def program() -> None:
         print("FedMGDA+ relies on every client being present and training at every federated round.")
         exit(-1)
 
+    errorsDict = {}
+
     for attackName in config.scenario_conversion():
 
         errors = __experimentOnMNIST(
             config,
             title=f"No Global Personalisation Method - 4D PCA \n {attackName}",
             filename=f"{attackName}",
-            folder=f"no_global_free_rider_test",
+            folder=f"no_global_free_rider_malicious",
         )
 
 
