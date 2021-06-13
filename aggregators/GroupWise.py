@@ -154,6 +154,7 @@ class GroupWiseAggregation(Aggregator):
     def generate_cluster_centres(self, models: List[nn.Module]) -> None:
         X = self._generate_weights(models)
         X = [model.tolist() for model in X]
+        PCA.pca2D(X, self.clients)
         pca = PCA.pca(X, dim=1)
         kmeans = KMeans(n_clusters=self.cluster_count, random_state=0).fit(pca)
 
