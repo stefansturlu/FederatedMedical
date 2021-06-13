@@ -5,7 +5,7 @@ import torch
 
 from aggregators.Aggregator import allAggregators
 from aggregators.AFA import AFAAggregator
-from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
+from aggregators.FedMGDAPlusPlus import FedMGDAPlusPlusAggregator
 
 # Naked imports for allAggregators function
 from aggregators.FedAvg import FAAggregator
@@ -292,12 +292,12 @@ def byz_FedMGDA_MNIST():
             "2_faulty, 2_malicious",
         ),
     ]
-    config.aggregators = [FedMGDAPlusAggregator]
+    config.aggregators = [FedMGDAPlusPlusAggregator]
     __experimentOnMNIST(config, title=f"MNIST - 30 Clients, MGDA+", filename=f"mnist_30_MGDA+")
 
     for scenario in attacks:
         faulty, malicious, attackName = scenario
-        config.aggregators = [FedMGDAPlusAggregator]
+        config.aggregators = [FedMGDAPlusPlusAggregator]
 
         config.faulty = faulty
         config.malicious = malicious

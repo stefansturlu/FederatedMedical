@@ -27,7 +27,7 @@ from torch import cuda, Tensor, nn
 
 from aggregators.Aggregator import Aggregator, allAggregators
 from aggregators.AFA import AFAAggregator
-from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
+from aggregators.FedMGDAPlusPlus import FedMGDAPlusPlusAggregator
 from aggregators.FedAvg import FAAggregator
 from aggregators.COMED import COMEDAggregator
 from aggregators.Clustering import ClusteringAggregator
@@ -222,7 +222,7 @@ def __runExperiment(
     if isinstance(aggregator, AFAAggregator):
         aggregator.xi = config.aggregatorConfig.xi
         aggregator.deltaXi = config.aggregatorConfig.deltaXi
-    elif isinstance(aggregator, FedMGDAPlusAggregator):
+    elif isinstance(aggregator, FedMGDAPlusPlusAggregator):
         aggregator.reinitialise(config.aggregatorConfig.innerLR)
     elif isinstance(aggregator, GroupWiseAggregation) or isinstance(aggregator, ClusteringAggregator):
         aggregator._init_aggregators(config.internalAggregator, config.externalAggregator)
@@ -360,11 +360,9 @@ def experiment(exp: Callable[[], None]):
 @experiment
 def program() -> None:
     config = CustomConfig()
-    config.aggregators = [GroupWiseAggregation]
-    config.epochs = 10
-    config.aggregatorConfig.rounds = 15
+    config.aggregators = [FedMGDAPlusPlusAggregator]
 
-    if (GroupWiseAggregation in config.aggregators or FedMGDAPlusAggregator in config.aggregators) and config.aggregatorConfig.privacyAmplification:
+    if (GroupWiseAggregation in config.aggregators or FedMGDAPlusPlusAggregator in config.aggregators) and config.aggregatorConfig.privacyAmplification:
         print("Currently doesn't support both at the same time.")
         print("Size of clients is very likely to be smaller than or very close to cluster_count.")
         print("FedMGDA+ relies on every client being present and training at every federated round.")
@@ -376,9 +374,9 @@ def program() -> None:
 
         errors = __experimentOnMNIST(
             config,
-            title=f"No Global Personalisation Method - 4D PCA \n {attackName}",
+            title=f"FedMGDA++ - {attackName}",
             filename=f"{attackName}",
-            folder=f"no_global_free_rider_malicious",
+            folder=f"test",
         )
 
 

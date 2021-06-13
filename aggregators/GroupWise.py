@@ -1,7 +1,7 @@
 import os
 from utils.typings import Errors, PersonalisationMethod
 from experiment.AggregatorConfig import AggregatorConfig
-from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
+from aggregators.FedMGDAPlusPlus import FedMGDAPlusPlusAggregator
 from aggregators.AFA import AFAAggregator
 from torch import nn, Tensor
 from client import Client
@@ -122,7 +122,7 @@ class GroupWiseAggregation(Aggregator):
         if isinstance(agg, AFAAggregator):
             agg.xi = self.config.xi
             agg.deltaXi = self.config.deltaXi
-        elif isinstance(agg, FedMGDAPlusAggregator):
+        elif isinstance(agg, FedMGDAPlusPlusAggregator):
             agg.reinitialise(self.config.innerLR)
 
         return agg

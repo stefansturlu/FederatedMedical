@@ -9,7 +9,7 @@ from aggregators.FedAvg import FAAggregator
 from aggregators.COMED import COMEDAggregator
 from aggregators.MKRUM import MKRUMAggregator
 from aggregators.AFA import AFAAggregator
-from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
+from aggregators.FedMGDAPlusPlus import FedMGDAPlusPlusAggregator
 
 
 class CustomConfig(DefaultExperimentConfiguration):
@@ -27,7 +27,7 @@ class CustomConfig(DefaultExperimentConfiguration):
             # ([], [2, 5, 8, 11, 14], [], "5_mal"),
             # # ([], [2, 5, 8, 11, 14, 17], [], "6_mal"),
             # ([], [2, 5, 8, 11, 14, 17, 20], [], "7_mal"),
-            # # ([], [2, 5, 8, 11, 14, 17, 20, 23], [], "8_mal"),
+            ([], [2, 5, 8, 11, 14, 17, 20, 23], [], "8_mal"),
             # # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26], [], "9_mal"),
             # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [], "10_mal"),
             # ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29], "10_free"),
@@ -38,7 +38,7 @@ class CustomConfig(DefaultExperimentConfiguration):
             # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9], [], "14_mal"),
             # ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12], "15_free"),
             # ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21, 24, 27], "20_free"),
-            ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [0, 3, 6, 9, 12, 15, 18, 21, 24, 27], "10_free,10mal"),
+            # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [0, 3, 6, 9, 12, 15, 18, 21, 24, 27], "10_free,10mal"),
             # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 28, 25], [], "22_mal"),
             # ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 28, 25, 22, 19], [], "24_mal"),
             # ([], [], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 28, 25, 22, 19, 16, 13], "26_free"),
