@@ -35,7 +35,6 @@ from aggregators.MKRUM import MKRUMAggregator
 from aggregators.FedPADRC import FedPADRCAggregator
 
 
-
 # Colours used for graphing, add more if necessary
 COLOURS: List[str] = [
     "midnightblue",
@@ -69,7 +68,6 @@ COLOURS: List[str] = [
     "black",
     "gold",
 ]
-
 
 
 def __experimentOnMNIST(
@@ -138,7 +136,9 @@ def __experimentOnPneumonia(
 
 def __experimentSetup(
     config: DefaultExperimentConfiguration,
-    datasetLoader: Callable[[Tensor, Tensor, Optional[Tuple[int, int]]], Tuple[List[DatasetInterface], DatasetInterface]],
+    datasetLoader: Callable[
+        [Tensor, Tensor, Optional[Tuple[int, int]]], Tuple[List[DatasetInterface], DatasetInterface]
+    ],
     classifier,
     title: str = "DEFAULT_TITLE",
     filename: str = "DEFAULT_NAME",
@@ -161,21 +161,11 @@ def __experimentSetup(
             )
         else:
             errors, block = __runExperiment(
-                config,
-                datasetLoader,
-                classifier,
-                aggregator,
-                False,
-                folder
+                config, datasetLoader, classifier, aggregator, False, folder
             )
             logPrint("TRAINING {} with DP".format(name))
             errors, block = __runExperiment(
-                config,
-                datasetLoader,
-                classifier,
-                aggregator,
-                True,
-                folder
+                config, datasetLoader, classifier, aggregator, True, folder
             )
 
         errorsDict[name] = errors
@@ -210,11 +200,13 @@ def __experimentSetup(
 
 def __runExperiment(
     config: DefaultExperimentConfiguration,
-    datasetLoader: Callable[[Tensor, Tensor, Optional[Tuple[int, int]]], Tuple[List[DatasetInterface], DatasetInterface]],
+    datasetLoader: Callable[
+        [Tensor, Tensor, Optional[Tuple[int, int]]], Tuple[List[DatasetInterface], DatasetInterface]
+    ],
     classifier: nn.Module,
     agg: Type[Aggregator],
     useDifferentialPrivacy: bool,
-    folder:str="test"
+    folder: str = "test",
 ) -> Tuple[Errors, BlockedLocations]:
     """
     Sets up the experiment to be run.
@@ -240,15 +232,15 @@ def __runExperiment(
     elif isinstance(aggregator, FedPADRCAggregator) or isinstance(aggregator, ClusteringAggregator):
         aggregator._init_aggregators(config.internalAggregator, config.externalAggregator)
 
-
     errors: Errors = aggregator.trainAndTest(testDataset)
-    blocked = BlockedLocations({
-        "benign": aggregator.benignBlocked,
-        "malicious": aggregator.maliciousBlocked,
-        "faulty": aggregator.faultyBlocked,
-        "freeRider": aggregator.freeRidersBlocked,
-    })
-
+    blocked = BlockedLocations(
+        {
+            "benign": aggregator.benignBlocked,
+            "malicious": aggregator.maliciousBlocked,
+            "faulty": aggregator.faultyBlocked,
+            "freeRider": aggregator.freeRidersBlocked,
+        }
+    )
 
     # Plot mean and std values from the clients
     if config.aggregatorConfig.detectFreeRiders:
@@ -257,7 +249,6 @@ def __runExperiment(
             os.makedirs(f"{folder}/std/{name}")
         if not os.path.exists(f"{folder}/mean/{name}"):
             os.makedirs(f"{folder}/mean/{name}")
-
 
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
@@ -292,12 +283,13 @@ def __runExperiment(
         plt.savefig(f"{folder}/std/{name}/{config.name}.png")
         # plt.show()
 
-
     return errors, blocked
 
 
 def __initClients(
-    config: DefaultExperimentConfiguration, trainDatasets: List[DatasetInterface], useDifferentialPrivacy: bool
+    config: DefaultExperimentConfiguration,
+    trainDatasets: List[DatasetInterface],
+    useDifferentialPrivacy: bool,
 ) -> List[Client]:
     """
     Initialises each client with their datasets, weights and whether they are not benign
@@ -363,13 +355,13 @@ def __setRandomSeeds(seed=0) -> None:
     cuda.manual_seed(seed)
 
 
-
 def experiment(exp: Callable[[], None]):
     """
     Decorator for experiments so that time can be known and seeds can be set
 
     Logger catch is set for better error catching and printing but is not necessary
     """
+
     @logger.catch
     def decorator():
         __setRandomSeeds()
@@ -390,10 +382,14 @@ def program() -> None:
     config = CustomConfig()
     config.aggregators = [FedMGDAPlusPlusAggregator]
 
-    if (FedPADRCAggregator in config.aggregators or FedMGDAPlusPlusAggregator in config.aggregators) and config.aggregatorConfig.privacyAmplification:
+    if (
+        FedPADRCAggregator in config.aggregators or FedMGDAPlusPlusAggregator in config.aggregators
+    ) and config.aggregatorConfig.privacyAmplification:
         print("Currently doesn't support both at the same time.")
         print("Size of clients is very likely to be smaller than or very close to cluster_count.")
-        print("FedMGDA+ relies on every client being present and training at every federated round.")
+        print(
+            "FedMGDA+ relies on every client being present and training at every federated round."
+        )
         exit(-1)
 
     errorsDict = {}
@@ -406,7 +402,6 @@ def program() -> None:
             filename=f"test",
             folder=f"test",
         )
-
 
 
 # Running the program here

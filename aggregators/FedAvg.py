@@ -14,6 +14,7 @@ class FAAggregator(Aggregator):
     """
     Federated Averaging Aggregator that just aggregates each client based on the size of data it holds.
     """
+
     def __init__(
         self,
         clients: List[Client],

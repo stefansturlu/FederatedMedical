@@ -18,6 +18,7 @@ class Aggregator:
     """
     Base Aggregator class that all aggregators should inherit from
     """
+
     def __init__(
         self,
         clients: List[Client],
@@ -93,7 +94,6 @@ class Aggregator:
 
         chosen_clients = [self.clients[i] for i in self.chosen_indices]
 
-
         # Actual sharing and training takes place here
         if self.useAsyncClients:
             threads: List[Thread] = []
@@ -135,7 +135,6 @@ class Aggregator:
             self.handle_free_riders(models, chosen_clients)
         return models
 
-
     def test(self, testDataset: DatasetInterface) -> float:
         """
         Tests the global model with the global test dataset.
@@ -155,7 +154,6 @@ class Aggregator:
 
         return errors
 
-
     def predict(self, net: nn.Module, x):
         """
         Returns the best indices (labels) associated with the model prediction
@@ -165,7 +163,6 @@ class Aggregator:
             _, predicted = torch.max(outputs.to(self.device), 1)
 
         return predicted.to(self.device)
-
 
     @staticmethod
     def _mergeModels(

@@ -1,12 +1,14 @@
 from utils.typings import FreeRiderAttack, PersonalisationMethod
 from torch import device, cuda
 
+
 class AggregatorConfig:
     """
     Configuration for the aggregators.
 
     Use this for information that you want the aggregator to know about.
     """
+
     def __init__(self):
 
         # Total number of training rounds

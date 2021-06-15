@@ -17,7 +17,7 @@ class PCA(metaclass=ABCMeta):
         Scales the data between the max and min for plotting dot size
         """
         size_range = 30
-        data_range = max-min
+        data_range = max - min
 
         return ((val - min) * size_range / data_range) + 1
 
@@ -124,7 +124,6 @@ class PCA(metaclass=ABCMeta):
         plt.title("PCA Representative Values of Each Client's Model - 1D")
         plt.show()
 
-
     @staticmethod
     def pca(flattened_models: List[List[float]], dim=4) -> Tuple[Union[Tuple, float]]:
         """
@@ -132,7 +131,6 @@ class PCA(metaclass=ABCMeta):
         The dimension must be between 0 and the min(n_samples, n_features), this is most likely len(flattened_models)
         """
         return pca_func(dim).fit_transform(flattened_models)
-
 
     @staticmethod
     def optimal_component_plot(X: List[List[float]]) -> None:

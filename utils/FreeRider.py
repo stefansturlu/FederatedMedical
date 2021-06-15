@@ -7,14 +7,10 @@ class FreeRider:
     """
     Helper class for calculating relevant free-rider gradient information
     """
-    def __init__(
-        self,
-        device: device,
-        attack: FreeRiderAttack
-    ):
+
+    def __init__(self, device: device, attack: FreeRiderAttack):
         self.device = device
         self.attack = attack
-
 
     def free_grads(self, model: nn.Module, prev_global: nn.Module) -> Tuple[Tensor, Tensor]:
         """
@@ -32,11 +28,9 @@ class FreeRider:
         if self.attack == FreeRiderAttack.BASIC:
             return mean, std
 
-
         # This is very hard to notice that it's a free-rider, need STD-DAGMM or privacy amplification
         if self.attack == FreeRiderAttack.DELTA and prev_global is not None:
             return self.delta_gradient_gen(model, prev_global)
-
 
         if self.attack == FreeRiderAttack.NOISY or self.attack == FreeRiderAttack.DELTA:
 
@@ -48,7 +42,6 @@ class FreeRider:
                 std += grad_s.std()
 
         return mean, std
-
 
     def normal_grads(self, model: nn.Module) -> Tuple[Tensor, Tensor]:
         """
@@ -62,7 +55,6 @@ class FreeRider:
 
         return mean, std
 
-
     def standard_gradient_gen(self, param: nn.parameter.Parameter) -> Tuple[Tensor, Tensor]:
         """
         Generates gradients based on random noise parameters.
@@ -74,7 +66,6 @@ class FreeRider:
         grad_s = R2 * randn(param.data.size())
 
         return grad_m, grad_s
-
 
     def delta_gradient_gen(self, model: nn.Module, prev_global: nn.Module) -> Tuple[Tensor, Tensor]:
         """

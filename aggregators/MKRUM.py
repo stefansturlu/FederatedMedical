@@ -16,6 +16,7 @@ class MKRUMAggregator(Aggregator):
 
     Uses best scoring subgroups of clients where the size of the groups is pre-set
     """
+
     def __init__(
         self,
         clients: List[Client],

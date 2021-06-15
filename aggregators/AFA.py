@@ -16,6 +16,7 @@ class AFAAggregator(Aggregator):
     """
     Adaptive Federated Averaging Aggregator
     """
+
     def __init__(
         self,
         clients: List[Client],
@@ -36,7 +37,9 @@ class AFAAggregator(Aggregator):
 
             if self.config.privacyAmplification:
                 self.chosen_indices = [
-                    i for i in range(len(self.clients)) if uniform(0, 1) <= self.config.amplificationP
+                    i
+                    for i in range(len(self.clients))
+                    if uniform(0, 1) <= self.config.amplificationP
                 ]
 
             chosen_clients = [self.clients[i] for i in self.chosen_indices]
@@ -172,7 +175,6 @@ class AFAAggregator(Aggregator):
                         if client.sim > th:
                             client.badUpdate = True
                             badCount += 1
-
 
         # Block relevant clients based on their assigned scores from this round
         # Assign client's actual weighting based on updated score

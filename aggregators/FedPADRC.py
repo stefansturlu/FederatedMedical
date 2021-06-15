@@ -29,6 +29,7 @@ class FedPADRCAggregator(Aggregator):
 
     NOTE: 10 Epochs per round should be used here instead of the usual 2 for proper client differentiation.
     """
+
     def __init__(
         self,
         clients: List[Client],
@@ -67,11 +68,9 @@ class FedPADRCAggregator(Aggregator):
 
             models = self._retrieveClientModelsDict()
 
-
             # Perform Clustering
             with torch.no_grad():
                 self.generate_cluster_centres(models)
-
 
                 # With no global, each cluster has its own model that it aggregates
                 # It doesn't use a global model that aggregates the cluster models together
@@ -113,7 +112,6 @@ class FedPADRCAggregator(Aggregator):
                     self.model = general
                     roundsError[r] = self.test(testDataset)
 
-
         # Create an image that plots each clusters errorRate
         if self.personalisation == PersonalisationMethod.NO_GLOBAL:
             if not os.path.exists("no_global_test"):
@@ -124,7 +122,11 @@ class FedPADRCAggregator(Aggregator):
 
             plt.xlabel(f"Rounds")
             plt.ylabel("Error Rate (%)")
-            plt.title(f"No Global Personalisation Method - 4D PCA \n {self.config.attackName}", loc="center", wrap=True)
+            plt.title(
+                f"No Global Personalisation Method - 4D PCA \n {self.config.attackName}",
+                loc="center",
+                wrap=True,
+            )
             plt.ylim(0, 1.0)
             plt.savefig(f"no_global_test/{self.config.attackName}.png", dpi=400)
 
@@ -137,15 +139,15 @@ class FedPADRCAggregator(Aggregator):
         self.internalAggregator = internal(self.clients, self.model, self.config)
         self.externalAggregator = external(self.clients, self.model, self.config)
 
-
     def _gen_cluster_centre(self, indices: List[int], models: List[nn.Module]) -> nn.Module:
         """
         Takes the average of the clients assigned to each cluster to generate a new centre
 
         The aggregation method used should be decided prior.
         """
-        return self.internalAggregator.aggregate([self.clients[i] for i in indices], [models[i] for i in indices])
-
+        return self.internalAggregator.aggregate(
+            [self.clients[i] for i in indices], [models[i] for i in indices]
+        )
 
     def _generate_weights(self, models: List[nn.Module]) -> List[Tensor]:
         """
@@ -196,7 +198,6 @@ class FedPADRCAggregator(Aggregator):
         for i, ins in enumerate(indices):
             self.cluster_centres[i] = self._gen_cluster_centre(ins, models)
 
-
     def _use_most_similar_clusters(self) -> Tuple[List[nn.Module], Tensor, List[int]]:
         """
         Uses Cosine similarity to determin the "most similar" clusters
@@ -226,7 +227,6 @@ class FedPADRCAggregator(Aggregator):
                 best_indices = indices
                 besti = i
 
-
         # Normalisation
         ps: Tensor = Tensor([p / sum(sims[besti]) for p in sims[besti]])
         best_models = [self.cluster_centres[i] for i in best_indices]
@@ -243,7 +243,6 @@ class FedPADRCAggregator(Aggregator):
         ps /= ps.sum()
 
         return best_models, ps, best_indices
-
 
     def _use_closest_clusters(self) -> Tuple[List[nn.Module], Tensor, List[int]]:
         """
@@ -273,7 +272,6 @@ class FedPADRCAggregator(Aggregator):
                 best_indices = indices
                 besti = i
 
-
         # Normalisation
         ps: Tensor = Tensor([p / sum(dists[besti]) for p in dists[besti]])
         ps = 1 - ps
@@ -300,6 +298,7 @@ class FakeClient:
 
     Useful as setting up a full client is incredibly extra.
     """
+
     def __init__(self, p: float, id: int):
         self.p = p
         self.id = id

@@ -18,6 +18,7 @@ class Classifier(Module):
     """
     CNN model for Pneumonia classification
     """
+
     def __init__(self):
         super(Classifier, self).__init__()
 

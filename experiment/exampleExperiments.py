@@ -15,7 +15,6 @@ from aggregators.MKRUM import MKRUMAggregator
 from main import __experimentOnMNIST, experiment, __experimentOnCOVIDx
 
 
-
 #############################################################
 
 #######

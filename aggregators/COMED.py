@@ -16,6 +16,7 @@ class COMEDAggregator(Aggregator):
 
     Uses the median parameter across all the models parameters for each parameter.
     """
+
     def __init__(
         self,
         clients: List[Client],

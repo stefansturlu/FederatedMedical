@@ -13,6 +13,7 @@ class DefaultExperimentConfiguration:
     """
     Base configuration for the federated learning setup.
     """
+
     def __init__(self):
         # DEFAULT PARAMETERS
         self.name: str = ""
@@ -66,4 +67,3 @@ class DefaultExperimentConfiguration:
         self.externalAggregator: Union[
             Type[FAAggregator], Type[MKRUMAggregator], Type[COMEDAggregator]
         ] = COMEDAggregator
-

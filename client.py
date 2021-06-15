@@ -37,7 +37,7 @@ class Client:
         byzantine=None,
         flipping=None,
         freeRiding=False,
-        model:Optional[nn.Module]=None,
+        model: Optional[nn.Module] = None,
         alpha=3.0,
         beta=3.0,
     ):
@@ -103,13 +103,10 @@ class Client:
                 self.model.parameters(), lr=self.learningRate, momentum=self.momentum
             )
         else:
-            self.opt = self.Optimizer(
-                self.model.parameters(), lr=self.learningRate
-            )
+            self.opt = self.Optimizer(self.model.parameters(), lr=self.learningRate)
         self.loss = self.Loss()
         self.untrainedModel = copy.deepcopy(model)
         cuda.empty_cache()
-
 
     def trainModel(self):
         """
@@ -131,7 +128,6 @@ class Client:
         self.model = self.model
         return err, pred
 
-
     def _trainClassifier(self, x: Tensor, y: Tensor):
         """
         Trains the classifier
@@ -146,7 +142,6 @@ class Client:
         # Update optimizer
         self.opt.step()
         return err, pred
-
 
     def retrieveModel(self) -> nn.Module:
         """
@@ -166,7 +161,6 @@ class Client:
 
         return self.model
 
-
     def __manipulateModel(self, alpha: int = 20) -> None:
         """
         Function to manipulate the model for byzantine adversaries
@@ -175,15 +169,14 @@ class Client:
             noise = alpha * torch.randn(param.data.size()).to(self.device)
             param.data.copy_(param.data.to(self.device) + noise)
 
-
     def __privacyPreserve(
         self,
-        eps1:int=100,
-        eps3:int=100,
-        clipValue:float=0.1,
-        releaseProportion:float=0.1,
-        needClip:bool=False,
-        needNormalization:bool=False,
+        eps1: int = 100,
+        eps3: int = 100,
+        clipValue: float = 0.1,
+        releaseProportion: float = 0.1,
+        needClip: bool = False,
+        needNormalization: bool = False,
     ):
         """
         Implements differential privacy and applies it to the model

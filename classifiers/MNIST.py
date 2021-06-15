@@ -5,6 +5,7 @@ class Classifier(nn.Module):
     """
     Simple model with linear layers for mnist
     """
+
     def __init__(self):
         super(Classifier, self).__init__()
         self.fc1 = nn.Linear(784, 512)

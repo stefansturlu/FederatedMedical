@@ -20,6 +20,7 @@ class FedMGDAPlusPlusAggregator(Aggregator):
 
     Uses adaptive LR of the Linear Layer.
     """
+
     def __init__(
         self,
         clients: List[Client],

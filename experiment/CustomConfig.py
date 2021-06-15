@@ -3,6 +3,7 @@ from aggregators.Aggregator import allAggregators
 from typing import List
 import torch
 from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration
+
 # Naked imports for allAggregators function
 from aggregators.FedAvg import FAAggregator
 from aggregators.COMED import COMEDAggregator

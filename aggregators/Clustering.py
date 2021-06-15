@@ -18,6 +18,7 @@ class ClusteringAggregator(Aggregator):
 
     NOTE: 10 Epochs per round should be used here instead of the usual 2 for proper client differentiation.
     """
+
     def __init__(
         self,
         clients: List[Client],
@@ -54,13 +55,12 @@ class ClusteringAggregator(Aggregator):
                 ps = self.cluster_centres_len / self.cluster_centres_len.sum()
 
                 self.model = self.externalAggregator.aggregate(
-                   [FakeClient(p, i) for (i, p) in enumerate(ps)], self.cluster_centres
+                    [FakeClient(p, i) for (i, p) in enumerate(ps)], self.cluster_centres
                 )
 
                 roundsError[r] = self.test(testDataset)
 
         return roundsError
-
 
     def _init_aggregators(self, internal: Type[Aggregator], external: Type[Aggregator]) -> None:
         """
@@ -69,7 +69,6 @@ class ClusteringAggregator(Aggregator):
         self.internalAggregator = internal(self.clients, self.model, self.config)
         self.externalAggregator = external(self.clients, self.model, self.config)
 
-
     def _gen_cluster_centre(self, indices: List[int], models: List[nn.Module]) -> nn.Module:
         """
         Takes the average of the clients assigned to each cluster to generate a new centre.
@@ -77,7 +76,9 @@ class ClusteringAggregator(Aggregator):
         The aggregation method used should be decided prior.
         """
 
-        return self.internalAggregator.aggregate([self.clients[i] for i in indices], [models[i] for i in indices])
+        return self.internalAggregator.aggregate(
+            [self.clients[i] for i in indices], [models[i] for i in indices]
+        )
 
     def _generate_weights(self, models: List[nn.Module]) -> List[Tensor]:
         """
@@ -123,7 +124,6 @@ class ClusteringAggregator(Aggregator):
         for i, ins in enumerate(indices):
             self.cluster_centres[i] = self._gen_cluster_centre(ins, models)
 
-
     def __elbow_test(self, X, models: List[nn.Module]) -> None:
         """
         This is a helper function for calculating the optimum K.
@@ -135,11 +135,11 @@ class ClusteringAggregator(Aggregator):
         dispersion = []
 
         for h in range(len(self.clients)):
-            kmeans = KMeans(n_clusters=h+1, random_state=0).fit(X)
+            kmeans = KMeans(n_clusters=h + 1, random_state=0).fit(X)
             labels = kmeans.labels_
 
-            indices: List[List[int]] = [[] for _ in range(h+1)]
-            lens = torch.zeros(h+1)
+            indices: List[List[int]] = [[] for _ in range(h + 1)]
+            lens = torch.zeros(h + 1)
             lens.zero_()
 
             centres: List[nn.Module] = []
@@ -168,10 +168,11 @@ class ClusteringAggregator(Aggregator):
 
             dispersion.append(d)
 
-
         plt.figure()
         plt.plot(range(1, 31), dispersion)
-        plt.title(f"Sum of Distances from Cluster Centre as K Increases \n 20 Malicious - Round: {self.round}")
+        plt.title(
+            f"Sum of Distances from Cluster Centre as K Increases \n 20 Malicious - Round: {self.round}"
+        )
         plt.xlabel("K-Value")
         plt.ylabel("Sum of Distances")
         if not os.path.exists("k_means_test/20_mal"):
@@ -185,6 +186,7 @@ class FakeClient:
 
     Useful as setting up a full client is incredibly extra.
     """
+
     def __init__(self, p: float, id: int):
         self.p = p
         self.id = id
