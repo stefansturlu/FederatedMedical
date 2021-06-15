@@ -11,8 +11,12 @@ from torch import nn, Tensor
 from scipy.stats import beta
 from datasetLoaders.DatasetInterface import DatasetInterface
 
-# ADAPTIVE FEDERATED AVERAGING
+
 class AFAAggregator(Aggregator):
+    """
+    Adaptive Federated Averaging Aggregator
+    """
+
     def __init__(
         self,
         clients: List[Client],
@@ -33,7 +37,9 @@ class AFAAggregator(Aggregator):
 
             if self.config.privacyAmplification:
                 self.chosen_indices = [
-                    i for i in range(len(self.clients)) if uniform(0, 1) <= self.config.amplificationP
+                    i
+                    for i in range(len(self.clients))
+                    if uniform(0, 1) <= self.config.amplificationP
                 ]
 
             chosen_clients = [self.clients[i] for i in self.chosen_indices]
@@ -54,6 +60,10 @@ class AFAAggregator(Aggregator):
         return roundsError
 
     def __modelSimilarity(self, mOrig: nn.Module, mDest: nn.Module) -> Tensor:
+        """
+        Calculates model similarity based on the Cosine Similarity metric.
+        Flattens the models into tensors before doing the comparison.
+        """
         cos = nn.CosineSimilarity(0)
 
         d2 = torch.tensor([]).to(self.device)
@@ -67,19 +77,23 @@ class AFAAggregator(Aggregator):
             if name1 in dictParamsDest:
                 d1 = torch.cat((d1, dictParamsDest[name1].data.view(-1)))
                 d2 = torch.cat((d2, param1.data.view(-1)))
-                # d2 = param1.data
-                # sim = cos(d1.view(-1),d2.view(-1))
-                # logPrint(name1,param1.size())
-                # logPrint("Similarity: ",sim)
+
         sim: Tensor = cos(d1, d2)
         return sim
 
     @staticmethod
-    def checkBlockedUser(a: float, b: float, th: float = 0.95) -> bool:
-        return beta.cdf(0.5, a, b) > th
+    def checkBlockedUser(a: float, b: float, thr: float = 0.95) -> bool:
+        """
+        Checks if the user is blocked based on if the beta cdf distribution is greater than the threshold value.
+        """
+        return beta.cdf(0.5, a, b) > thr
 
     @staticmethod
     def updateUserScore(client: Client) -> None:
+        """
+        Updates client score based on its alpha and beta parameters.
+        Updates either beta or alpha depending on if it has been classified as a bad update.
+        """
         if client.badUpdate:
             client.beta += 1
         else:
@@ -88,9 +102,13 @@ class AFAAggregator(Aggregator):
 
     @staticmethod
     def notBlockedNorBadUpdate(client: Client) -> bool:
+        """
+        Returns True if the client isn't blocked or doesn't have a bad update.
+        """
         return client.blocked == False | client.badUpdate == False
 
     def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
+        # We can't do aggregation if there are no models this round
         if len(models) == 0:
             return self.model
 
@@ -101,15 +119,19 @@ class AFAAggregator(Aggregator):
         slack = self.xi
         while badCount != 0:
             pT_epoch = 0.0
+
+            # Calculate the new weighting for each client as this epoch
             for client in clients:
                 if self.notBlockedNorBadUpdate(client):
                     client.pEpoch = client.n * client.score
                     pT_epoch = pT_epoch + client.pEpoch
 
+            # Normalise each weighting
             for client in clients:
                 if self.notBlockedNorBadUpdate(client):
                     client.pEpoch = client.pEpoch / pT_epoch
 
+            # Merge "good" models to form temporary global model
             comb = 0.0
             for i, client in enumerate(clients):
                 if self.notBlockedNorBadUpdate(client):
@@ -121,12 +143,13 @@ class AFAAggregator(Aggregator):
                     )
                     comb = 1.0
 
+            # Calculate similarity between temporary global model and each "good" model
+            # "Bad" models will receive worst score of 0 by default
             sim = torch.zeros(len(clients)).to(self.device)
             for i, client in enumerate(clients):
                 if self.notBlockedNorBadUpdate(client):
                     client.sim = self.__modelSimilarity(empty_model, models[i])
                     sim[i] = client.sim
-                    # logPrint("Similarity user ", u.id, ": ", u.sim)
 
             meanS = torch.mean(sim)
             medianS = torch.median(sim)
@@ -145,16 +168,16 @@ class AFAAggregator(Aggregator):
                     # Malicious clients are below the threshold
                     if meanS < medianS:
                         if client.sim < th:
-                            # logPrint("Type1")
-                            # logPrint("Bad update from user ", u.id)
                             client.badUpdate = True
                             badCount += 1
-                            # Malicious clients are above the threshold
+                    # Malicious clients are above the threshold
                     else:
                         if client.sim > th:
                             client.badUpdate = True
                             badCount += 1
 
+        # Block relevant clients based on their assigned scores from this round
+        # Assign client's actual weighting based on updated score
         pT = 0.0
         for client in clients:
             if not client.blocked:
@@ -166,21 +189,23 @@ class AFAAggregator(Aggregator):
                     client.p = client.n * client.score
                     pT = pT + client.p
 
+        # Normalise client's actual weighting
         for client in clients:
             client.p = client.p / pT
-            # logPrint("Weight user", u.id, ": ", round(u.p,3))
 
-        # Update model with the updated scores
+        # Update model's epoch weights with the updated scores
         pT_epoch = 0.0
         for client in clients:
             if self.notBlockedNorBadUpdate(client):
                 client.pEpoch = client.n * client.score
                 pT_epoch += client.pEpoch
 
+        # Normalise epoch weights
         for client in clients:
             if self.notBlockedNorBadUpdate(client):
                 client.pEpoch /= pT_epoch
-        # logPrint("Updated scores:{}".format([client.pEpoch for client in clients]))
+
+        # Do actual aggregation of clients
         comb = 0.0
         for i, client in enumerate(clients):
             if self.notBlockedNorBadUpdate(client):

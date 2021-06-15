@@ -1,7 +1,14 @@
-from utils.typings import FreeRiderAttack
+from utils.typings import FreeRiderAttack, PersonalisationMethod
 from torch import device, cuda
 
+
 class AggregatorConfig:
+    """
+    Configuration for the aggregators.
+
+    Use this for information that you want the aggregator to know about.
+    """
+
     def __init__(self):
 
         # Total number of training rounds
@@ -9,6 +16,8 @@ class AggregatorConfig:
 
         #self.device = device("cuda" if cuda.is_available() else "cpu")
         self.device = device("cpu")
+        # Name of attack being employed
+        self.attackName = ""
 
         # Pipeline config
         self.detectFreeRiders: bool = False
@@ -27,3 +36,7 @@ class AggregatorConfig:
 
         # Clustering Config:
         self.cluster_count: int = 5
+
+        self.personalisation: PersonalisationMethod = PersonalisationMethod.NO_GLOBAL
+        self.threshold: bool = False
+

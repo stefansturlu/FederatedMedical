@@ -19,4 +19,13 @@ class DatasetInterface(Dataset):
         )
 
     def zeroLabels(self) -> None:
+        """
+        Sets all labels to zero
+        """
         self.labels = torch.zeros(len(self.labels), dtype=torch.long)
+
+    def setLabels(self, value: int) -> None:
+        """
+        Sets all labels to the given value
+        """
+        self.labels = torch.zeros(len(self.labels), dtype=torch.long) + value

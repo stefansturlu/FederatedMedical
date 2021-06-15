@@ -3,11 +3,11 @@
 This project constitutes a simulation environment for FL tasks that facilitates evaluating the performance of the different robust and privacy preserving FL techniques against different attack scenarios.
 At the current stage, the project tackles several aspects of FL in adversarial settings.
 
-- **Robust Aggregation FL**: currently there are 5 main aggregation schemes implemented: Federated Averaging (not robust), MKRUM, COMED, Adaptive Federated Averaging and FedMGDA+.
+- **Robust Aggregation FL**: currently there are 7 main aggregation schemes implemented: Federated Averaging (not robust), MKRUM, COMED, Adaptive Federated Averaging, FedMGDA+, Clustering and FedPADRC.
 
 - **Privacy preserving FL**: we have experimented with client level differential privacy and the syntactic approch for FL, that makes use of Information loss to perform generalisation over the training and testing datasets.
 
-- **FL Adversial stragegies**: We have simulated two different strategies attackers can have: label-flipping attacks or byzantine ones, that send noisy parameter updates.
+- **FL Adversial stragegies**: We have simulated 3 different strategies attackers can have: label-flipping attacks, faulty attacks that send noisy parameter updates and free-riding attacks.
 
 ## Work built upon
 
@@ -15,7 +15,7 @@ At the current stage, the project tackles several aspects of FL in adversarial s
 
 ## Relevent Paper
 
-*Samuel Trew MEng Computing - Computation in Medicine and Biology: INSERT PAPER INFO HERE*
+*Samuel Trew MEng Computing - Computation in Medicine and Biology: Enhancing Robust Aggregation in Federated Learning*
 
 ---
 
@@ -30,6 +30,10 @@ setupVenvOnGPUCluster.sh is the script that can be used for the initial setup of
 runExperiment.sh and stopLastExperiment.sh can be used for running the script locally or on a virtual machine send write the output to file.
 runExperimentGPU.sh can be used for running the experiment using the Slurm GPU Cluster from Imperial College Cloud
 
+## Formatting
+
+The formatting is done through Python Black, run `python3 -m black --line-length 100 .` to appropriately format the entire directory.
+
 ## Extending the project
 
 To experiment with new datasets and models there are a few steps that need to be followed.
@@ -40,7 +44,11 @@ To experiment with new datasets and models there are a few steps that need to be
 
 - We also provided a straight forward mechanism of extending the code base to use new aggregation schemes: creating child classes of the Aggregator class in Aggregator.py module. Simply add a new file in the aggregators folder.
 
-## References
+- Any further configuration details can be added to either the federated system config in DefaultExperimentConfiguration.py or to the AggregatorConfig.py if it is aggregator specific configuration.
+
+- When running the experiments, to change the configuration, use the CustomConfig.py file and call `scenario_conversion` like `for attackName in scenario_conversion():`
+
+## Work Built Upon References
 
 Within this project we have integrated concepts and implementations coming from several pieces of work related to the subject.
 
