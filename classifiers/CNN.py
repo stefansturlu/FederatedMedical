@@ -3,6 +3,10 @@ from torchvision import models
 
 
 class Classifier(nn.Module):
+    """
+    Classified that is a standard ResNet model
+    """
+
     def __init__(self, classes=3, model="resnet18"):
         super(Classifier, self).__init__()
         if model == "resnet18":

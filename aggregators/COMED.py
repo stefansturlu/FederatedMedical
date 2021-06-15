@@ -1,6 +1,6 @@
 from utils.typings import Errors
 from experiment.AggregatorConfig import AggregatorConfig
-from torch import nn, Tensor
+from torch import nn
 from client import Client
 from logger import logPrint
 from typing import List
@@ -10,8 +10,13 @@ from aggregators.Aggregator import Aggregator
 from datasetLoaders.DatasetInterface import DatasetInterface
 
 
-# ROBUST AGGREGATION ALGORITHM - computes the median of the clients updates
 class COMEDAggregator(Aggregator):
+    """
+    COrdinated MEDian (COMED) Aggregator.
+
+    Uses the median parameter across all the models parameters for each parameter.
+    """
+
     def __init__(
         self,
         clients: List[Client],
@@ -39,21 +44,23 @@ class COMEDAggregator(Aggregator):
         return roundsError
 
     def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
+        # We can't do aggregation if there are no models this round
         if (len(models)) == 0:
             return self.model.to(self.device)
+
         model = models[0]
         modelCopy = deepcopy(model)
-        params = model.named_parameters()
-        for name1, param1 in params:
+
+        for name1, _ in model.named_parameters():
             m = []
             for i in range(len(clients)):
                 params2 = models[i].named_parameters()
                 dictParams2 = dict(params2)
                 m.append(dictParams2[name1].data.view(-1).to("cpu").numpy())
-                # logPrint("Size: ", dictParams2[name1].data.size())
+
             m = torch.tensor(m)
             med = torch.median(m, dim=0)[0]
             dictParamsm = dict(modelCopy.named_parameters())
             dictParamsm[name1].data.copy_(med.view(dictParamsm[name1].data.size()))
-            # logPrint("Median computed, size: ", med.size())
+
         return modelCopy.to(self.device)

@@ -12,7 +12,7 @@ import torch
 
 class DatasetLoaderMNIST(DatasetLoader):
     def getDatasets(
-        self, percUsers: Tensor, labels: Tensor, size:Optional[Tuple[int, int]]=None, nonIID = False, alpha = 0.1
+        self, percUsers: Tensor, labels: Tensor, size: Optional[Tuple[int, int]] = None, nonIID = False, alpha = 0.1
     ) -> Tuple[List[DatasetInterface], DatasetInterface]:
         logPrint("Loading MNIST...")
         self._setRandomSeeds()

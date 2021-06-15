@@ -1,8 +1,9 @@
-from utils.typings import BlockedLocations, Errors, FreeRiderAttack
+from torch import optim
+from utils.typings import BlockedLocations, Errors, FreeRiderAttack, PersonalisationMethod
 from datasetLoaders.DatasetInterface import DatasetInterface
 from experiment.CustomConfig import CustomConfig
 import os
-from typing import Callable, Dict, List, Literal, NewType, Tuple, Dict, Type, Union
+from typing import Callable, Dict, List, NewType, Optional, Tuple, Dict, Type
 import json
 from loguru import logger
 
@@ -26,13 +27,12 @@ from torch import cuda, Tensor, nn
 
 from aggregators.Aggregator import Aggregator, allAggregators
 from aggregators.AFA import AFAAggregator
-from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
+from aggregators.FedMGDAPlusPlus import FedMGDAPlusPlusAggregator
 from aggregators.FedAvg import FAAggregator
 from aggregators.COMED import COMEDAggregator
 from aggregators.Clustering import ClusteringAggregator
 from aggregators.MKRUM import MKRUMAggregator
-from aggregators.GroupWise import GroupWiseAggregation
-
+from aggregators.FedPADRC import FedPADRCAggregator
 
 
 # Colours used for graphing, add more if necessary
@@ -70,10 +70,12 @@ COLOURS: List[str] = [
 ]
 
 
-
 def __experimentOnMNIST(
     config: DefaultExperimentConfiguration, title="", filename="", folder="DEFAULT"
-):
+) -> Dict[str, Errors]:
+    """
+    MNIST Experiment with default settings
+    """
     dataLoader = DatasetLoaderMNIST().getDatasets
     classifier = MNIST.Classifier
     return __experimentSetup(config, dataLoader, classifier, title, filename, folder)
@@ -85,7 +87,10 @@ def __experimentOnCOVIDx(
     title="",
     filename="",
     folder="DEFAULT",
-):
+) -> Dict[str, Errors]:
+    """
+    COVIDx Experiment with default settings
+    """
     datasetLoader = DatasetLoaderCOVIDx().getDatasets
     if model == "COVIDNet":
         classifier = CovidNet.Classifier
@@ -93,18 +98,24 @@ def __experimentOnCOVIDx(
         classifier = CNN.Classifier
     else:
         raise Exception("Invalid Covid model name.")
-    __experimentSetup(config, datasetLoader, classifier)
+    return __experimentSetup(config, datasetLoader, classifier, title, filename, folder)
 
 
 def __experimentOnPneumonia(
     config: DefaultExperimentConfiguration, title="", filename="", folder="DEFAULT"
-):
+) -> Dict[str, Errors]:
+    """
+    Pneumonia Experiment with extra settings in place to incorporate the necessary changes
+    """
     datasetLoader = DatasetLoaderPneumonia().getDatasets
     classifier = Pneumonia.Classifier
     # Each client now only has like 80-170 images so a batch size of 200 is pointless
     config.batchSize = 30
+    config.labels = torch.tensor([0, 1])
+    config.Loss = nn.BCELoss
+    config.Optimizer = optim.RMSprop
 
-    __experimentSetup(config, datasetLoader, classifier)
+    return __experimentSetup(config, datasetLoader, classifier, title, filename, folder)
 
 
 # def __experimentOnDiabetes(config: DefaultExperimentConfiguration):
@@ -125,14 +136,14 @@ def __experimentOnPneumonia(
 
 def __experimentSetup(
     config: DefaultExperimentConfiguration,
-    datasetLoader: Callable[[Tensor, Tensor, int], Tuple[List[DatasetInterface], DatasetInterface]],
+    datasetLoader: Callable[
+        [Tensor, Tensor, Optional[Tuple[int, int]]], Tuple[List[DatasetInterface], DatasetInterface]
+    ],
     classifier,
     title: str = "DEFAULT_TITLE",
     filename: str = "DEFAULT_NAME",
     folder: str = "DEFAULT_FOLDER",
-):
-    print(title)
-    print(filename)
+) -> Dict[str, Errors]:
     __setRandomSeeds()
     gc.collect()
     cuda.empty_cache()
@@ -142,29 +153,19 @@ def __experimentSetup(
     for aggregator in config.aggregators:
         name = aggregator.__name__.replace("Aggregator", "")
         name = name.replace("Plus", "+")
-        # name += ":" + config.name if config.name else ""
         logPrint("TRAINING {}".format(name))
+
         if config.privacyPreserve is not None:
             errors, block = __runExperiment(
                 config, datasetLoader, classifier, aggregator, config.privacyPreserve, folder
             )
         else:
             errors, block = __runExperiment(
-                config,
-                datasetLoader,
-                classifier,
-                aggregator,
-                False,
-                folder
+                config, datasetLoader, classifier, aggregator, False, folder
             )
             logPrint("TRAINING {} with DP".format(name))
             errors, block = __runExperiment(
-                config,
-                datasetLoader,
-                classifier,
-                aggregator,
-                True,
-                folder
+                config, datasetLoader, classifier, aggregator, True, folder
             )
 
         errorsDict[name] = errors
@@ -180,6 +181,7 @@ def __experimentSetup(
     with open(f"{folder}/json/{filename}.json", "w+") as outfile:
         json.dump(blocked, outfile)
 
+    # Plots the individual aggregator errors
     if config.plotResults:
         plt.figure()
         i = 0
@@ -198,12 +200,19 @@ def __experimentSetup(
 
 def __runExperiment(
     config: DefaultExperimentConfiguration,
-    datasetLoader,
+    datasetLoader: Callable[
+        [Tensor, Tensor, Optional[Tuple[int, int]]], Tuple[List[DatasetInterface], DatasetInterface]
+    ],
     classifier: nn.Module,
     agg: Type[Aggregator],
     useDifferentialPrivacy: bool,
-    folder:str="test"
+    folder: str = "test",
 ) -> Tuple[Errors, BlockedLocations]:
+    """
+    Sets up the experiment to be run.
+
+    Initialises each aggregator appropriately
+    """
 
     trainDatasets, testDataset = datasetLoader(config.percUsers, config.labels, config.datasetSize, config.nonIID, config.alphaDirichlet)
     clients = __initClients(config, trainDatasets, useDifferentialPrivacy)
@@ -218,27 +227,28 @@ def __runExperiment(
     if isinstance(aggregator, AFAAggregator):
         aggregator.xi = config.aggregatorConfig.xi
         aggregator.deltaXi = config.aggregatorConfig.deltaXi
-    elif isinstance(aggregator, FedMGDAPlusAggregator):
+    elif isinstance(aggregator, FedMGDAPlusPlusAggregator):
         aggregator.reinitialise(config.aggregatorConfig.innerLR)
-    elif isinstance(aggregator, GroupWiseAggregation) or isinstance(aggregator, ClusteringAggregator):
+    elif isinstance(aggregator, FedPADRCAggregator) or isinstance(aggregator, ClusteringAggregator):
         aggregator._init_aggregators(config.internalAggregator, config.externalAggregator)
 
-
     errors: Errors = aggregator.trainAndTest(testDataset)
-    blocked = BlockedLocations({
-        "benign": aggregator.benignBlocked,
-        "malicious": aggregator.maliciousBlocked,
-        "faulty": aggregator.faultyBlocked,
-        "freeRider": aggregator.freeRidersBlocked,
-    })
+    blocked = BlockedLocations(
+        {
+            "benign": aggregator.benignBlocked,
+            "malicious": aggregator.maliciousBlocked,
+            "faulty": aggregator.faultyBlocked,
+            "freeRider": aggregator.freeRidersBlocked,
+        }
+    )
 
+    # Plot mean and std values from the clients
     if config.aggregatorConfig.detectFreeRiders:
 
         if not os.path.exists(f"{folder}/std/{name}"):
             os.makedirs(f"{folder}/std/{name}")
         if not os.path.exists(f"{folder}/mean/{name}"):
             os.makedirs(f"{folder}/mean/{name}")
-
 
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
@@ -273,16 +283,17 @@ def __runExperiment(
         plt.savefig(f"{folder}/std/{name}/{config.name}.png")
         # plt.show()
 
-
-
-
-
     return errors, blocked
 
 
 def __initClients(
-    config: DefaultExperimentConfiguration, trainDatasets, useDifferentialPrivacy
+    config: DefaultExperimentConfiguration,
+    trainDatasets: List[DatasetInterface],
+    useDifferentialPrivacy: bool,
 ) -> List[Client]:
+    """
+    Initialises each client with their datasets, weights and whether they are not benign
+    """
     usersNo = config.percUsers.size(0)
     p0 = 1 / usersNo
     logPrint("Creating clients...")
@@ -332,6 +343,11 @@ def __initClients(
 
 
 def __setRandomSeeds(seed=0) -> None:
+    """
+    Sets random seeds for all of the relevant modules.
+
+    Ensures consistent and deterministic results from experiments.
+    """
     os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
@@ -339,9 +355,14 @@ def __setRandomSeeds(seed=0) -> None:
     cuda.manual_seed(seed)
 
 
-# Experiment decorator
 def experiment(exp: Callable[[], None]):
-    @logger.catch  # Not necessarily needed but catches errors really nicely
+    """
+    Decorator for experiments so that time can be known and seeds can be set
+
+    Logger catch is set for better error catching and printing but is not necessary
+    """
+
+    @logger.catch
     def decorator():
         __setRandomSeeds()
         logPrint("Experiment {} began.".format(exp.__name__))
@@ -355,26 +376,30 @@ def experiment(exp: Callable[[], None]):
 
 @experiment
 def program() -> None:
+    """
+    Main program for running the experiments that you want run.
+    """
     config = CustomConfig()
 
-    if (GroupWiseAggregation in config.aggregators or FedMGDAPlusAggregator in config.aggregators) and config.aggregatorConfig.privacyAmplification:
+    if (
+        FedPADRCAggregator in config.aggregators or FedMGDAPlusPlusAggregator in config.aggregators
+    ) and config.aggregatorConfig.privacyAmplification:
         print("Currently doesn't support both at the same time.")
         print("Size of clients is very likely to be smaller than or very close to cluster_count.")
-        print("FedMGDA+ relies on every client being present and training at every federated round.")
+        print(
+            "FedMGDA+ relies on every client being present and training at every federated round."
+        )
         exit(-1)
 
-
+    errorsDict = {}
 
     for attackName in config.scenario_conversion():
-        print(f"Hi! Running this: {attackName}")
         errors = __experimentOnMNIST(
             config,
             title=f"Basic CustomConfig Test \n Attack: {attackName}",
             filename=f"{attackName}",
             folder=f"test/",
         )
-
-
 
 
 # Running the program here

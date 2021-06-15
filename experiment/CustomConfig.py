@@ -1,15 +1,16 @@
 from utils.typings import AttacksType, FreeRiderAttack
 from aggregators.Aggregator import allAggregators
-from aggregators.GroupWise import GroupWiseAggregation
 from typing import List
 import torch
 from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration
+
 # Naked imports for allAggregators function
 from aggregators.FedAvg import FAAggregator
 from aggregators.COMED import COMEDAggregator
 from aggregators.MKRUM import MKRUMAggregator
 from aggregators.AFA import AFAAggregator
-from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
+from aggregators.FedMGDAPlusPlus import FedMGDAPlusPlusAggregator
+from aggregators.FedPADRC import FedPADRCAggregator
 
 
 class CustomConfig(DefaultExperimentConfiguration):
@@ -53,12 +54,18 @@ class CustomConfig(DefaultExperimentConfiguration):
         
 
     def scenario_conversion(self):
+        """
+        Sets the faulty, malicious and free-riding clients appropriately.
+
+        Sets the config's and aggregatorConfig's names to be the attackName.
+        """
         for faulty, malicious, freeRider, attackName in self.scenarios:
 
             self.faulty = faulty
             self.malicious = malicious
             self.freeRiding = freeRider
             self.name = attackName
+            self.aggregatorConfig.attackName = attackName
 
             yield attackName
 

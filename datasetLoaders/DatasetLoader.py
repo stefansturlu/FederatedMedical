@@ -26,6 +26,9 @@ class DatasetLoader:
     def _filterDataByLabel(
         labels: Tensor, trainDataframe: DataFrame, testDataframe: DataFrame
     ) -> Tuple[DataFrame, DataFrame]:
+        """
+        Creates the train and test dataframes with only the labels specified
+        """
         trainDataframe = trainDataframe[trainDataframe["labels"].isin(labels.tolist())]
         testDataframe = testDataframe[testDataframe["labels"].isin(labels.tolist())]
         return trainDataframe, testDataframe
@@ -34,6 +37,11 @@ class DatasetLoader:
     def _splitTrainDataIntoClientDatasets(
         percUsers: Tensor, trainDataframe: DataFrame, DatasetType: Type[DatasetInterface], nonIID, alpha
     ) -> List[DatasetInterface]:
+        """
+        Splits train dataset into individual datasets for each client.
+
+        Uses percUsers to decide how much data (by %) each client should get.
+        """
         DatasetLoader._setRandomSeeds()
         percUsers = percUsers / percUsers.sum()
 

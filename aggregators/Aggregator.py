@@ -1,21 +1,24 @@
-from utils.typings import Errors, FreeRiderAttack, IdRoundPair
+from utils.typings import Errors, IdRoundPair
 from experiment.AggregatorConfig import AggregatorConfig
 from utils.FreeRider import FreeRider
 from datasetLoaders.DatasetInterface import DatasetInterface
-from torch import Tensor, nn, device
+from torch import nn
 from client import Client
 import copy
 from logger import logPrint
 from threading import Thread
 from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
-from typing import List, NewType, Optional, Tuple, Type
+from typing import List, Optional, Type
 import torch
-import matplotlib.pyplot as plt
 from random import uniform
 
 
 class Aggregator:
+    """
+    Base Aggregator class that all aggregators should inherit from
+    """
+
     def __init__(
         self,
         clients: List[Client],
@@ -52,12 +55,20 @@ class Aggregator:
         self.chosen_indices = [i for i in range(len(self.clients))]
 
     def trainAndTest(self, testDataset: DatasetInterface) -> Errors:
+        """
+        Sends the global model out each federated round for local clients to train on.
+
+        Collects the local models from the clients and aggregates them specific to the aggregation strategy.
+        """
         raise Exception(
             "Train method should be overridden by child class, "
             "specific to the aggregation strategy."
         )
 
     def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
+        """
+        Performs the actual aggregation for the relevant aggregation strategy.
+        """
         raise Exception(
             "Aggregation method should be overridden by child class, "
             "specific to the aggregation strategy."
@@ -66,10 +77,16 @@ class Aggregator:
     def _shareModelAndTrainOnClients(
         self, models: Optional[List[nn.Module]] = None, labels: Optional[List[int]] = None
     ):
+        """
+        Method for sharing the relevant models to the relevant clients.
+        By default, the global model will be shared but this can be changed depending on personalisation need.
+        """
+        # Default: global model
         if models == None and labels == None:
             models = [self.model]
             labels = [0] * len(self.clients)
 
+        # Randomly choose clients to be sampled with for privacy amplification
         if self.config.privacyAmplification:
             self.chosen_indices = [
                 i for i in range(len(self.clients)) if uniform(0, 1) <= self.config.amplificationP
@@ -77,8 +94,9 @@ class Aggregator:
 
         chosen_clients = [self.clients[i] for i in self.chosen_indices]
 
+        # Actual sharing and training takes place here
         if self.useAsyncClients:
-            threads = []
+            threads: List[Thread] = []
             for client in chosen_clients:
                 model = models[labels[client.id]]
                 t = Thread(target=(lambda: self.__shareModelAndTrainOnClient(client, model)))
@@ -92,11 +110,17 @@ class Aggregator:
                 self.__shareModelAndTrainOnClient(client, model)
 
     def __shareModelAndTrainOnClient(self, client: Client, model: nn.Module) -> None:
+        """
+        Shares the given model to the given client and trains it.
+        """
         broadcastModel = copy.deepcopy(model)
         client.updateModel(broadcastModel)
         error, pred = client.trainModel()
 
     def _retrieveClientModelsDict(self):
+        """
+        Retrieve the models from the clients if not blocked with the appropriate modifications, otherwise just use the clients model
+        """
         models: List[nn.Module] = []
         chosen_clients = [self.clients[i] for i in self.chosen_indices]
 
@@ -111,30 +135,43 @@ class Aggregator:
             self.handle_free_riders(models, chosen_clients)
         return models
 
-    def test(self, testDataset) -> float:
+    def test(self, testDataset: DatasetInterface) -> float:
+        """
+        Tests the global model with the global test dataset.
+        Bear in mind, this test dataset wouldn't be available in a true Federated setup.
+        """
         dataLoader = DataLoader(testDataset, shuffle=False)
         with torch.no_grad():
             predLabels, testLabels = zip(*[(self.predict(self.model, x), y) for x, y in dataLoader])
+
         predLabels = torch.tensor(predLabels, dtype=torch.long)
         testLabels = torch.tensor(testLabels, dtype=torch.long)
+
         # Confusion matrix and normalized confusion matrix
         mconf = confusion_matrix(testLabels, predLabels)
         errors: float = 1 - 1.0 * mconf.diagonal().sum() / len(testDataset)
         logPrint("Error Rate: ", round(100.0 * errors, 3), "%")
+
         return errors
 
-    # Function for computing predictions
     def predict(self, net: nn.Module, x):
+        """
+        Returns the best indices (labels) associated with the model prediction
+        """
         with torch.no_grad():
             outputs = net(x.to(self.device))
             _, predicted = torch.max(outputs.to(self.device), 1)
+
         return predicted.to(self.device)
 
-    # Function to merge the models
     @staticmethod
     def _mergeModels(
         mOrig: nn.Module, mDest: nn.Module, alphaOrig: float, alphaDest: float
     ) -> None:
+        """
+        Merges 2 models together.
+        Usually used in conjunction with one of the models being the future global model.
+        """
         paramsDest = mDest.named_parameters()
         dictParamsDest = dict(paramsDest)
         paramsOrig = mOrig.named_parameters()
@@ -144,6 +181,9 @@ class Aggregator:
                 dictParamsDest[name1].data.copy_(weightedSum)
 
     def handle_blocked(self, client: Client, round: int) -> None:
+        """
+        Blocks the relevant client, sets its wighting to 0 and appends it to the relevant blocked lists.
+        """
         logPrint("USER ", client.id, " BLOCKED!!!")
         client.p = 0
         client.blocked = True
@@ -176,7 +216,12 @@ class Aggregator:
         self.round += 1
 
     def renormalise_weights(self, clients: List[Client]):
-        """ Renormalising weights for privacy amplification """
+        """
+        Renormalises weights for:
+            Privacy Amplification,
+            Clustering Aggregation,
+            FedPADRC Aggregation,
+        """
         # Shouldn't change unless number of clients is less than len(self.clients)
         weight_total = sum([c.p for c in clients])
         for c in clients:

@@ -5,7 +5,7 @@ import torch
 
 from aggregators.Aggregator import allAggregators
 from aggregators.AFA import AFAAggregator
-from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
+from aggregators.FedMGDAPlusPlus import FedMGDAPlusPlusAggregator
 
 # Naked imports for allAggregators function
 from aggregators.FedAvg import FAAggregator
@@ -13,6 +13,23 @@ from aggregators.COMED import COMEDAggregator
 from aggregators.MKRUM import MKRUMAggregator
 
 from main import __experimentOnMNIST, experiment, __experimentOnCOVIDx
+
+
+#############################################################
+
+#######
+
+# NOTE THAT THESE EXPERIMENTS WERE USED BEFORE THE CODE WAS
+# GREATLY REFACTORED FOR THE BETTER ALONG WITH ADDING
+# GREAT QUALITY OF LIFE IMPROVEMENTS
+
+# THEREFORE, THEY WILL NOT BE EASY POP-AND-PLAY SOLUTIONS
+# BUT THEY WON'T DIFFER TOO MUCH
+# USE THEM AS A GUIDELINE
+
+#######
+
+#############################################################
 
 
 @experiment
@@ -292,12 +309,12 @@ def byz_FedMGDA_MNIST():
             "2_faulty, 2_malicious",
         ),
     ]
-    config.aggregators = [FedMGDAPlusAggregator]
+    config.aggregators = [FedMGDAPlusPlusAggregator]
     __experimentOnMNIST(config, title=f"MNIST - 30 Clients, MGDA+", filename=f"mnist_30_MGDA+")
 
     for scenario in attacks:
         faulty, malicious, attackName = scenario
-        config.aggregators = [FedMGDAPlusAggregator]
+        config.aggregators = [FedMGDAPlusPlusAggregator]
 
         config.faulty = faulty
         config.malicious = malicious

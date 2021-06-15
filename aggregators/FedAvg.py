@@ -1,6 +1,6 @@
 from utils.typings import Errors
 from experiment.AggregatorConfig import AggregatorConfig
-from torch import nn, Tensor
+from torch import nn
 from client import Client
 from logger import logPrint
 from typing import List
@@ -9,8 +9,12 @@ from aggregators.Aggregator import Aggregator
 from datasetLoaders.DatasetInterface import DatasetInterface
 from copy import deepcopy
 
-# FEDERATED AVERAGING AGGREGATOR
+
 class FAAggregator(Aggregator):
+    """
+    Federated Averaging Aggregator that just aggregates each client based on the size of data it holds.
+    """
+
     def __init__(
         self,
         clients: List[Client],
