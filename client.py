@@ -47,8 +47,6 @@ class Client:
 
         self.model: nn.Module = model
         self.trainDataset = trainDataset
-        # weights = 1 / torch.Tensor([3800, 1350])
-        # sampler = torch.utils.data.sampler.WeightedRandomSampler(weights, 2)
         self.dataLoader = DataLoader(self.trainDataset, batch_size=batchSize, shuffle=True)
         self.n: int = len(trainDataset)  # Number of training points provided
         self.p: float = p  # Contribution to the overall model
@@ -59,7 +57,7 @@ class Client:
 
         # Used for computing dW, i.e. the change in model before
         # and after client local training, when DP is used
-        self.untrainedModel: Optional[nn.Module] = copy.deepcopy(model).to("cpu") if model else None
+        self.untrainedModel: nn.Module = copy.deepcopy(model).to("cpu") if model else None
 
         # Used for free-riders delta weights attacks
         self.prev_model: nn.Module = None
@@ -95,6 +93,9 @@ class Client:
         # FedMGDA+ params
 
     def updateModel(self, model: nn.Module) -> None:
+        """
+        Updates the client with the new model and re-initialise the optimiser
+        """
         self.prev_model = copy.deepcopy(self.model)
         self.model = model.to(self.device)
         if self.Optimizer == optim.SGD:
@@ -109,8 +110,11 @@ class Client:
         self.untrainedModel = copy.deepcopy(model)
         cuda.empty_cache()
 
-    # Function to train the model for a specific user
+
     def trainModel(self):
+        """
+        Trains the client's model unless the client is a free-rider
+        """
         if self.free:
             # If the use is a free rider then they won't have any data to train on (theoretically)
             # However, we have to initialise the grad weights and the only way I know to do that is to train
@@ -118,20 +122,21 @@ class Client:
 
         self.model = self.model.to(self.device)
         for i in range(self.epochs):
-            for iBatch, (x, y) in enumerate(self.dataLoader):
+            for x, y in self.dataLoader:
                 x = x.to(self.device)
                 y = y.to(self.device)
                 err, pred = self._trainClassifier(x, y)
-            # logPrint("Client:{}; Epoch{}; Batch:{}; \tError:{}"
-            #          "".format(self.id, i + 1, iBatch + 1, err))
+
         cuda.empty_cache()
         self.model = self.model
         return err, pred
 
-    # Function to train the classifier
+
     def _trainClassifier(self, x: Tensor, y: Tensor):
+        """
+        Trains the classifier
+        """
         x = x.to(self.device)
-        # y = y.to(self.device).float().unsqueeze(1)
         y = y.to(self.device)
         # Reset gradients
         self.opt.zero_grad()
@@ -142,8 +147,11 @@ class Client:
         self.opt.step()
         return err, pred
 
-    # Function used by aggregators to retrieve the model from the client
+
     def retrieveModel(self) -> nn.Module:
+        """
+        Function used by aggregators to retrieve the model from the client
+        """
         if self.free:
             # Free-rider update
             # The self.model won't update but this is just a logical check
@@ -151,33 +159,35 @@ class Client:
 
         if self.byz:
             # Faulty model update
-            # logPrint("Malicious update for user ",u.id)
             self.__manipulateModel()
 
         if self.useDifferentialPrivacy:
-            # self.__privacyPreserve()
             self.__privacyPreserve()
+
         return self.model
 
-    # Function to manipulate the model for byzantine adversaries
+
     def __manipulateModel(self, alpha: int = 20) -> None:
-        params = self.model.named_parameters()
-        for name, param in params:
+        """
+        Function to manipulate the model for byzantine adversaries
+        """
+        for param in self.model.parameters():
             noise = alpha * torch.randn(param.data.size()).to(self.device)
             param.data.copy_(param.data.to(self.device) + noise)
 
-    # Procedure for implementing differential privacy
+
     def __privacyPreserve(
         self,
-        eps1=100,
-        eps3=100,
-        clipValue=0.1,
-        releaseProportion=0.1,
-        needClip=False,
-        needNormalization=False,
+        eps1:int=100,
+        eps3:int=100,
+        clipValue:float=0.1,
+        releaseProportion:float=0.1,
+        needClip:bool=False,
+        needNormalization:bool=False,
     ):
-        # logPrint("Privacy preserving for client{} in process..".format(self.id))
-
+        """
+        Implements differential privacy and applies it to the model
+        """
         gamma = clipValue  # gradient clipping value
         s = 2 * gamma  # sensitivity
         Q = releaseProportion  # proportion to release

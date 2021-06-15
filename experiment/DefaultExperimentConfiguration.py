@@ -10,6 +10,9 @@ import torch.nn as nn
 
 
 class DefaultExperimentConfiguration:
+    """
+    Base configuration for the federated learning setup.
+    """
     def __init__(self):
         # DEFAULT PARAMETERS
         self.name: str = ""

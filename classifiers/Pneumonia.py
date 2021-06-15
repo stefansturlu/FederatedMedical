@@ -15,6 +15,9 @@ from torch.nn.modules.padding import ZeroPad2d
 
 
 class Classifier(Module):
+    """
+    CNN model for Pneumonia classification
+    """
     def __init__(self):
         super(Classifier, self).__init__()
 

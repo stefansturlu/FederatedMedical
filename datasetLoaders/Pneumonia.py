@@ -87,8 +87,6 @@ class DatasetLoaderPneumonia(DatasetLoader):
             not os.path.exists(self.fullPath)
             or not os.path.exists(self.fullPath + "/test")
             or not os.path.exists(self.fullPath + "/train")
-            # or not len(os.listdir(fullPath + "/test"))
-            # or not len(os.listdir(fullPath + "/train"))
         )
         # Might also want to check the number of files or subfolders
 
@@ -104,7 +102,8 @@ class DatasetLoaderPneumonia(DatasetLoader):
                 logPrint("Need to download the KAGGLE Pneumonia Detection Dataset")
                 os.makedirs(self.dataPath)
 
-                kaggle.api.authenticate()  # Get json file from kaggle account or just manually download
+                # Get json file from kaggle account or just manually download
+                kaggle.api.authenticate()
                 kaggle.api.dataset_download_files(
                     "paultimothymooney/chest-xray-pneumonia", self.dataPath
                 )
