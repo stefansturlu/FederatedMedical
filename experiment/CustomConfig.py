@@ -15,18 +15,22 @@ from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
 class CustomConfig(DefaultExperimentConfiguration):
     def __init__(self):
         super().__init__()
+        
+        self.nonIID = True
+        self.alphaDirichlet = 0.1
+        
         self.scenarios: AttacksType = [
-            ([], [], [], "no_attack IID"),
-            ([], [2, ], [], "1_mal IID"),
-            ([], [2, 5], [], "2_mal IID"),
-            ([], [2, 5, 8], [], "3_mal IID"),
-            ([], [2, 5, 8, 11], [], "4_mal IID"),
-            ([], [2, 5, 8, 11, 14], [], "5_mal IID"),
-            ([], [2, 5, 8, 11, 14, 17], [], "6_mal IID"),
-            ([], [2, 5, 8, 11, 14, 17, 20], [], "7_mal IID"),
-            ([], [2, 5, 8, 11, 14, 17, 20, 23], [], "8_mal IID"),
-            ([], [2, 5, 8, 11, 14, 17, 20, 23, 26], [], "9_mal IID"),
-            ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [], "10_mal IID"),
+            #([], [], [], "no_attack IID"),
+            ([2, ], [], [], f"1_faulty non-IID alpha={self.alphaDirichlet}"),
+            ([2, 5], [], [], f"2_faulty non-IID alpha={self.alphaDirichlet}"),
+            ([2, 5, 8], [], [], f"3_faulty non-IID alpha={self.alphaDirichlet}"),
+            ([2, 5, 8, 11], [], [], f"4_faulty non-IID alpha={self.alphaDirichlet}"),
+            ([2, 5, 8, 11, 14], [], [], f"5_faulty non-IID alpha={self.alphaDirichlet}"),
+            ([2, 5, 8, 11, 14, 17], [], [], f"6_faulty non-IID alpha={self.alphaDirichlet}"),
+            ([2, 5, 8, 11, 14, 17, 20], [], [], f"7_faulty non-IID alpha={self.alphaDirichlet}"),
+            ([2, 5, 8, 11, 14, 17, 20, 23], [], [], f"8_faulty non-IID alpha={self.alphaDirichlet}"),
+            ([2, 5, 8, 11, 14, 17, 20, 23, 26], [], [], f"9_faulty non-IID alpha={self.alphaDirichlet}"),
+            ([2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [], [], f"10_faulty non-IID alpha={self.alphaDirichlet}"),
             # ([], [], [], "no_attack non-IID alpha=1.0"),
             # ([], [2, ], [], "1_mal non-IID alpha=1.0"),
             # ([], [2, 5], [], "2_mal non-IID alpha=1.0"),
@@ -47,8 +51,6 @@ class CustomConfig(DefaultExperimentConfiguration):
 
         self.aggregators = [FAAggregator, COMEDAggregator, MKRUMAggregator, AFAAggregator, FedMGDAPlusAggregator]
         
-        self.nonIID = False
-        self.alphaDirichlet = 1.0
 
     def scenario_conversion(self):
         for faulty, malicious, freeRider, attackName in self.scenarios:
