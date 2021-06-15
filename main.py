@@ -32,7 +32,7 @@ from aggregators.FedAvg import FAAggregator
 from aggregators.COMED import COMEDAggregator
 from aggregators.Clustering import ClusteringAggregator
 from aggregators.MKRUM import MKRUMAggregator
-from aggregators.GroupWise import GroupWiseAggregation
+from aggregators.FedPADRC import FedPADRCAggregation
 
 
 
@@ -224,7 +224,7 @@ def __runExperiment(
         aggregator.deltaXi = config.aggregatorConfig.deltaXi
     elif isinstance(aggregator, FedMGDAPlusPlusAggregator):
         aggregator.reinitialise(config.aggregatorConfig.innerLR)
-    elif isinstance(aggregator, GroupWiseAggregation) or isinstance(aggregator, ClusteringAggregator):
+    elif isinstance(aggregator, FedPADRCAggregation) or isinstance(aggregator, ClusteringAggregator):
         aggregator._init_aggregators(config.internalAggregator, config.externalAggregator)
 
 
@@ -362,7 +362,7 @@ def program() -> None:
     config = CustomConfig()
     config.aggregators = [FedMGDAPlusPlusAggregator]
 
-    if (GroupWiseAggregation in config.aggregators or FedMGDAPlusPlusAggregator in config.aggregators) and config.aggregatorConfig.privacyAmplification:
+    if (FedPADRCAggregation in config.aggregators or FedMGDAPlusPlusAggregator in config.aggregators) and config.aggregatorConfig.privacyAmplification:
         print("Currently doesn't support both at the same time.")
         print("Size of clients is very likely to be smaller than or very close to cluster_count.")
         print("FedMGDA+ relies on every client being present and training at every federated round.")
@@ -374,8 +374,8 @@ def program() -> None:
 
         errors = __experimentOnMNIST(
             config,
-            title=f"FedMGDA++ - {attackName}",
-            filename=f"{attackName}",
+            title=f"test",
+            filename=f"test",
             folder=f"test",
         )
 

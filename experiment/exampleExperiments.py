@@ -15,6 +15,24 @@ from aggregators.MKRUM import MKRUMAggregator
 from main import __experimentOnMNIST, experiment, __experimentOnCOVIDx
 
 
+
+#############################################################
+
+#######
+
+# NOTE THAT THESE EXPERIMENTS WERE USED BEFORE THE CODE WAS
+# GREATLY REFACTORED FOR THE BETTER ALONG WITH ADDING
+# GREAT QUALITY OF LIFE IMPROVEMENTS
+
+# THEREFORE, THEY WILL NOT BE EASY POP-AND-PLAY SOLUTIONS
+# BUT THEY WON'T DIFFER TOO MUCH
+# USE THEM AS A GUIDELINE
+
+#######
+
+#############################################################
+
+
 @experiment
 def noDP_noByzClient_onMNIST():
     configuration = DefaultExperimentConfiguration()

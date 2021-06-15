@@ -11,6 +11,11 @@ import torch.optim as optim
 import numpy as np
 
 class FedMGDAPlusAggregator(Aggregator):
+    """
+    FedMGDA+ Aggregator
+
+    Uses a Linear Layer to perform predictions on the weighting of the clients
+    """
     def __init__(
         self,
         clients: List[Client],
@@ -25,11 +30,12 @@ class FedMGDAPlusAggregator(Aggregator):
         )
         for client in self.clients:
             self.lambdaModel[client.id - 1].data = torch.tensor(1.0)
-        # self.learningRate = 0.0001
+
         self.learningRate = 0.001
         self.lambdatOpt = optim.SGD(
             [self.lambdaModel], lr=self.learningRate, momentum=0.5
         )
+
         # self.delta is going to store the values of the g_i according to the paper FedMGDA
         self.delta = copy.deepcopy(model) if model else None
 

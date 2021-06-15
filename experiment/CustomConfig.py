@@ -1,6 +1,6 @@
 from utils.typings import AttacksType, FreeRiderAttack
 from aggregators.Aggregator import allAggregators
-from aggregators.GroupWise import GroupWiseAggregation
+from aggregators.FedPADRC import FedPADRCAggregation
 from typing import List
 import torch
 from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration

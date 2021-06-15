@@ -16,9 +16,19 @@ import math
 import heapq
 from utils.PCA import PCA
 
-# Group-Wise Aggregator based on clustering
-# Even though it itself does not do aggregation, it makes programatic sense to inherit attributes and functions
-class GroupWiseAggregation(Aggregator):
+
+class FedPADRCAggregator(Aggregator):
+    """
+    Personalised and Adaptive Dimension Reducing Aggregator.
+
+    Performs PCA on models' weights.
+
+    Uses K-Means clustering with 2 aggregation steps on the PCA transformed data.
+
+    Adaptively decides which clusters should aggregate with each other based on either distance or Cosine similarity.
+
+    NOTE: 10 Epochs per round should be used here instead of the usual 2 for proper client differentiation.
+    """
     def __init__(
         self,
         clients: List[Client],
@@ -47,6 +57,9 @@ class GroupWiseAggregation(Aggregator):
         no_global_rounds_error = torch.zeros(self.config.rounds, self.cluster_count)
         for r in range(self.config.rounds):
             logPrint("Round... ", r)
+
+            # For the initial round everything is as normal.
+            # After that, the clients only get the model from their associated cluster
             if r == 0:
                 self._shareModelAndTrainOnClients()
             else:
@@ -60,9 +73,10 @@ class GroupWiseAggregation(Aggregator):
                 self.generate_cluster_centres(models)
 
 
+                # With no global, each cluster has its own model that it aggregates
+                # It doesn't use a global model that aggregates the cluster models together
                 if self.personalisation == PersonalisationMethod.NO_GLOBAL:
                     for i in range(len(self.cluster_centres)):
-                        print(i)
                         self.model = self.cluster_centres[i]
                         err = self.test(testDataset)
                         no_global_rounds_error[r, i] = err
@@ -77,6 +91,7 @@ class GroupWiseAggregation(Aggregator):
                     [FakeClient(p, i) for (i, p) in enumerate(conc_ps)], best_models
                 )
 
+                # Update the "best" clusters with a more general model
                 for i in range(len(self.cluster_centres)):
                     if i in indices:
                         self.cluster_centres[i] = concentrated
@@ -85,6 +100,7 @@ class GroupWiseAggregation(Aggregator):
                     self.model = concentrated
                     roundsError[r] = self.test(testDataset)
 
+                # Update the "bad" clusters with a model that uses all clusters
                 elif self.personalisation == PersonalisationMethod.GENERAL:
                     general = self.externalAggregator.aggregate(
                         [FakeClient(p, i) for (i, p) in enumerate(ps)], self.cluster_centres
@@ -98,9 +114,10 @@ class GroupWiseAggregation(Aggregator):
                     roundsError[r] = self.test(testDataset)
 
 
+        # Create an image that plots each clusters errorRate
         if self.personalisation == PersonalisationMethod.NO_GLOBAL:
-            if not os.path.exists("no_global_free_rider_malicious"):
-                os.makedirs("no_global_free_rider_malicious")
+            if not os.path.exists("no_global_test"):
+                os.makedirs("no_global_test")
 
             plt.figure()
             plt.plot(range(self.rounds), no_global_rounds_error)
@@ -109,34 +126,31 @@ class GroupWiseAggregation(Aggregator):
             plt.ylabel("Error Rate (%)")
             plt.title(f"No Global Personalisation Method - 4D PCA \n {self.config.attackName}", loc="center", wrap=True)
             plt.ylim(0, 1.0)
-            plt.savefig(f"no_global_free_rider_malicious/{self.config.attackName}.png", dpi=400)
+            plt.savefig(f"no_global_test/{self.config.attackName}.png", dpi=400)
 
         return roundsError
 
     def _init_aggregators(self, internal: Type[Aggregator], external: Type[Aggregator]) -> None:
-        self.internalAggregator = self.__init_aggregator(internal)
-        self.externalAggregator = self.__init_aggregator(external)
-
-    def __init_aggregator(self, aggregator: Type[Aggregator]) -> Aggregator:
-        agg = aggregator(self.clients, self.model, self.config)
-        if isinstance(agg, AFAAggregator):
-            agg.xi = self.config.xi
-            agg.deltaXi = self.config.deltaXi
-        elif isinstance(agg, FedMGDAPlusPlusAggregator):
-            agg.reinitialise(self.config.innerLR)
-
-        return agg
+        """
+        Initialise the internal and external aggregators for access to aggregate function.
+        """
+        self.internalAggregator = internal(self.clients, self.model, self.config)
+        self.externalAggregator = external(self.clients, self.model, self.config)
 
 
     def _gen_cluster_centre(self, indices: List[int], models: List[nn.Module]) -> nn.Module:
-        """ Takes the average of the clients assigned to each cluster to generate a new centre """
-        # Here you should be using other robust aggregation algorithms to perform the centre calculation and blocking
+        """
+        Takes the average of the clients assigned to each cluster to generate a new centre
 
-        model = self.internalAggregator.aggregate([self.clients[i] for i in indices], [models[i] for i in indices])
+        The aggregation method used should be decided prior.
+        """
+        return self.internalAggregator.aggregate([self.clients[i] for i in indices], [models[i] for i in indices])
 
-        return model
 
     def _generate_weights(self, models: List[nn.Module]) -> List[Tensor]:
+        """
+        Converts each model into a tensor of its parameter weights.
+        """
         X = []
         for model in models:
             X.append(self._generate_coords(model))
@@ -144,6 +158,9 @@ class GroupWiseAggregation(Aggregator):
         return X
 
     def _generate_coords(self, model: nn.Module) -> Tensor:
+        """
+        Converts the model into a flattened torch tensor representing the model's parameters.
+        """
         coords = torch.tensor([]).to(self.device)
 
         for param in model.parameters():
@@ -152,10 +169,17 @@ class GroupWiseAggregation(Aggregator):
         return coords
 
     def generate_cluster_centres(self, models: List[nn.Module]) -> None:
+        """
+        Performs PCA with chosen dimension on the model weights
+
+        Uses the PCA transform to perform K-Means clustering to get associated labels.
+
+        Aggregate models within clusters to generate cluster centres.
+        """
         X = self._generate_weights(models)
         X = [model.tolist() for model in X]
-        PCA.pca2D(X, self.clients)
-        pca = PCA.pca(X, dim=1)
+
+        pca = PCA.pca(X)
         kmeans = KMeans(n_clusters=self.cluster_count, random_state=0).fit(pca)
 
         self.cluster_labels = kmeans.labels_
@@ -166,13 +190,17 @@ class GroupWiseAggregation(Aggregator):
             self.cluster_centres_len[l] += 1
             indices[l].append(i)
 
-        print(self.cluster_labels)
+        logPrint(f"Labels: {self.cluster_labels}")
 
         self.cluster_centres_len /= len(self.clients)
         for i, ins in enumerate(indices):
             self.cluster_centres[i] = self._gen_cluster_centre(ins, models)
 
+
     def _use_most_similar_clusters(self) -> Tuple[List[nn.Module], Tensor, List[int]]:
+        """
+        Uses Cosine similarity to determin the "most similar" clusters
+        """
         num_to_take = math.floor(self.cluster_count / 2) + 1
 
         X = self._generate_weights(self.cluster_centres)
@@ -189,6 +217,7 @@ class GroupWiseAggregation(Aggregator):
         best_indices: List[int] = []
         besti = -1
 
+        # Uses the group that contains the most similar 3 clusters (K=5) to assign initial weights
         for i, s in enumerate(sims):
             indices = heapq.nlargest(num_to_take, range(len(s)), s.__getitem__)
             val = sum(s[i] for i in indices)
@@ -198,15 +227,18 @@ class GroupWiseAggregation(Aggregator):
                 besti = i
 
 
+        # Normalisation
         ps: Tensor = Tensor([p / sum(sims[besti]) for p in sims[besti]])
         best_models = [self.cluster_centres[i] for i in best_indices]
 
+        # If thresholding is being used, threshold the weights based on StD
         if self.config.threshold:
             std = torch.std(ps[ps.nonzero()])
             mean = torch.mean(ps[ps.nonzero()])
             cutoff = mean - std
             ps[ps < cutoff] = 0
 
+        # Reconfigure the weights with the size of each cluster
         ps = ps.mul(self.cluster_centres_len)
         ps /= ps.sum()
 
@@ -214,6 +246,9 @@ class GroupWiseAggregation(Aggregator):
 
 
     def _use_closest_clusters(self) -> Tuple[List[nn.Module], Tensor, List[int]]:
+        """
+        Uses the distance between the clusters to find the closest clusters
+        """
         num_to_take = math.floor(self.cluster_count / 2) + 1
 
         X = self._generate_weights(self.cluster_centres)
@@ -229,6 +264,7 @@ class GroupWiseAggregation(Aggregator):
         best_indices: List[int] = []
         besti = -1
 
+        # Uses the group that contains the closest 3 clusters (K=5) to assign initial weights
         for i, s in enumerate(dists):
             indices = heapq.nsmallest(num_to_take, range(len(s)), s.__getitem__)
             val = sum(s[i] for i in indices)
@@ -238,17 +274,20 @@ class GroupWiseAggregation(Aggregator):
                 besti = i
 
 
+        # Normalisation
         ps: Tensor = Tensor([p / sum(dists[besti]) for p in dists[besti]])
         ps = 1 - ps
         ps /= ps.sum()
         best_models = [self.cluster_centres[i] for i in best_indices]
 
+        # If thresholding is being used, threshold the weights based on StD
         if self.config.threshold:
             std = torch.std(ps[ps.nonzero()])
             mean = torch.mean(ps[ps.nonzero()])
             cutoff = mean - std
             ps[ps < cutoff] = 0
 
+        # Reconfigure the weights with the size of each cluster
         ps = ps.mul(self.cluster_centres_len)
         ps /= ps.sum()
 
@@ -256,6 +295,11 @@ class GroupWiseAggregation(Aggregator):
 
 
 class FakeClient:
+    """
+    A fake client for performing external aggregation.
+
+    Useful as setting up a full client is incredibly extra.
+    """
     def __init__(self, p: float, id: int):
         self.p = p
         self.id = id

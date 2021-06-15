@@ -1,4 +1,3 @@
-from copy import deepcopy
 import os
 from utils.typings import Errors
 from experiment.AggregatorConfig import AggregatorConfig
@@ -10,13 +9,15 @@ import torch
 from aggregators.Aggregator import Aggregator
 from datasetLoaders.DatasetInterface import DatasetInterface
 from sklearn.cluster import KMeans
-from utils.PCA import PCA
 import matplotlib.pyplot as plt
 
-# Group-Wise Aggregator based on clustering
-# Even though it itself does not do aggregation, it makes programatic sense to inherit attributes and functions
-# USE 10 EPOCHS PER ROUND FOR CLUSTERING
+
 class ClusteringAggregator(Aggregator):
+    """
+    Clustering Aggregator that uses K-Means clustering with 2 aggregation steps.
+
+    NOTE: 10 Epochs per round should be used here instead of the usual 2 for proper client differentiation.
+    """
     def __init__(
         self,
         clients: List[Client],
@@ -62,17 +63,26 @@ class ClusteringAggregator(Aggregator):
 
 
     def _init_aggregators(self, internal: Type[Aggregator], external: Type[Aggregator]) -> None:
+        """
+        Initialise the internal and external aggregators for access to aggregate function.
+        """
         self.internalAggregator = internal(self.clients, self.model, self.config)
         self.externalAggregator = external(self.clients, self.model, self.config)
 
 
     def _gen_cluster_centre(self, indices: List[int], models: List[nn.Module]) -> nn.Module:
-        """ Takes the average of the clients assigned to each cluster to generate a new centre """
-        # Here you should be using other robust aggregation algorithms to perform the centre calculation and blocking
+        """
+        Takes the average of the clients assigned to each cluster to generate a new centre.
+
+        The aggregation method used should be decided prior.
+        """
 
         return self.internalAggregator.aggregate([self.clients[i] for i in indices], [models[i] for i in indices])
 
     def _generate_weights(self, models: List[nn.Module]) -> List[Tensor]:
+        """
+        Converts each model into a tensor of its parameter weights.
+        """
         X = []
         for model in models:
             X.append(self._generate_coords(model))
@@ -80,6 +90,9 @@ class ClusteringAggregator(Aggregator):
         return X
 
     def _generate_coords(self, model: nn.Module) -> Tensor:
+        """
+        Converts the model into a flattened torch tensor representing the model's parameters.
+        """
         coords = torch.tensor([]).to(self.device)
 
         for param in model.parameters():
@@ -88,19 +101,13 @@ class ClusteringAggregator(Aggregator):
         return coords
 
     def generate_cluster_centres(self, models: List[nn.Module]) -> None:
-        X = self._generate_weights(models)
-        X = [model.tolist() for model in X]
-        # self.__elbow_test(X, models)
-        p = PCA.pca(X, 4) # 4
-        kmeans = KMeans(n_clusters=self.cluster_count, random_state=0).fit(p)
+        """
+        Perform K-Means clustering on the models' weights and get associated labels.
 
-        # if self.round % 5 == 0:
-            # PCA.pca1D(X, self.clients)
-        # PCA.pca2D(X, self.clients)
-        # PCA.pca3D(X, self.clients)
-        PCA.pca4D(X, self.clients)
-        # if self.round % 5 == 0:
-        # PCA.optimal_component_plot(X)
+        Aggregate models within clusters to generate cluster centres.
+        """
+        X = self._generate_weights(models)
+        kmeans = KMeans(n_clusters=self.cluster_count, random_state=0).fit(X)
 
         self.cluster_labels = kmeans.labels_
         indices: List[List[int]] = [[] for _ in range(self.cluster_count)]
@@ -110,7 +117,7 @@ class ClusteringAggregator(Aggregator):
             self.cluster_centres_len[l] += 1
             indices[l].append(i)
 
-        print(self.cluster_labels)
+        logPrint(f"Labels: {self.cluster_labels}")
 
         self.cluster_centres_len /= len(self.clients)
         for i, ins in enumerate(indices):
@@ -118,6 +125,13 @@ class ClusteringAggregator(Aggregator):
 
 
     def __elbow_test(self, X, models: List[nn.Module]) -> None:
+        """
+        This is a helper function for calculating the optimum K.
+
+        It generates an image to be used with the Elbow Test to see which K might be optimal.
+
+        It uses the sum of distances away from a cluster centre to determine if K is too big or small.
+        """
         dispersion = []
 
         for h in range(len(self.clients)):
@@ -155,17 +169,22 @@ class ClusteringAggregator(Aggregator):
             dispersion.append(d)
 
 
-        # plt.figure()
-        # plt.plot(range(1, 31), dispersion)
-        # plt.title(f"Sum of Distances from Cluster Centre as K Increases \n 20 Malicious - Round: {self.round}")
-        # plt.xlabel("K-Value")
-        # plt.ylabel("Sum of Distances")
-        # if not os.path.exists("k_means_test/20_mal"):
-        #     os.makedirs("k_means_test/20_mal")
-        # plt.savefig(f"k_means_test/20_mal/{self.round}.png")
+        plt.figure()
+        plt.plot(range(1, 31), dispersion)
+        plt.title(f"Sum of Distances from Cluster Centre as K Increases \n 20 Malicious - Round: {self.round}")
+        plt.xlabel("K-Value")
+        plt.ylabel("Sum of Distances")
+        if not os.path.exists("k_means_test/20_mal"):
+            os.makedirs("k_means_test/20_mal")
+        plt.savefig(f"k_means_test/20_mal/{self.round}.png")
 
 
 class FakeClient:
+    """
+    A fake client for performing external aggregation.
+
+    Useful as setting up a full client is incredibly extra.
+    """
     def __init__(self, p: float, id: int):
         self.p = p
         self.id = id

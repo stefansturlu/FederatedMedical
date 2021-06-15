@@ -7,8 +7,8 @@ class Classifier(nn.Module):
     def __init__(self):
         super(Classifier, self).__init__()
 
-    def forward(self, x: Tensor) -> Tensor:
-        pass
+    # def forward(self, x: Tensor) -> Tensor:
+    #     pass
 
 
 class DAGMM(nn.Module):

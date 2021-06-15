@@ -7,15 +7,25 @@ from client import Client
 
 
 class PCA(metaclass=ABCMeta):
+    """
+    A class to help perform PCA transformations and to display relevant PCA information
+    """
+
     @staticmethod
-    def scale(min, max, val):
+    def scale(min: float, max: float, val: float) -> float:
+        """
+        Scales the data between the max and min for plotting dot size
+        """
         size_range = 30
         data_range = max-min
 
         return ((val - min) * size_range / data_range) + 1
 
     @staticmethod
-    def pca4D(X, client_info: List[Client]):
+    def pca4D(X: List[List[float]], client_info: List[Client]):
+        """
+        Performs 4-Dimensional PCA and displays the transform from this
+        """
         pca = pca_func(4).fit(X)
         pca_4d = pca.transform(X)
 
@@ -23,8 +33,8 @@ class PCA(metaclass=ABCMeta):
         ax = fig.add_subplot(projection="3d")
         c1, c2, c3, c4 = None, None, None, None
 
-        pca_min = pca_4d[:][3].min()
-        pca_max = pca_4d[:][3].max()
+        pca_min: float = pca_4d[:][3].min()
+        pca_max: float = pca_4d[:][3].max()
 
         for i in range(len(pca_4d)):
             size = PCA.scale(pca_min, pca_max, pca_4d[i][3])
@@ -42,7 +52,10 @@ class PCA(metaclass=ABCMeta):
         plt.show()
 
     @staticmethod
-    def pca3D(X, client_info: List[Client]):
+    def pca3D(X: List[List[float]], client_info: List[Client]):
+        """
+        Performs 3-Dimensional PCA and displays the transform from this
+        """
         pca = pca_func(3).fit(X)
         pca_3d = pca.transform(X)
 
@@ -64,7 +77,10 @@ class PCA(metaclass=ABCMeta):
         plt.show()
 
     @staticmethod
-    def pca2D(X, client_info: List[Client]):
+    def pca2D(X: List[List[float]], client_info: List[Client]):
+        """
+        Performs 2-Dimensional PCA and displays the transform from this
+        """
         pca = pca_func(2).fit(X)
         pca_2d = pca.transform(X)
 
@@ -85,7 +101,10 @@ class PCA(metaclass=ABCMeta):
         plt.show()
 
     @staticmethod
-    def pca1D(X, client_info: List[Client]):
+    def pca1D(X: List[List[float]], client_info: List[Client]):
+        """
+        Performs 1-Dimensional PCA and displays the transform from this
+        """
         pca = pca_func(1).fit(X)
         pca_2d = pca.transform(X)
 
@@ -105,15 +124,21 @@ class PCA(metaclass=ABCMeta):
         plt.title("PCA Representative Values of Each Client's Model - 1D")
         plt.show()
 
-    # dim must be between 0 and min(n_samples, n_features)
-    # This is most likely len(client_info) (e.g. 30) unless you are working with a really small model
+
     @staticmethod
-    def pca(flattened_models: List[List[float]], dim=10) -> Tuple[Union[Tuple, float]]:
+    def pca(flattened_models: List[List[float]], dim=4) -> Tuple[Union[Tuple, float]]:
+        """
+        Performs PCA on the models with the given dimension.
+        The dimension must be between 0 and the min(n_samples, n_features), this is most likely len(flattened_models)
+        """
         return pca_func(dim).fit_transform(flattened_models)
 
 
     @staticmethod
-    def optimal_component_plot(X) -> None:
+    def optimal_component_plot(X: List[List[float]]) -> None:
+        """
+        Plots the Explained Variance against the number of possible PCA components
+        """
         p = pca_func().fit(X)
 
         plt.figure()

@@ -11,6 +11,11 @@ from torch import nn, Tensor
 
 
 class MKRUMAggregator(Aggregator):
+    """
+    Multi-KRUM aggregator
+
+    Uses best scoring subgroups of clients where the size of the groups is pre-set
+    """
     def __init__(
         self,
         clients: List[Client],
@@ -38,6 +43,9 @@ class MKRUMAggregator(Aggregator):
         return roundsError
 
     def __computeModelDistance(self, mOrig: nn.Module, mDest: nn.Module) -> Tensor:
+        """
+        Uses L2-distance on the flattened model weights between 2 models to determine the distance
+        """
         paramsDest = mDest.named_parameters()
         dictParamsDest = dict(paramsDest)
         paramsOrig = mOrig.named_parameters()
@@ -61,6 +69,7 @@ class MKRUMAggregator(Aggregator):
         # Compute distances for all users
         scores = torch.zeros(userNo)
 
+        # Creates a grid of model distances of each model with every other model
         for i in range(userNo):  # Client1 is i
             distances = torch.zeros((userNo, userNo))
 
@@ -77,7 +86,6 @@ class MKRUMAggregator(Aggregator):
 
         _, idx = scores.sort()
         selected_users = idx[: mk - 1] + 1
-        # logPrint("Selected users: ", selected_users)
 
         comb = 0.0
         for i in range(userNo):

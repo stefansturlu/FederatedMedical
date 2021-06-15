@@ -11,6 +11,15 @@ import torch.optim as optim
 
 
 class FedMGDAPlusPlusAggregator(Aggregator):
+    """
+    FedMGDA++ Aggregator
+
+    Uses a Linear Layer to perform predictions on the weighting of the clients.
+
+    Uses adaptive StD for blocking clients.
+
+    Uses adaptive LR of the Linear Layer.
+    """
     def __init__(
         self,
         clients: List[Client],
@@ -41,6 +50,8 @@ class FedMGDAPlusPlusAggregator(Aggregator):
 
     def trainAndTest(self, testDataset) -> Errors:
         roundsError = Errors(torch.zeros(self.rounds))
+
+        # Used for determining adaptivity
         previousBlockedClients = []
         old_error = 100
 
@@ -56,6 +67,7 @@ class FedMGDAPlusPlusAggregator(Aggregator):
 
             roundsError[r] = self.test(testDataset)
 
+            # Create a list of blocked clients for adaptivity
             blockedCheck = []
             for idx, client in enumerate(self.clients):
                 if client.blocked:
@@ -144,11 +156,12 @@ class FedMGDAPlusPlusAggregator(Aggregator):
         # The min might not be zero and so that's why we just don't take the max for the bottom
         clientWeights[clientWeights <= 0] = 0
 
+        # Calculate the cutoff for the non-blocked clients
         vals = clientWeights[torch.nonzero(clientWeights)]
         cutoff = vals.mean() - (self.std_multiplier * vals.std())
-
         clientWeights[clientWeights < cutoff] = 0
 
+        # Blocking the 0-weight clients that haven't been blocked yet
         for idx, weight in enumerate(clientWeights):
             client = clients[idx]
             if (weight == 0) and not client.blocked:
