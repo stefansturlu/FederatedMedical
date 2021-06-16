@@ -9,6 +9,7 @@ from aggregators.FedAvg import FAAggregator
 from aggregators.COMED import COMEDAggregator
 from aggregators.MKRUM import MKRUMAggregator
 from aggregators.AFA import AFAAggregator
+from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
 from aggregators.FedMGDAPlusPlus import FedMGDAPlusPlusAggregator
 from aggregators.FedPADRC import FedPADRCAggregator
 
@@ -18,20 +19,20 @@ class CustomConfig(DefaultExperimentConfiguration):
         super().__init__()
         
         self.nonIID = True
-        self.alphaDirichlet = 0.1
+        self.alphaDirichlet = 0.5
         
         self.scenarios: AttacksType = [
             #([], [], [], "no_attack IID"),
-            ([2, ], [], [], f"1_faulty non-IID alpha={self.alphaDirichlet}"),
-            ([2, 5], [], [], f"2_faulty non-IID alpha={self.alphaDirichlet}"),
-            ([2, 5, 8], [], [], f"3_faulty non-IID alpha={self.alphaDirichlet}"),
-            ([2, 5, 8, 11], [], [], f"4_faulty non-IID alpha={self.alphaDirichlet}"),
-            ([2, 5, 8, 11, 14], [], [], f"5_faulty non-IID alpha={self.alphaDirichlet}"),
-            ([2, 5, 8, 11, 14, 17], [], [], f"6_faulty non-IID alpha={self.alphaDirichlet}"),
-            ([2, 5, 8, 11, 14, 17, 20], [], [], f"7_faulty non-IID alpha={self.alphaDirichlet}"),
-            ([2, 5, 8, 11, 14, 17, 20, 23], [], [], f"8_faulty non-IID alpha={self.alphaDirichlet}"),
-            ([2, 5, 8, 11, 14, 17, 20, 23, 26], [], [], f"9_faulty non-IID alpha={self.alphaDirichlet}"),
-            ([2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [], [], f"10_faulty non-IID alpha={self.alphaDirichlet}"),
+            ([2, ], [], [], f"GPU 1_faulty non-IID alpha={self.alphaDirichlet}"),
+            #([2, 5], [], [], f"2_faulty non-IID alpha={self.alphaDirichlet}"),
+            #([2, 5, 8], [], [], f"3_faulty non-IID alpha={self.alphaDirichlet}"),
+            #([2, 5, 8, 11], [], [], f"4_faulty non-IID alpha={self.alphaDirichlet}"),
+            #([2, 5, 8, 11, 14], [], [], f"5_faulty non-IID alpha={self.alphaDirichlet}"),
+            #([2, 5, 8, 11, 14, 17], [], [], f"6_faulty non-IID alpha={self.alphaDirichlet}"),
+            #([2, 5, 8, 11, 14, 17, 20], [], [], f"7_faulty non-IID alpha={self.alphaDirichlet}"),
+            #([2, 5, 8, 11, 14, 17, 20, 23], [], [], f"8_faulty non-IID alpha={self.alphaDirichlet}"),
+            #([2, 5, 8, 11, 14, 17, 20, 23, 26], [], [], f"9_faulty non-IID alpha={self.alphaDirichlet}"),
+            #([2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [], [], f"10_faulty non-IID alpha={self.alphaDirichlet}"),
             # ([], [], [], "no_attack non-IID alpha=1.0"),
             # ([], [2, ], [], "1_mal non-IID alpha=1.0"),
             # ([], [2, 5], [], "2_mal non-IID alpha=1.0"),
@@ -50,7 +51,7 @@ class CustomConfig(DefaultExperimentConfiguration):
         ]
         self.percUsers = torch.tensor(PERC_USERS, device=self.aggregatorConfig.device)
 
-        self.aggregators = [FAAggregator, COMEDAggregator, MKRUMAggregator, AFAAggregator, FedMGDAPlusAggregator]
+        self.aggregators = [FAAggregator, COMEDAggregator]
         
 
     def scenario_conversion(self):

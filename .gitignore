@@ -159,3 +159,6 @@ test/
 # Scripts used for running without an active connection
 RUNME.sh
 nohup.out
+
+# Slurm output files
+slurm20-*
