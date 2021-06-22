@@ -12,17 +12,24 @@ import torch
 
 class DatasetLoaderMNIST(DatasetLoader):
     def getDatasets(
-        self, percUsers: Tensor, labels: Tensor, size: Optional[Tuple[int, int]] = None, nonIID = False, alpha = 0.1
+        self, percUsers: Tensor, labels: Tensor, size: Optional[Tuple[int, int]] = None, nonIID = False, alpha = 0.1, percServerData = 0
     ) -> Tuple[List[DatasetInterface], DatasetInterface]:
         logPrint("Loading MNIST...")
         self._setRandomSeeds()
         data = self.__loadMNISTData()
         trainDataframe, testDataframe = self._filterDataByLabel(labels, *data)
+        serverDataset = []
+        if percServerData>0:
+            # Knowledge distillation requires server data
+            msk = np.random.rand(len(trainDataframe)) < percServerData
+            serverDataframe, trainDataframe = trainDataframe[msk], trainDataframe[~msk]
+            serverDataset = self.MNISTDataset(serverDataframe.reset_index(drop=True))
+        print(f"Lengths of server {len(serverDataframe)} and train {len(trainDataframe)}")
         clientDatasets = self._splitTrainDataIntoClientDatasets(
             percUsers, trainDataframe, self.MNISTDataset, nonIID, alpha
         )
         testDataset = self.MNISTDataset(testDataframe)
-        return clientDatasets, testDataset
+        return clientDatasets, testDataset, serverDataset
 
     @staticmethod
     def __loadMNISTData() -> Tuple[DataFrame, DataFrame]:

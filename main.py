@@ -33,6 +33,7 @@ from aggregators.COMED import COMEDAggregator
 from aggregators.Clustering import ClusteringAggregator
 from aggregators.MKRUM import MKRUMAggregator
 from aggregators.FedPADRC import FedPADRCAggregator
+from aggregators.FedBE import FedBEAggregator
 
 
 # Colours used for graphing, add more if necessary
@@ -214,7 +215,7 @@ def __runExperiment(
     Initialises each aggregator appropriately
     """
 
-    trainDatasets, testDataset = datasetLoader(config.percUsers, config.labels, config.datasetSize, config.nonIID, config.alphaDirichlet)
+    trainDatasets, testDataset, serverDataset = datasetLoader(config.percUsers, config.labels, config.datasetSize, config.nonIID, config.alphaDirichlet, config.serverData)
     clients = __initClients(config, trainDatasets, useDifferentialPrivacy)
     # Requires model input size update due to dataset generalisation and categorisation
     if config.requireDatasetAnonymization:
@@ -231,6 +232,8 @@ def __runExperiment(
         aggregator.reinitialise(config.aggregatorConfig.innerLR)
     elif isinstance(aggregator, FedPADRCAggregator) or isinstance(aggregator, ClusteringAggregator):
         aggregator._init_aggregators(config.internalAggregator, config.externalAggregator)
+    elif isinstance(aggregator, FedBEAggregator):
+        aggregator.distillationData = serverDataset
 
     errors: Errors = aggregator.trainAndTest(testDataset)
     blocked = BlockedLocations(

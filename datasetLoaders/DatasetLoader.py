@@ -16,7 +16,7 @@ from pandas import DataFrame
 class DatasetLoader:
     """Parent class used for specifying the data loading workflow """
 
-    def getDatasets(self, percUsers: Tensor, labels: Tensor, size=(None, None), nonIID=False, alpha=0.1):
+    def getDatasets(self, percUsers: Tensor, labels: Tensor, size=(None, None), nonIID=False, alpha=0.1, percServerData=0):
         raise Exception(
             "LoadData method should be override by child class, "
             "specific to the loaded dataset strategy."

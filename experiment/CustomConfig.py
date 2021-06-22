@@ -12,18 +12,21 @@ from aggregators.AFA import AFAAggregator
 from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
 from aggregators.FedMGDAPlusPlus import FedMGDAPlusPlusAggregator
 from aggregators.FedPADRC import FedPADRCAggregator
+from aggregators.FedPADRC import FedPADRCAggregator
+from aggregators.FedBE import FedBEAggregator
 
 
 class CustomConfig(DefaultExperimentConfiguration):
     def __init__(self):
         super().__init__()
         
-        self.nonIID = True
+        self.nonIID = False
         self.alphaDirichlet = 0.5
+        self.serverData = 0.1
         
         self.scenarios: AttacksType = [
-            #([], [], [], "no_attack IID"),
-            ([2, ], [], [], f"GPU 1_faulty non-IID alpha={self.alphaDirichlet}"),
+            ([], [], [], "no_attack IID FedBE"),
+            #([2, ], [], [], f"GPU 1_faulty non-IID alpha={self.alphaDirichlet}"),
             #([2, 5], [], [], f"2_faulty non-IID alpha={self.alphaDirichlet}"),
             #([2, 5, 8], [], [], f"3_faulty non-IID alpha={self.alphaDirichlet}"),
             #([2, 5, 8, 11], [], [], f"4_faulty non-IID alpha={self.alphaDirichlet}"),
@@ -51,7 +54,7 @@ class CustomConfig(DefaultExperimentConfiguration):
         ]
         self.percUsers = torch.tensor(PERC_USERS, device=self.aggregatorConfig.device)
 
-        self.aggregators = [FAAggregator, COMEDAggregator]
+        self.aggregators = [FedBEAggregator]
         
 
     def scenario_conversion(self):

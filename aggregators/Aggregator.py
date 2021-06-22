@@ -8,6 +8,7 @@ import copy
 from logger import logPrint
 from threading import Thread
 from sklearn.metrics import confusion_matrix
+import numpy as np
 from torch.utils.data import DataLoader
 from typing import List, Optional, Type
 import torch
@@ -149,6 +150,8 @@ class Aggregator:
 
         # Confusion matrix and normalized confusion matrix
         mconf = confusion_matrix(testLabels, predLabels)
+        accPerClass = (mconf/(mconf.sum(axis=0)+0.00001)[:,np.newaxis]).diagonal()
+        logPrint(f"Accuracy per class:\n\t{accPerClass}")
         errors: float = 1 - 1.0 * mconf.diagonal().sum() / len(testDataset)
         logPrint("Error Rate: ", round(100.0 * errors, 3), "%")
 
