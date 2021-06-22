@@ -22,7 +22,7 @@ class CustomConfig(DefaultExperimentConfiguration):
         
         self.nonIID = False
         self.alphaDirichlet = 0.5
-        self.serverData = 0.1
+        self.serverData = 1/6
         
         self.scenarios: AttacksType = [
             ([], [], [], "no_attack IID FedBE"),

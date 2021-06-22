@@ -46,5 +46,5 @@ class AggregatorConfig:
         self.distillationData = None # How should one do this?
         self.sampleSize = 30
         self.samplingMethod = 'dirichlet'
-        self.dirichletAlpha = 1.0
+        self.samplingDirichletAlpha = 1.0
 

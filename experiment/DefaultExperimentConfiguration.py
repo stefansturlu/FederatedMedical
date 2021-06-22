@@ -21,10 +21,10 @@ class DefaultExperimentConfiguration:
         self.aggregatorConfig = AggregatorConfig()
 
         # Epochs num locally run by clients before sending back the model update
-        self.epochs: int = 2
+        self.epochs: int = 5
 
-        self.batchSize: int = 200  # Local training  batch size
-        self.learningRate: float = 0.1
+        self.batchSize: int = 64  # Local training  batch size
+        self.learningRate: float = 0.05
         self.Loss = nn.CrossEntropyLoss
         self.Optimizer: Type[optim.Optimizer] = optim.SGD
 
