@@ -24,7 +24,9 @@ class DatasetLoaderMNIST(DatasetLoader):
             msk = np.random.rand(len(trainDataframe)) < percServerData
             serverDataframe, trainDataframe = trainDataframe[msk], trainDataframe[~msk]
             serverDataset = self.MNISTDataset(serverDataframe.reset_index(drop=True))
-        print(f"Lengths of server {len(serverDataframe)} and train {len(trainDataframe)}")
+            logPrint(f"Lengths of server {len(serverDataframe)} and train {len(trainDataframe)}")
+        else:
+            logPrint(f"Lengths of server {0} and train {len(trainDataframe)}")
         clientDatasets = self._splitTrainDataIntoClientDatasets(
             percUsers, trainDataframe, self.MNISTDataset, nonIID, alpha
         )

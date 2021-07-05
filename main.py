@@ -214,8 +214,13 @@ def __runExperiment(
 
     Initialises each aggregator appropriately
     """
+    serverDataSize = config.serverData
+    if not agg is FedBEAggregator:
+        print("Type of agg:", type(agg))
+        print("agg:", agg)
+        serverDataSize = 0
 
-    trainDatasets, testDataset, serverDataset = datasetLoader(config.percUsers, config.labels, config.datasetSize, config.nonIID, config.alphaDirichlet, config.serverData)
+    trainDatasets, testDataset, serverDataset = datasetLoader(config.percUsers, config.labels, config.datasetSize, config.nonIID, config.alphaDirichlet, serverDataSize)
     clients = __initClients(config, trainDatasets, useDifferentialPrivacy)
     # Requires model input size update due to dataset generalisation and categorisation
     if config.requireDatasetAnonymization:

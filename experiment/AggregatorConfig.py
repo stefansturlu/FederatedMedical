@@ -24,7 +24,7 @@ class AggregatorConfig:
         self.detectFreeRiders: bool = False
         self.freeRiderAttack: FreeRiderAttack = FreeRiderAttack.BASIC
 
-        # Privacy Amplification settings
+        # Privacy Amplification settings  (Sets how many clients are sampled)
         self.privacyAmplification = False
         self.amplificationP = 0.3
 
@@ -43,8 +43,7 @@ class AggregatorConfig:
             
             
         # FedBE Parameters
-        self.distillationData = None # How should one do this?
-        self.sampleSize = 30
-        self.samplingMethod = 'dirichlet'
-        self.samplingDirichletAlpha = 1.0
+        self.sampleSize = 15
+        self.samplingMethod = 'dirichlet_elementwise' # gaussian, dirichlet, dirichlet_elementwise
+        self.samplingDirichletAlpha = 0.1
 

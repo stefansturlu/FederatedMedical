@@ -71,4 +71,4 @@ class DefaultExperimentConfiguration:
         # Data splitting config
         self.nonIID = False
         self.alphaDirichlet = 0.1 # Parameter for Dirichlet sampling
-        self.serverData = 0 # Used for distillation.
+        self.serverData = 1/6 # Used for distillation when FedBE is used.

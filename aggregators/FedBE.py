@@ -11,6 +11,7 @@ from logger import logPrint
 from typing import List
 import torch
 from torch.distributions.dirichlet import Dirichlet
+from torch.distributions.normal import Normal
 from aggregators.Aggregator import Aggregator
 from datasetLoaders.DatasetInterface import DatasetInterface
 from torch.utils.data import DataLoader
@@ -59,7 +60,7 @@ class FedBEAggregator(Aggregator):
         avg_model = self._avgModel(clients, models)
 
         # STEP 1-2: Construct distribution of models from which to sample, and sample M models
-        logPrint(f"Step 1 of FedBE: Constructing distribution and sampling {self.sampleSize} models")
+        logPrint(f"Step 1 of FedBE: Constructing distribution from {len(models)} models and sampling {self.sampleSize} models.")
         ensemble = self._sampleModels(clients, models, self.method)
         
         #params = self.model.named_parameters()
@@ -72,17 +73,15 @@ class FedBEAggregator(Aggregator):
                     #print(name1, param1)
                 
         #TODO: Construct pseudolabelled dataset
-        logPrint(f"Step 2 of FedBE: Constructing pseudolabelled set")
+        #logPrint(f"Step 2 of FedBE: Constructing pseudolabelled set")
         T = 1 # Temperature of softmax
         pseudolabels = self._pseudolabelsFromEnsemble(ensemble, T)
         if self.true_labels is None:
             self.true_labels = self.distillationData.labels
         self.distillationData.labels = pseudolabels
-        #print("Pseudoshape:",pseudolabels.shape)
-        logPrint(f"Ensemble accuracy: {100*self.ensembleAccuracy():.2f} %")
         
         #TODO: Implement knowledge distillation
-        logPrint(f"Step 3 of FedBE: Distilling knowledge")
+        logPrint(f"Step 2 of FedBE: Distilling knowledge (ensemble error: {100*(1-self.ensembleAccuracy()):.2f} %)")
         avg_model = self._distillKnowledge(avg_model, T)
         
         return avg_model
@@ -92,6 +91,10 @@ class FedBEAggregator(Aggregator):
         """
         Sampling models using Dirichlet distributiton (client-wise)
         TODO: Add both Gaussian sampling and Dirichlet element-wise.
+        
+        Parameters:
+        clients: List of clients.
+        models: List of the clients' models.
         """
         # Are the Dirichlet parameters sampled element-wise or client-wise?
         # Try both, maybe? The Gaussian distribution samples are element-wise.
@@ -101,9 +104,65 @@ class FedBEAggregator(Aggregator):
         sampled_models = [deepcopy(self.model) for _ in range(M)]
         
         if method == 'gaussian':
-            pass
+            logPrint("Sampling using Gaussian distribution")
+            
+            client_model_dicts = [m.state_dict() for m in models]
+            client_p = torch.tensor([c.p for c in clients])
+            
+            for name1, param1 in self.model.named_parameters():
+                x = torch.stack([c[name1] for c in client_model_dicts])
+                p_shape = torch.tensor(x.shape)
+                p_shape[1:] = 1
+                client_p = client_p.view(list(p_shape))
+                
+                # Weighted mean and std dev
+                x_mean = (x * client_p).sum(dim=0)
+                x_std = ((x-x_mean.unsqueeze(0))**2 * client_p).sum(dim=0).sqrt()
+                #x_std = x.std(dim=0)
+                
+                # Use small std instead of 0 std, since Normal doesn't support 0 std
+                x_std[x_std==0] += 1e-10
+                
+                # Fit a diagonal gaussian distribution to values
+                d = Normal(x_mean, x_std)
+                # Sample M models
+                samp = d.sample([M,])
+                
+                # Update each model in ensemble in-place
+                for i, e in enumerate(sampled_models):
+                    params_e = e.state_dict()
+                    params_e[name1].data.copy_(samp[i])
+            
+        if method == 'dirichlet_elementwise':
+            logPrint("Sampling using Dirichlet method elementwise")
+            
+            client_model_dicts = [m.state_dict() for m in models]
+            client_p = torch.tensor([c.p for c in clients])
+            
+            for name1, param1 in self.model.named_parameters():
+                x = torch.stack([c[name1] for c in client_model_dicts]) # 30 x 512 x 784 or 30 x 512
+                
+                alphas = client_p*len(client_p) * self.alpha
+                # Fit a diagonal gaussian distribution to values
+                d = Dirichlet(alphas)
+                
+                # Sample M weights for each parameter
+                sample_shape = [M]+list(x[0].shape) # M x 512 x 784
+                weights = d.sample(sample_shape) # M x 512 x 784 x 30 
+                perm = [0] + [(i-1)%(len(weights.shape)-1)+1 for i in range(len(weights.shape)-1)]
+                weights = weights.permute(*perm) # M x 30 x 512 x 784
+                
+                # Compute M linear combination of client models
+                samp = (weights * x.unsqueeze(0)).sum(dim=1)
+                
+                # Update each model in ensemble in-place
+                for i, e in enumerate(sampled_models):
+                    params_e = e.state_dict()
+                    params_e[name1].data.copy_(samp[i])
+            
         
         if method == 'dirichlet':
+            logPrint("Sampling using Dirichlet method client-wise")
             # Sample weights for weighted average of client models
             # using a symmetrical Dirichlet distribution
             alphas = self.alpha*torch.ones(len(models)).repeat(M).reshape(M,-1)
@@ -154,9 +213,9 @@ class FedBEAggregator(Aggregator):
         with torch.no_grad():
             pseudolabels = torch.zeros_like(ensemble[0](self.distillationData.data))
             for model in ensemble:
-                model.T = temperature
-                pseudolabels += model(self.distillationData.data)
-                model.T = 1
+                pseudolabels += F.softmax(model(self.distillationData.data)/temperature, dim=1)
+                if torch.isnan(pseudolabels).any():
+                    print("WARNING! Something went wrong in _pseudolabelsFromEnsemble!")
             return pseudolabels/len(ensemble)
         
     #def loss_fn_kd(outputs, labels, teacher_outputs, temperature):
@@ -174,53 +233,51 @@ class FedBEAggregator(Aggregator):
         #return KD_loss
         
     def _distillKnowledge(self, student_model, temperature):
-        # This might move into a seperate class
-        student_model.T = temperature
-        epochs = 1
+        tmptmp = deepcopy(student_model)
+        epochs = 2
         lr = 0.0001
-        momentum = 0.9
-        opt = optim.SGD(student_model.parameters(), lr=lr, momentum=momentum, weight_decay=1e-3)
+        momentum = 0.5
+        opt = optim.SGD(student_model.parameters(), momentum=momentum, lr=lr, weight_decay=1e-4)
         Loss = nn.KLDivLoss # Config?
         #nn.KLDivLoss()(F.log_softmax(outputs/T, dim=1),
                              #F.softmax(teacher_outputs/T, dim=1)) * (alpha * T * T)
         loss = Loss(reduction='batchmean')
-        #loss = Loss()
         
         # https://pytorch.org/blog/pytorch-1.6-now-includes-stochastic-weight-averaging/
         swa_model = AveragedModel(student_model)
+        #scheduler = CyclicLR(opt, T_max=100)
         scheduler = CosineAnnealingLR(opt, T_max=100)
-        #swa_start = -1
         swa_scheduler = SWALR(opt, swa_lr=0.005)
         
         # Tune the SWA stuff! It might just be the key to success
         
-        dataLoader = DataLoader(self.distillationData)
+        dataLoader = DataLoader(self.distillationData, batch_size=16)
         
         for i in range(epochs):
-            #print(f"Distillor epoch {i}")
             totalerr = 0
-            printFirst = True
-            for x,y in dataLoader:
+            for j, (x,y) in enumerate(dataLoader):
                 opt.zero_grad()
                 pred = student_model(x)
-                if printFirst:
-                    print("y",y)
-                    print("pred",pred)
-                    printFirst = False
-                #print("Predictiton shape", pred.shape, y.shape)
-                err = loss(torch.log(pred+0.0001), y) #* temperature * temperature
+                if torch.isnan(pred).any():
+                    print(f"WARNING! Something went wrong in prediction during distillation! Round {j}")
+                    return None
+                err = loss(F.log_softmax(pred/temperature, dim=1), y) * temperature * temperature
                 err.backward()
                 totalerr += err
                 opt.step()
+                with torch.no_grad():
+                    pred = student_model(x)
+                    if torch.isnan(pred).any():
+                        print(f"WARNING! Something went wrong in pred after opt during distillation! Round {j}")
+                    
             scheduler.step()
             swa_model.update_parameters(student_model)
             swa_scheduler.step()
-            print("Server ensemble error:",totalerr, "student_model.T",student_model.T)
-        torch.optim.swa_utils.update_bn(dataLoader, swa_model)
-        student_model.T = 1
-        swa_model.T = 1
+            
+            logPrint("Distillation epoch error:",totalerr)
+            torch.optim.swa_utils.update_bn(dataLoader, swa_model)
         
-        return swa_model
+        return swa_model.module # Return the averaged model
     
     
     def ensembleAccuracy(self):

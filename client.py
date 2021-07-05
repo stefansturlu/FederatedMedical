@@ -2,6 +2,7 @@ import copy
 from typing import Optional, Type
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from torch import Tensor, cuda
 
@@ -136,7 +137,7 @@ class Client:
         y = y.to(self.device)
         # Reset gradients
         self.opt.zero_grad()
-        pred = self.model(x).to(self.device)
+        pred = F.softmax(self.model(x).to(self.device), dim=1)
         err = self.loss(pred, y).to(self.device)
         err.backward()
         # Update optimizer
