@@ -73,3 +73,7 @@ class DatasetLoaderMNIST(DatasetLoader):
 
         def __getitem__(self, index):
             return self.data[index], self.labels[index]
+
+        def to(self, device):
+            self.data = self.data.to(device)
+            self.labels = self.labels.to(device)
