@@ -409,7 +409,7 @@ def program() -> None:
             config,
             title=f"Basic CustomConfig Test \n Attack: {attackName}",
             filename=f"{attackName}",
-            folder=f"test/",
+            folder=f"test",
         )
 
 

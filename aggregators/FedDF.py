@@ -164,7 +164,7 @@ class FedDFAggregator(Aggregator):
     
     def ensembleAccuracy(self):
         _, predLabels = torch.max(self.distillationData.labels,dim=1)
-        mconf = confusion_matrix(self.true_labels, predLabels) 
+        mconf = confusion_matrix(self.true_labels.cpu(), predLabels.cpu())
         return 1.0 * mconf.diagonal().sum() / len(self.distillationData)
         
         

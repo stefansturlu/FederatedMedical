@@ -28,28 +28,29 @@ class CustomConfig(DefaultExperimentConfiguration):
             iidString = f'non-IID alpha={self.alphaDirichlet}'
         else:
             iidString = 'IID'
+
+        experimentString = 'Fed-Avg-BE-DF'
         
         self.scenarios: AttacksType = [
-            #([], [], [], f"no_attack {iidString} All"),
-            #([2, ], [], [], f"1_faulty {iidString}"),
+            ([], [], [], f"no_attack {iidString} {experimentString}"),
+            ([2, ], [], [], f"1_faulty {iidString} {experimentString}"),
             #([2, 5], [], [], f"2_faulty {iidString}"),
             #([2, 5, 8], [], [], f"3_faulty {iidString}"),
             #([2, 5, 8, 11], [], [], f"4_faulty {iidString}"),
             #([2, 5, 8, 11, 14], [], [], f"5_faulty {iidString}"),
             #([2, 5, 8, 11, 14, 17], [], [], f"6_faulty {iidString}"),
             #([2, 5, 8, 11, 14, 17, 20], [], [], f"7_faulty {iidString}"),
-            #([2, 5, 8, 11, 14, 17, 20, 23], [], [], f"8_faulty {iidString}"),
+            ([2, 5, 8, 11, 14, 17, 20, 23], [], [], f"8_faulty {iidString} {experimentString}"),
             #([2, 5, 8, 11, 14, 17, 20, 23, 26], [], [], f"9_faulty {iidString}"),
             #([2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [], [], f"10_faulty {iidString}"),
-            ([], [], [], f"no_attack {iidString} FedDF"),
-#           ([], [2, ], [], f"1_mal {iidString} Gaussian"),
+            ([], [2, ], [], f"1_mal {iidString} {experimentString}"),
             #([], [2, 5], [], f"2_mal {iidString} Gaussian"),
             #([], [2, 5, 8], [], f"3_mal {iidString} Gaussian"),
             #([], [2, 5, 8, 11], [], f"4_mal {iidString} Gaussian"),
 #           ([], [2, 5, 8, 11, 14], [], f"5_mal {iidString} Gaussian"),
             #([], [2, 5, 8, 11, 14, 17], [], f"6_mal {iidString} Gaussian"),
             #([], [2, 5, 8, 11, 14, 17, 20], [], f"7_mal {iidString} Gaussian"),
-#           ([], [2, 5, 8, 11, 14, 17, 20, 23], [], f"8_mal {iidString} Gaussian"),
+            ([], [2, 5, 8, 11, 14, 17, 20, 23], [], f"8_mal {iidString} {experimentString}"),
             #([], [2, 5, 8, 11, 14, 17, 20, 23, 26], [], f"9_mal {iidString} Gaussian"),
 #           ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [], f"10_mal {iidString} Gaussian"),
             # ([], [2], [], "1_mal"),
@@ -59,7 +60,7 @@ class CustomConfig(DefaultExperimentConfiguration):
         ]
         self.percUsers = torch.tensor(PERC_USERS, device=self.aggregatorConfig.device)
 
-        self.aggregators = [FedDFAggregator, FAAggregator]
+        self.aggregators = [FAAggregator, FedBEAggregator, FedDFAggregator, ]
         #self.aggregators = [FAAggregator, COMEDAggregator, MKRUMAggregator, AFAAggregator, FedMGDAPlusPlusAggregator, FedBEAggregator]
         
 
