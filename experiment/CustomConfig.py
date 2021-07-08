@@ -13,6 +13,7 @@ from aggregators.FedMGDAPlus import FedMGDAPlusAggregator
 from aggregators.FedMGDAPlusPlus import FedMGDAPlusPlusAggregator
 from aggregators.FedPADRC import FedPADRCAggregator
 from aggregators.FedBE import FedBEAggregator
+from aggregators.FedDF import FedDFAggregator
 
 
 class CustomConfig(DefaultExperimentConfiguration):
@@ -40,7 +41,7 @@ class CustomConfig(DefaultExperimentConfiguration):
             #([2, 5, 8, 11, 14, 17, 20, 23], [], [], f"8_faulty {iidString}"),
             #([2, 5, 8, 11, 14, 17, 20, 23, 26], [], [], f"9_faulty {iidString}"),
             #([2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [], [], f"10_faulty {iidString}"),
-            ([], [], [], f"no_attack {iidString} Gaussian"),
+            ([], [], [], f"no_attack {iidString} FedDF"),
 #           ([], [2, ], [], f"1_mal {iidString} Gaussian"),
             #([], [2, 5], [], f"2_mal {iidString} Gaussian"),
             #([], [2, 5, 8], [], f"3_mal {iidString} Gaussian"),
@@ -58,7 +59,7 @@ class CustomConfig(DefaultExperimentConfiguration):
         ]
         self.percUsers = torch.tensor(PERC_USERS, device=self.aggregatorConfig.device)
 
-        self.aggregators = [FedBEAggregator]
+        self.aggregators = [FedDFAggregator, FAAggregator]
         #self.aggregators = [FAAggregator, COMEDAggregator, MKRUMAggregator, AFAAggregator, FedMGDAPlusPlusAggregator, FedBEAggregator]
         
 

@@ -34,6 +34,7 @@ from aggregators.Clustering import ClusteringAggregator
 from aggregators.MKRUM import MKRUMAggregator
 from aggregators.FedPADRC import FedPADRCAggregator
 from aggregators.FedBE import FedBEAggregator
+from aggregators.FedDF import FedDFAggregator
 
 
 # Colours used for graphing, add more if necessary
@@ -215,7 +216,7 @@ def __runExperiment(
     Initialises each aggregator appropriately
     """
     serverDataSize = config.serverData
-    if not agg is FedBEAggregator:
+    if not agg is FedBEAggregator and not agg is FedDFAggregator:
         print("Type of agg:", type(agg))
         print("agg:", agg)
         serverDataSize = 0
@@ -237,7 +238,7 @@ def __runExperiment(
         aggregator.reinitialise(config.aggregatorConfig.innerLR)
     elif isinstance(aggregator, FedPADRCAggregator) or isinstance(aggregator, ClusteringAggregator):
         aggregator._init_aggregators(config.internalAggregator, config.externalAggregator)
-    elif isinstance(aggregator, FedBEAggregator):
+    elif isinstance(aggregator, FedBEAggregator) or isinstance(aggregator, FedDFAggregator):
         aggregator.distillationData = serverDataset
 
     errors: Errors = aggregator.trainAndTest(testDataset)
