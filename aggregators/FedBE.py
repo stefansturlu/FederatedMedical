@@ -150,7 +150,7 @@ class FedBEAggregator(Aggregator):
                 sample_shape = [M]+list(x[0].shape) # M x 512 x 784
                 weights = d.sample(sample_shape) # M x 512 x 784 x 30 
                 perm = [0] + [(i-1)%(len(weights.shape)-1)+1 for i in range(len(weights.shape)-1)]
-                weights = weights.permute(*perm) # M x 30 x 512 x 784
+                weights = weights.permute(*perm).to(self.device) # M x 30 x 512 x 784
                 
                 # Compute M linear combination of client models
                 samp = (weights * x.unsqueeze(0)).sum(dim=1)
@@ -211,7 +211,8 @@ class FedBEAggregator(Aggregator):
         
     def _pseudolabelsFromEnsemble(self, ensemble, temperature):
         with torch.no_grad():
-            pseudolabels = torch.zeros_like(ensemble[0](self.distillationData.data))
+            print("THESE ARE THE DEVICES:",next(ensemble[0].parameters()).device,self.distillationData.data.device)
+            pseudolabels = torch.zeros_like(ensemble[0](self.distillationData.data), device = self.device)
             for model in ensemble:
                 pseudolabels += F.softmax(model(self.distillationData.data)/temperature, dim=1)
                 if torch.isnan(pseudolabels).any():
@@ -282,7 +283,7 @@ class FedBEAggregator(Aggregator):
     
     def ensembleAccuracy(self):
         _, predLabels = torch.max(self.distillationData.labels,dim=1)
-        mconf = confusion_matrix(self.true_labels, predLabels) 
+        mconf = confusion_matrix(self.true_labels.cpu(), predLabels.cpu()) 
         return 1.0 * mconf.diagonal().sum() / len(self.distillationData)
         
         

@@ -239,6 +239,8 @@ def __runExperiment(
     elif isinstance(aggregator, FedPADRCAggregator) or isinstance(aggregator, ClusteringAggregator):
         aggregator._init_aggregators(config.internalAggregator, config.externalAggregator)
     elif isinstance(aggregator, FedBEAggregator) or isinstance(aggregator, FedDFAggregator):
+        serverDataset.data = serverDataset.data.to(aggregator.config.device)
+        serverDataset.labels = serverDataset.labels.to(aggregator.config.device)
         aggregator.distillationData = serverDataset
 
     errors: Errors = aggregator.trainAndTest(testDataset)

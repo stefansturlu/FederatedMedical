@@ -48,6 +48,7 @@ class Client:
 
         self.model: nn.Module = model
         self.trainDataset = trainDataset
+        self.trainDataset.to(device)
         self.dataLoader = DataLoader(self.trainDataset, batch_size=batchSize, shuffle=True)
         self.n: int = len(trainDataset)  # Number of training points provided
         self.p: float = p  # Contribution to the overall model
