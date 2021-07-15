@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader
 from typing import List, Optional, Type
 import torch
 from random import uniform
+from copy import deepcopy
 
 
 class Aggregator:
@@ -182,6 +183,53 @@ class Aggregator:
             if name1 in dictParamsDest:
                 weightedSum = alphaOrig * param1.data + alphaDest * dictParamsDest[name1].data
                 dictParamsDest[name1].data.copy_(weightedSum)
+                
+    @staticmethod
+    def _averageModel(models: List[nn.Module], clients: List[Client] = None):
+        """
+        Takes weighted average of models, using weights from clients.
+        TODO: see if this works
+        """
+        if len(models) == 0:
+            return None
+        
+        client_p = torch.ones(len(models))/len(models)
+        if clients:
+            client_p = torch.tensor([c.p for c in clients])
+            
+        model = deepcopy(models[0])
+        model_state_dict = model.state_dict()
+        
+        model_dicts = [m.state_dict() for m in models]
+        for name1, param1 in model.named_parameters():
+            x = torch.stack([m[name1] for m in model_dicts])
+            p_shape = torch.tensor(x.shape)
+            p_shape[1:] = 1
+            client_p = client_p.view(list(p_shape))
+            
+            x_mean = (x*client_p).sum(dim=0)
+            model_state_dict[name1].data.copy_(x_mean)
+        return model
+    
+    @staticmethod
+    def _medianModel(models: List[nn.Module]):
+        """
+        Takes weighted average of models, using weights from clients.
+        TODO: see if this works
+        """
+        if len(models) == 0:
+            return None
+        model = deepcopy(models[0])
+        model_state_dict = model.state_dict()
+        
+        model_dicts = [m.state_dict() for m in models]
+        for name1, param1 in model.named_parameters():
+            x = torch.stack([m[name1] for m in model_dicts])
+            x_median, _ = x.median(dim=0)
+            model_state_dict[name1].data.copy_(x_median)
+        return model
+            
+                 
 
     def handle_blocked(self, client: Client, round: int) -> None:
         """
