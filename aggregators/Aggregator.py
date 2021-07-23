@@ -55,6 +55,8 @@ class Aggregator:
 
         # Privacy amplification data
         self.chosen_indices = [i for i in range(len(self.clients))]
+        
+        # self.requiresData
 
     def trainAndTest(self, testDataset: DatasetInterface) -> Errors:
         """
@@ -188,7 +190,6 @@ class Aggregator:
     def _averageModel(models: List[nn.Module], clients: List[Client] = None):
         """
         Takes weighted average of models, using weights from clients.
-        TODO: see if this works
         """
         if len(models) == 0:
             return None
@@ -212,10 +213,35 @@ class Aggregator:
         return model
     
     @staticmethod
-    def _medianModel(models: List[nn.Module]):
+    def _weightedAverageModel(models: List[nn.Module], weights = None):
         """
         Takes weighted average of models, using weights from clients.
-        TODO: see if this works
+        """
+        if len(models) == 0:
+            return None
+        
+        client_p = torch.ones(len(models))/len(models)
+        if weights:
+            client_p = torch.tensor(weights)
+            
+        model = deepcopy(models[0])
+        model_state_dict = model.state_dict()
+        
+        model_dicts = [m.state_dict() for m in models]
+        for name1, param1 in model.named_parameters():
+            x = torch.stack([m[name1] for m in model_dicts])
+            p_shape = torch.tensor(x.shape)
+            p_shape[1:] = 1
+            client_p = client_p.view(list(p_shape))
+            
+            x_mean = (x*client_p).sum(dim=0)
+            model_state_dict[name1].data.copy_(x_mean)
+        return model
+    
+    @staticmethod
+    def _medianModel(models: List[nn.Module]):
+        """
+        Takes element-wise median of models.
         """
         if len(models) == 0:
             return None
@@ -277,6 +303,14 @@ class Aggregator:
         weight_total = sum([c.p for c in clients])
         for c in clients:
             c.p /= weight_total
+            
+    @staticmethod
+    def requiresData():
+        """
+        Returns boolean value depending on whether the aggregation method requires server data or not.
+        This should be overwritten in the subclasses which require data on the server side.
+        """
+        return False
 
 
 def allAggregators() -> List[Type[Aggregator]]:

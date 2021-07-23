@@ -10,9 +10,10 @@ from aggregators.Aggregator import Aggregator
 from torch import nn, Tensor
 from scipy.stats import beta
 from datasetLoaders.DatasetInterface import DatasetInterface
+from utils.KnowledgeDistiller import KnowledgeDistiller
 
 
-class AFAAggregator(Aggregator):
+class FedADFAggregator(Aggregator):
     """
     Adaptive Federated Averaging Aggregator
     """
@@ -27,6 +28,8 @@ class AFAAggregator(Aggregator):
         super().__init__(clients, model, config, useAsyncClients)
         self.xi: float = config.xi
         self.deltaXi: float = config.deltaXi
+        self.distillationData = None
+        self.true_labels = None
 
     def trainAndTest(self, testDataset: DatasetInterface) -> Errors:
         roundsError = Errors(torch.zeros(self.rounds))
@@ -149,16 +152,15 @@ class AFAAggregator(Aggregator):
                     comb = 1.0
 
             # Calculate similarity between temporary global model and each "good" model
-            # "Bad" models will receive worst score of 0 by default # Note: I changed this for FedADF, leaving bad models out of the equations.
-            sim = torch.zeros(len(clients)).to(self.device)
-            #sim = []
+            # "Bad" models will receive worst score of 0 by default # NOTE: This is not true any more!
+            sim = [] #torch.zeros(len(clients)).to(self.device)
             for i, client in enumerate(clients):
                 if self.notBlockedNorBadUpdate(client):
                     client.sim = self.__modelSimilarity(empty_model, models[i])
                     #print(f"client {i} sim: {client.sim}")
-                    sim[i] = client.sim
-                    #sim.append(client.sim)
-            #sim = torch.tensor(sim)
+                    #sim[i] = client.sim
+                    sim.append(client.sim)
+            sim = torch.tensor(sim)
 
             meanS = torch.mean(sim)
             medianS = torch.median(sim)
@@ -170,24 +172,20 @@ class AFAAggregator(Aggregator):
                 th = medianS + slack * desvS
 
             slack += self.deltaXi
-            
-            logPrint(f"meanS = {meanS}, medianS = {medianS}, desvS = {desvS}, th = {th}")
 
             badCount = 0
-            for i, client in enumerate(clients):
+            for client in clients:
                 if not client.badUpdate:
                     # Malicious clients are below the threshold
                     if meanS < medianS:
                         if client.sim < th:
                             client.badUpdate = True
                             badCount += 1
-                            logPrint(f"client {i} was blocked for HERE")
                     # Malicious clients are above the threshold
                     else:
                         if client.sim > th:
                             client.badUpdate = True
                             badCount += 1
-                            logPrint(f"client {i} was blocked for THERE")
 
         # Block relevant clients based on their assigned scores from this round
         # Assign client's actual weighting based on updated score
@@ -229,14 +227,26 @@ class AFAAggregator(Aggregator):
                     comb,
                 )
                 comb = 1.0
-        
-        logPrint(f"AFA: Number of models aggregated is {len([c for c in clients if self.notBlockedNorBadUpdate(c)])}")
-        logPrint(f"AFA: These were left out: {[i for i, c in enumerate(clients) if not self.notBlockedNorBadUpdate(c)]}")
-        logPrint(f"AFA: similarites {[c.sim for c in clients]}")
+
+                
+        # Distill knowledge using median pseudolabels
+        notBlockedModels = [models[i] for i, c in enumerate(clients) if self.notBlockedNorBadUpdate(c)]
+        logPrint(f"FedADF: Distilling knowledge using median {len(notBlockedModels)} client model pseudolabels")
+        logPrint(f"FedADF: These were left out: {[i for i, c in enumerate(clients) if not self.notBlockedNorBadUpdate(c)]}")
+        kd = KnowledgeDistiller(self.distillationData)
+        empty_model = kd.distillKnowledge(notBlockedModels, empty_model)
 
         # Reset badUpdate variable
         for client in clients:
             if not client.blocked:
                 client.badUpdate = False
-
+                
         return empty_model
+    
+    
+    @staticmethod
+    def requiresData():
+        """
+        Returns boolean value depending on whether the aggregation method requires server data or not.
+        """
+        return True

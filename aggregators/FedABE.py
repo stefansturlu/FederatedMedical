@@ -19,9 +19,10 @@ from copy import deepcopy
 from sklearn.metrics import confusion_matrix
 from utils.KnowledgeDistiller import KnowledgeDistiller
 
-class FedBEAggregator(Aggregator):
+class FedABEAggregator(Aggregator):
     """
-    Federated Bayesian Ensemble Aggregator that fits a distribution to the model weights, samples models from the distribution and uses Knowledge Distillation to combine the ensemble into a global model.
+    A novel aggregator called Federated Adaptive Bayesian Ensemble (FedABE), which fits a Dirichlet distribution to the models based on an alpha score, samples weighted combinations of models from the distribution and uses Knowledge Distillation to combine the ensemble into a global model.
+    Target: An aggregator that is more robust to attacks.
     """
     
     def __init__(
@@ -33,13 +34,16 @@ class FedBEAggregator(Aggregator):
     ):
         super().__init__(clients, model, config, useAsyncClients)
         
-        logPrint("INITIALISING FedBE Aggregator!")
+        logPrint("INITIALISING FedABE Aggregator!")
         # Unlabelled data which will be used in Knowledge Distillation
         self.distillationData = None # data is loaded in __runExperiment function
+        self.true_labels = None
         self.sampleSize = config.sampleSize
         self.method = config.samplingMethod
         self.samplingAlpha = config.samplingDirichletAlpha
-        self.true_labels = None
+        
+        self.xi: float = config.xi
+        self.deltaXi: float = config.deltaXi
         
     def trainAndTest(self, testDataset: DatasetInterface) -> Errors:
         roundsError = Errors(torch.zeros(self.rounds))
@@ -58,8 +62,12 @@ class FedBEAggregator(Aggregator):
     
     def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
 
-        # STEP 1: Construct distribution of models from which to sample, and sample M models
-        logPrint(f"Step 1 of FedBE: Constructing distribution from {len(models)} models and sampling {self.sampleSize} models.")
+        logPrint(f"Step 1 of FedABE: Calculating client scores based on models.")
+        # IDEA: Use server set predictions to compare similarities, instead of model weights. Maybe even both?
+        self._updateClientScores(clients, models)
+        
+        # STEP 2: Construct distribution of models from which to sample, and sample M models
+        logPrint(f"Step 2 of FedABE: Constructing distribution from {len(models)} models and sampling {self.sampleSize} models.")
         ensemble = self._sampleModels(clients, models, self.method)
                 
         if self.true_labels is None:
@@ -78,6 +86,109 @@ class FedBEAggregator(Aggregator):
         
         return avg_model
     
+    def _updateClientScores(self, clients: List[Client], models: List[nn.Module]) -> None:
+        """
+        # Client scores can be kept in either .score, .pEpoch, or in .alpha & .beta
+        # Might be wise to figure out what to use for probability weighing. Probably .score
+        # In AFA.py:
+            .p = proportion of data
+            .pEpoch = p_{k_t} * n_k / N, N = sum(p_{k_t}*n_k)
+            .score = p_{k_t}, i.e. alpha / (alpha+beta)
+            .alpha, .beta
+        """
+        empty_model = deepcopy(self.model)
+        self.renormalise_weights(clients)
+        
+        badCount = 1
+        slack = self.xi
+        
+        # This while loop calculates number of bad updates
+        while badCount != 0:
+            pT_epoch = 0.0
+            
+            # Recalculate pEpoch
+            for client in clients:
+                if not (client.blocked | client.badUpdate):
+                    client.pEpoch = client.n*client.score
+                    pT_epoch += client.pEpoch
+                else:
+                    client.pEpoch = 0 # To prevent it affecting aggregated models
+            # normalise pEpoch
+            for client in clients:
+                if not (client.blocked | client.badUpdate):
+                    client.pEpoch /= pT_epoch
+                    
+            # Combine good models using pEpoch as weights
+            weights = [c.pEpoch for c in clients]
+            empty_model = self._weightedAverageModel(models, weights)
+            
+            # Calculate similarities
+            sim = torch.zeros(len(clients)).to(self.device)
+            for i, client in enumerate(clients):
+                if not (client.blocked | client.badUpdate):
+                    client.sim = self.__modelSimilarity(empty_model, models[i])
+                    sim[i] = client.sim
+            
+            # Calculate mean, median and std dev
+            meanS = torch.mean(sim)
+            medianS = torch.median(sim)
+            stdevS = torch.std(sim)
+            
+            if meanS < medianS:
+                th = medianS - slack * stdevS
+            else:
+                th = medianS + slack * stdevS
+            slack += self.deltaXi
+
+            badCount = 0
+            for client in clients:
+                if not client.badUpdate:
+                    # Malicious clients are below the threshold
+                    if meanS < medianS:
+                        if client.sim < th:
+                            client.badUpdate = True
+                            badCount += 1
+                    # Malicious clients are above the threshold
+                    else:
+                        if client.sim > th:
+                            client.badUpdate = True
+                            badCount += 1
+                            
+        # Update scores for clients. For now: No blocking.
+        pT = 0.0
+        for client in clients:
+            # update user score (alpha and beta)
+            if client.badUpdate:
+                client.beta += 1
+            else:
+                client.alpha += 1
+            client.score = client.alpha / client.beta
+            
+            # no blocking for now
+            client.p = client.n * client.score
+            pT = pT + client.p
+            
+        # Normalise client's actual weighting
+        for client in clients:
+            client.p /= pT
+            
+        # Update model's epoch weights with the updated scores
+        pT_epoch = 0.0 
+        for client in clients:
+            if not (client.blocked | client.badUpdate):
+                client.pEpoch = client.n * client.score
+                pT_epoch += client.pEpoch
+        
+        for client in clients:
+            if not (client.blocked | client.badUpdate):
+                client.pEpoch /= pT_epoch
+        
+
+        print("Client scores:",[c.score for c in clients])
+        # Now all the client weights (alphas, betas, p, pEpoch) have been updated and can be used for sampling
+        return None
+
+    
     
     def _sampleModels(self, clients: List[Client], models: List[nn.Module], method='dirichlet') -> List[nn.Module]:
         """
@@ -91,48 +202,18 @@ class FedBEAggregator(Aggregator):
         self.renormalise_weights(clients)
         M = self.sampleSize
         sampled_models = [deepcopy(self.model) for _ in range(M)]
+        client_p = torch.tensor([c.p for c in clients])
         
-        if method == 'gaussian':
-            logPrint("Sampling using Gaussian distribution")
-            
-            client_model_dicts = [m.state_dict() for m in models]
-            client_p = torch.tensor([c.p for c in clients])
-            
-            for name1, param1 in self.model.named_parameters():
-                x = torch.stack([c[name1] for c in client_model_dicts])
-                p_shape = torch.tensor(x.shape)
-                p_shape[1:] = 1
-                client_p = client_p.view(list(p_shape))
-                
-                # Weighted mean and std dev
-                x_mean = (x * client_p).sum(dim=0)
-                x_std = ((x-x_mean.unsqueeze(0))**2 * client_p).sum(dim=0).sqrt()
-                #x_std = x.std(dim=0)
-                
-                # Use small std instead of 0 std, since Normal doesn't support 0 std
-                x_std[x_std==0] += 1e-10
-                
-                # Fit a diagonal gaussian distribution to values
-                d = Normal(x_mean, x_std)
-                # Sample M models
-                samp = d.sample([M,])
-                
-                # Update each model in ensemble in-place
-                for i, e in enumerate(sampled_models):
-                    params_e = e.state_dict()
-                    params_e[name1].data.copy_(samp[i])
-            
         if method == 'dirichlet_elementwise':
             logPrint("Sampling using Dirichlet method elementwise")
             
             client_model_dicts = [m.state_dict() for m in models]
-            client_p = torch.tensor([c.p for c in clients])
             
             for name1, param1 in self.model.named_parameters():
                 x = torch.stack([c[name1] for c in client_model_dicts]) # 30 x 512 x 784 or 30 x 512
                 
+                # Fit a diagonal gaussian distribution to clients
                 alphas = client_p*len(client_p) * self.samplingAlpha
-                # Fit a diagonal gaussian distribution to values
                 d = Dirichlet(alphas)
                 
                 # Sample M weights for each parameter
@@ -148,22 +229,16 @@ class FedBEAggregator(Aggregator):
                 for i, e in enumerate(sampled_models):
                     params_e = e.state_dict()
                     params_e[name1].data.copy_(samp[i])
-            
         
         if method == 'dirichlet':
             logPrint("Sampling using Dirichlet method client-wise")
             # Sample weights for weighted average of client models
             # using a symmetrical Dirichlet distribution
-            alphas = self.samplingAlpha*torch.ones(len(models)).repeat(M).reshape(M,-1)
+            alphas = client_p*len(client_p) * self.samplingAlpha
+            print("Dirichlet alpha:",alphas)
             d = Dirichlet(alphas)
-            sample = d.sample() # Shape: M x len(models)
+            sample = d.sample([M]) # Shape: M x len(models)
             
-            # Take client dataset sizes into account (eq. 12 from FedBE paper) 
-            # Note: Why isn't this done to the alphas before sampling? This is not equivalent.
-            for i, c in enumerate(clients):
-                sample[:,i] *= c.p
-            sample = sample / sample.sum(dim=1).unsqueeze(1)
-
             # Compute weighted averages based on Dirichlet sample
             for i, s_model in enumerate(sampled_models):
                 comb = 0.0
@@ -187,7 +262,19 @@ class FedBEAggregator(Aggregator):
         
         
         
+    def __modelSimilarity(self, mOrig: nn.Module, mDest: nn.Module) -> torch.Tensor:
+        """
+        Calculates model similarity based on the Cosine Similarity metric.
+        Flattens the models into tensors before doing the comparison.
+        """
+        cos = nn.CosineSimilarity(0)
+        d1 = nn.utils.parameters_to_vector(mOrig.parameters())
+        d2 = nn.utils.parameters_to_vector(mDest.parameters())
+        sim: torch.Tensor = cos(d1, d2)
+        return sim
     
+
+
     @staticmethod
     def requiresData():
         """
@@ -195,5 +282,3 @@ class FedBEAggregator(Aggregator):
         """
         return True
         
-
-

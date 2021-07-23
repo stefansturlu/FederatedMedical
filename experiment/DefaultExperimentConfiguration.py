@@ -41,8 +41,8 @@ class DefaultExperimentConfiguration:
         self.freeRiding: List[int] = []  # List of free-riding clients
 
         # AFA Parameters:
-        self.alpha: float = 4
-        self.beta: float = 4
+        self.alpha: float = 3
+        self.beta: float = 3
 
         # Client privacy preserving module setup
         self.privacyPreserve: Union[bool, None] = False  # if None, run with AND without DP

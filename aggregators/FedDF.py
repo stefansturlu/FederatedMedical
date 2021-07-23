@@ -76,6 +76,12 @@ class FedDFAggregator(Aggregator):
         return 1.0 * mconf.diagonal().sum() / len(self.distillationData)
         
         
+    @staticmethod
+    def requiresData():
+        """
+        Returns boolean value depending on whether the aggregation method requires server data or not.
+        """
+        return True
         
     
 

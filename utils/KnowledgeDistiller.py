@@ -74,14 +74,13 @@ class KnowledgeDistiller:
             
             Idea: Use median instead of averages for the prediction probabilities! 
                 This might make the knowledge distillation more robust to confidently bad predictors.
-                You might have to normalise it in the dimension.
         """
         with torch.no_grad():
             pseudolabels = torch.zeros_like(ensemble[0](self.dataset.data))
             preds = torch.stack([m(self.dataset.data)/self.T for m in ensemble])
             if method == 'logits':
                 #pseudolabels = preds.mean(dim=0)  # Final error: 8.89 with no attacks, alpha=0.1
-                pseudolabels, _ = preds.median(dim=0) # Final error: 8.66 with no attacks, alpha=0.1
+                pseudolabels, _ = preds.median(dim=0) # Final error: 8.52 with no attacks, alpha=0.1
                 return F.softmax(pseudolabels, dim=1)
             
             elif method == 'prob': # Only mean. The median probabilities lead to predictions not summing up to 1.
