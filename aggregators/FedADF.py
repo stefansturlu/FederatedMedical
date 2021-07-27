@@ -30,6 +30,7 @@ class FedADFAggregator(Aggregator):
         self.deltaXi: float = config.deltaXi
         self.distillationData = None
         self.true_labels = None
+        self.pseudolabelMethod = 'medlogits'
 
     def trainAndTest(self, testDataset: DatasetInterface) -> Errors:
         roundsError = Errors(torch.zeros(self.rounds))
@@ -233,7 +234,7 @@ class FedADFAggregator(Aggregator):
         notBlockedModels = [models[i] for i, c in enumerate(clients) if self.notBlockedNorBadUpdate(c)]
         logPrint(f"FedADF: Distilling knowledge using median {len(notBlockedModels)} client model pseudolabels")
         logPrint(f"FedADF: These were left out: {[i for i, c in enumerate(clients) if not self.notBlockedNorBadUpdate(c)]}")
-        kd = KnowledgeDistiller(self.distillationData)
+        kd = KnowledgeDistiller(self.distillationData, self.pseudolabelMethod)
         empty_model = kd.distillKnowledge(notBlockedModels, empty_model)
 
         # Reset badUpdate variable

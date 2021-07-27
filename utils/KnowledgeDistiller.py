@@ -5,12 +5,13 @@ from torch.utils.data import DataLoader
 import torch.optim as optim
 from torch.optim.swa_utils import AveragedModel, SWALR
 from torch.optim.lr_scheduler import CosineAnnealingLR
+from logger import logPrint
 
 class KnowledgeDistiller:
     """
     A class for Knowledge Distillation using ensembles.
     """
-    def __init__(self, dataset, epochs=2, batch_size = 16, temperature=1):
+    def __init__(self, dataset, epochs=2, batch_size = 16, temperature=1, method='avglogits'):
         self.dataset = dataset
         self.batch_size = batch_size
         self.T = temperature
@@ -18,16 +19,21 @@ class KnowledgeDistiller:
         self.lr = 0.0001
         self.momentum = 0.5
         self.swa_lr = 0.005
+        self.method = method
         #self.Optim = optim.SGD
         #self.Loss = nn.KLDivLoss
     
     def distillKnowledge(self, teacher_ensemble, student_model):
         """
-        Takes in a teacher ensemble (list of models) and a student model (optional?).
+        Takes in a teacher ensemble (list of models) and a student model.
         Trains the student model using unlabelled dataset, then returns it.
+        Args:
+            teacher_ensemble is list of models used to construct pseudolabels using self.method
+            student_model is models that will be trained
         """
+            
         # Set labels as soft ensemble prediction
-        self.dataset.labels = self._pseudolabelsFromEnsemble(teacher_ensemble)
+        self.dataset.labels = self._pseudolabelsFromEnsemble(teacher_ensemble, self.method)
         
         opt = optim.SGD(student_model.parameters(),
                         momentum=self.momentum,
@@ -53,7 +59,7 @@ class KnowledgeDistiller:
                 err.backward()
                 total_err += err
                 opt.step()
-            print(f"KD epoch {i}: {total_err}")
+            logPrint(f"KD epoch {i}: {total_err}")
             scheduler.step()
             swa_model.update_parameters(student_model)
             swa_scheduler.step()
@@ -64,42 +70,40 @@ class KnowledgeDistiller:
     
     
     
-    def _pseudolabelsFromEnsemble(self, ensemble, method='logits'):
+    def _pseudolabelsFromEnsemble(self, ensemble, method=None):
         """
             Combines the probabilities to make ensemble predictions.
             3 possibile methods: 
-                logits: Takes softmax of the average outputs of the models 
-                prob: Averages the softmax of the outputs of the models
-                logprob: Averages the logsoftmax of the outputs of the models 
+                avglogits: Takes softmax of the average outputs of the models 
+                medlogits: Takes softmax of the median outputs of the models 
+                avgprob: Averages the softmax of the outputs of the models
             
             Idea: Use median instead of averages for the prediction probabilities! 
                 This might make the knowledge distillation more robust to confidently bad predictors.
         """
+        if method is None:
+            method = self.method
+            
         with torch.no_grad():
             pseudolabels = torch.zeros_like(ensemble[0](self.dataset.data))
             preds = torch.stack([m(self.dataset.data)/self.T for m in ensemble])
-            if method == 'logits':
-                #pseudolabels = preds.mean(dim=0)  # Final error: 8.89 with no attacks, alpha=0.1
-                pseudolabels, _ = preds.median(dim=0) # Final error: 8.52 with no attacks, alpha=0.1
+            
+            if method == 'avglogits':
+                pseudolabels = preds.mean(dim=0)
                 return F.softmax(pseudolabels, dim=1)
             
-            elif method == 'prob': # Only mean. The median probabilities lead to predictions not summing up to 1.
+            elif method == 'medlogits':
+                pseudolabels, _ = preds.median(dim=0)
+                return F.softmax(pseudolabels, dim=1)
+            
+            elif method == 'avgprob':
                 preds = F.softmax(preds, dim=2)
-                pseudolabels = preds.mean(dim=0) # Final error: 12.56 with no attacks, alpha=0.1
-                # Figure out why median works for logits but not prob
-                # Probably: The median value of a softmax function is small. Also, probabilities don't add up to 1.
-                #pseudolabels2 = preds.quantile(q=0.5,dim=0) 
-                #pseudolabels2, _ = preds.median(dim=0) 
-                return pseudolabels
-            
-            elif method == 'logprob': # Doesn't work, Probably doesn't make sense theoretically
-                preds = F.log_softmax(preds, dim=2)
                 pseudolabels = preds.mean(dim=0)
-                pseudolabels = torch.exp(pseudolabels)
-                #pseudolabels, _ = preds.median(dim=0)
                 return pseudolabels
             
-            return pseudolabels
+            else:
+                raise ValueError("pseudolabel method should be one of: avglogits, medlogits, avgprob")
+            
         
     
     

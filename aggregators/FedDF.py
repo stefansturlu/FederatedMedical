@@ -22,7 +22,6 @@ from utils.KnowledgeDistiller import KnowledgeDistiller
 class FedDFAggregator(Aggregator):
     """
     Federated Ensemble Distillation Aggregator that uses Knowledge Distillation to combine the client models into a global model.
-    TODO: Refactor code! FedBE uses distillation as well. The Distillation part can be a module in the utils folder.
     """
     
     def __init__(
@@ -39,6 +38,7 @@ class FedDFAggregator(Aggregator):
         self.distillationData = None # data is loaded in __runExperiment function
         self.sampleSize = config.sampleSize
         self.true_labels = None
+        self.pseudolabelMethod = 'avglogits'
         
     def trainAndTest(self, testDataset: DatasetInterface) -> Errors:
         roundsError = Errors(torch.zeros(self.rounds))
@@ -60,7 +60,7 @@ class FedDFAggregator(Aggregator):
         if self.true_labels is None:
             self.true_labels = self.distillationData.labels
             
-        kd = KnowledgeDistiller(self.distillationData)
+        kd = KnowledgeDistiller(self.distillationData, method=self.pseudolabelMethod)
         
         logPrint(f"FedDF: Distilling knowledge (ensemble error: {100*(1-self.ensembleAccuracy(kd._pseudolabelsFromEnsemble(models))):.2f} %)")
         

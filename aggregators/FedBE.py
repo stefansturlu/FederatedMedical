@@ -40,6 +40,7 @@ class FedBEAggregator(Aggregator):
         self.method = config.samplingMethod
         self.samplingAlpha = config.samplingDirichletAlpha
         self.true_labels = None
+        self.pseudolabelMethod = 'medlogits'
         
     def trainAndTest(self, testDataset: DatasetInterface) -> Errors:
         roundsError = Errors(torch.zeros(self.rounds))
@@ -65,7 +66,7 @@ class FedBEAggregator(Aggregator):
         if self.true_labels is None:
             self.true_labels = self.distillationData.labels
         
-        kd = KnowledgeDistiller(self.distillationData)
+        kd = KnowledgeDistiller(self.distillationData, self.pseudolabelMethod)
         
         ensembleError = 100*(1-self.ensembleAccuracy(kd._pseudolabelsFromEnsemble(ensemble)))
         modelsError = 100*(1-self.ensembleAccuracy(kd._pseudolabelsFromEnsemble(models)))
