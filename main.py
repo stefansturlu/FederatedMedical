@@ -224,6 +224,10 @@ def __runExperiment(
         serverDataSize = 0
 
     trainDatasets, testDataset, serverDataset = datasetLoader(config.percUsers, config.labels, config.datasetSize, config.nonIID, config.alphaDirichlet, serverDataSize)
+    # TODO: Print client data partition, i.e. how many of each class they have. Plot it and put it in report.
+    clientPartitions = torch.stack([torch.bincount(t.labels, minlength=10) for t in trainDatasets])
+    logPrint(f"Client partition (shape {clientPartitions.shape})")
+    logPrint(f"Data per client: {clientPartitions.sum(dim=1)}")
     clients = __initClients(config, trainDatasets, useDifferentialPrivacy)
     # Requires model input size update due to dataset generalisation and categorisation
     if config.requireDatasetAnonymization:

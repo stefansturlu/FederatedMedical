@@ -6,12 +6,13 @@ import torch.optim as optim
 from torch.optim.swa_utils import AveragedModel, SWALR
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from logger import logPrint
+from typing import List
 
 class KnowledgeDistiller:
     """
     A class for Knowledge Distillation using ensembles.
     """
-    def __init__(self, dataset, epochs=2, batch_size = 16, temperature=1, method='avglogits'):
+    def __init__(self, dataset, epochs=2, batch_size = 16, temperature=1, method='avglogits', malClients=[]):
         self.dataset = dataset
         self.batch_size = batch_size
         self.T = temperature
@@ -22,6 +23,7 @@ class KnowledgeDistiller:
         self.method = method
         #self.Optim = optim.SGD
         #self.Loss = nn.KLDivLoss
+        self.malClients = malClients
     
     def distillKnowledge(self, teacher_ensemble, student_model):
         """
@@ -93,7 +95,19 @@ class KnowledgeDistiller:
                 return F.softmax(pseudolabels, dim=1)
             
             elif method == 'medlogits':
-                pseudolabels, _ = preds.median(dim=0)
+                pseudolabels, idx = preds.median(dim=0)
+                
+                #if len(self.malClients) > 0:
+                    # IDEA: Use these median counts to weigh the models! See histograms on colab.
+                    # Could have a blocking system as well based on the median counters.
+                    #counts = torch.bincount(idx.view(-1), minlength=preds.size(0)) #
+                    #counts_p = counts/counts.sum()
+                    #logPrint(f"How often each client was the median:")
+                    #logPrint(", ".join([f"{c*100:.1f}%" for c in counts_p]))
+                    #logPrint(counts)
+                    #mask = torch.ones(counts.shape, dtype=bool)
+                    #mask[self.malClients] = False
+                    #print(f"Mean of mal: {counts_p[~mask].mean()*100:.1f}%, healthy: {counts_p[mask].mean()*100:.1f}%")
                 return F.softmax(pseudolabels, dim=1)
             
             elif method == 'avgprob':
@@ -106,6 +120,34 @@ class KnowledgeDistiller:
             
         
     
+    def medianBasedScores(self, ensemble: List[nn.Module], clients: List[nn.Module] = []) -> torch.Tensor:
+        """
+            Gives scores reative to how often the models had the median logit.
+        """
+        logPrint(f"Calculating model scores based on frequency of median logits")
+            
+        with torch.no_grad():
+            preds = torch.stack([m(self.dataset.data)/self.T for m in ensemble])
+            pseudolabels, idx = preds.median(dim=0)
+            
+            counts = torch.bincount(idx.view(-1), minlength=preds.size(0)) #
+            counts_p = counts/counts.sum()
+            
+            #logPrint(", ".join([f"{c*100:.1f}%" for c in counts_p]))
+            logPrint("Counts:",counts)
+            mask = torch.ones(counts.shape, dtype=bool)
+            mask[self.malClients] = False
+            print(f"Mean of attackers: {counts_p[~mask].mean()*100:.2f}%, healthy: {counts_p[mask].mean()*100:.2f}%")
+            
+            # If list of clients is provided, scale according to client.p
+            if len(clients) > 0:
+                client_p = torch.tensor([c.p for c in clients])
+                counts_p *= client_p
+                counts_p /= counts_p.sum()
+            
+            return counts_p
+
+            
     
         #def loss_fn_kd(outputs, labels, teacher_outputs, temperature):
         #"""

@@ -74,7 +74,7 @@ class FedABEAggregator(Aggregator):
         if self.true_labels is None:
             self.true_labels = self.distillationData.labels
         
-        kd = KnowledgeDistiller(self.distillationData, self.pseudolabelMethod)
+        kd = KnowledgeDistiller(self.distillationData, method=self.pseudolabelMethod)
         
         ensembleError = 100*(1-self.ensembleAccuracy(kd._pseudolabelsFromEnsemble(ensemble)))
         modelsError = 100*(1-self.ensembleAccuracy(kd._pseudolabelsFromEnsemble(models)))

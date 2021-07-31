@@ -213,7 +213,7 @@ class Aggregator:
         return model
     
     @staticmethod
-    def _weightedAverageModel(models: List[nn.Module], weights = None):
+    def _weightedAverageModel(models: List[nn.Module], weights: torch.Tensor = None):
         """
         Takes weighted average of models, using weights from clients.
         """
@@ -221,8 +221,8 @@ class Aggregator:
             return None
         
         client_p = torch.ones(len(models))/len(models)
-        if weights:
-            client_p = torch.tensor(weights)
+        if weights is not None:
+            client_p = weights
             
         model = deepcopy(models[0])
         model_state_dict = model.state_dict()

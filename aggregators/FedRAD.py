@@ -19,9 +19,9 @@ from copy import deepcopy
 from sklearn.metrics import confusion_matrix
 from utils.KnowledgeDistiller import KnowledgeDistiller
 
-class FedDFAggregator(Aggregator):
+class FedRADAggregator(Aggregator):
     """
-    Federated Ensemble Distillation Aggregator that uses Knowledge Distillation to combine the client models into a global model.
+    Federated Robust Adaptive Distillation aggregator (FedRAD), which uses Knowledge Distillation using medians for pseudolabels and median-based weighted average to combine the client models into a global model.
     """
     
     def __init__(
@@ -33,12 +33,12 @@ class FedDFAggregator(Aggregator):
     ):
         super().__init__(clients, model, config, useAsyncClients)
         
-        logPrint("INITIALISING FedDF Aggregator!")
+        logPrint("INITIALISING FedRAD Aggregator!")
         # Unlabelled data which will be used in Knowledge Distillation
         self.distillationData = None # data is loaded in __runExperiment function
         self.sampleSize = config.sampleSize
         self.true_labels = None
-        self.pseudolabelMethod = 'avglogits'
+        self.pseudolabelMethod = 'medlogits'
         
     def trainAndTest(self, testDataset: DatasetInterface) -> Errors:
         roundsError = Errors(torch.zeros(self.rounds))
@@ -62,9 +62,16 @@ class FedDFAggregator(Aggregator):
             
         kd = KnowledgeDistiller(self.distillationData, method=self.pseudolabelMethod, malClients = [i for i,c in enumerate(clients) if c.flip or c.byz])
         
-        logPrint(f"FedDF: Distilling knowledge (ensemble error: {100*(1-self.ensembleAccuracy(kd._pseudolabelsFromEnsemble(models))):.2f} %)")
+        logPrint(f"FedStefan: Distilling knowledge (ensemble error: {100*(1-self.ensembleAccuracy(kd._pseudolabelsFromEnsemble(models))):.2f} %)")
         
-        avg_model = self._averageModel(models, clients)
+        #client_p = torch.tensor([c.p for c in clients])
+        weights = kd.medianBasedScores(models, clients)
+        # Taking number of datapoints for clients into consideration
+        #weights = weights*client_p
+        #weights /= weights.sum()
+        print("StefanWeights:", ", ".join([f"{w*100:.1f}%" for w in weights]))
+        avg_model = self._weightedAverageModel(models, weights)
+        #avg_model = self._averageModel(models, clients)
         #avg_model = self._medianModel(models)
         avg_model = kd.distillKnowledge(models, avg_model)
         
