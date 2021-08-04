@@ -96,18 +96,6 @@ class KnowledgeDistiller:
             
             elif method == 'medlogits':
                 pseudolabels, idx = preds.median(dim=0)
-                
-                #if len(self.malClients) > 0:
-                    # IDEA: Use these median counts to weigh the models! See histograms on colab.
-                    # Could have a blocking system as well based on the median counters.
-                    #counts = torch.bincount(idx.view(-1), minlength=preds.size(0)) #
-                    #counts_p = counts/counts.sum()
-                    #logPrint(f"How often each client was the median:")
-                    #logPrint(", ".join([f"{c*100:.1f}%" for c in counts_p]))
-                    #logPrint(counts)
-                    #mask = torch.ones(counts.shape, dtype=bool)
-                    #mask[self.malClients] = False
-                    #print(f"Mean of mal: {counts_p[~mask].mean()*100:.1f}%, healthy: {counts_p[mask].mean()*100:.1f}%")
                 return F.softmax(pseudolabels, dim=1)
             
             elif method == 'avgprob':

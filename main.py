@@ -171,25 +171,28 @@ def __experimentSetup(
                 config, datasetLoader, classifier, aggregator, True, folder
             )
 
-        errorsDict[name] = errors
+        errorsDict[name] = errors.tolist()
         blocked[name] = block
 
-    # Writing the blocked lists to json file for later inspection
+    # Writing the blocked lists and errors to json files for later inspection. 
     if not os.path.isdir(folder):
         os.makedirs(folder)
     if not os.path.isdir(f"{folder}/json"):
         os.mkdir(f"{folder}/json")
     if not os.path.isdir(f"{folder}/graphs"):
         os.mkdir(f"{folder}/graphs")
-    with open(f"{folder}/json/{filename}.json", "w+") as outfile:
+    with open(f"{folder}/json/{filename} blocked.json", "w+") as outfile:
         json.dump(blocked, outfile)
+    with open(f"{folder}/json/{filename} errors.json", "w+") as outfile:
+        json.dump(errorsDict, outfile)
 
     # Plots the individual aggregator errors
     if config.plotResults:
         plt.figure()
         i = 0
         for name, err in errorsDict.items():
-            plt.plot(err.numpy(), color=COLOURS[i])
+            #plt.plot(err.numpy(), color=COLOURS[i])
+            plt.plot(err, color=COLOURS[i])
             i += 1
         plt.legend(errorsDict.keys())
         plt.xlabel(f"Rounds - {config.epochs} Epochs per Round")

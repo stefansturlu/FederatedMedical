@@ -26,8 +26,8 @@ class CustomConfig(DefaultExperimentConfiguration):
     def __init__(self):
         super().__init__()
         
-        self.nonIID = False
-        self.alphaDirichlet = 0.5 # For sampling
+        self.nonIID = True
+        self.alphaDirichlet = 0.3 # For sampling
         self.serverData = 1.0/6
         
         if self.nonIID:
@@ -35,47 +35,71 @@ class CustomConfig(DefaultExperimentConfiguration):
         else:
             iidString = 'IID'
 
-        experimentString = 'everything'
+        experimentString = 'saving stuff'
         
         self.scenarios: AttacksType = [
             ([], [], [], f"no_attack {iidString} {experimentString}"),
-            ([2, ], [], [], f"faulty_1 {iidString} {experimentString}"),
+            #([2, ], [], [], f"faulty_1 {iidString} {experimentString}"),
             #([2, 5], [], [], f"faulty_2 {iidString} {experimentString}"),
             #([2, 5, 8], [], [], f"faulty_3 {iidString} {experimentString}"),
             #([2, 5, 8, 11], [], [], f"faulty_4 {iidString} {experimentString}"),
-            ([2, 5, 8, 11, 14], [], [], f"faulty_5 {iidString} {experimentString}"),
+            #([2, 5, 8, 11, 14], [], [], f"faulty_5 {iidString} {experimentString}"),
             #([2, 5, 8, 11, 14, 17], [], [], f"faulty_6 {iidString} {experimentString}"),
             #([2, 5, 8, 11, 14, 17, 20], [], [], f"faulty_7 {iidString} {experimentString}"),
             #([2, 5, 8, 11, 14, 17, 20, 23], [], [], f"faulty_8 {iidString} {experimentString}"),
             #([2, 5, 8, 11, 14, 17, 20, 23, 26], [], [], f"faulty_9 {iidString} {experimentString}"),
-            ([2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [], [], f"faulty_10 {iidString} {experimentString}"),
-            ([], [2, ], [], f"mal_1 {iidString} {experimentString}"),
+            #([2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [], [], f"faulty_10 {iidString} {experimentString}"),
+            #([1,2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [], [], f"faulty_11 {iidString} {experimentString}"),
+            #([1,2, 4,5, 8, 11, 14, 17, 20, 23, 26, 29], [], [], f"faulty_12 {iidString} {experimentString}"),
+            #([1,2, 4,5, 7,8, 11, 14, 17, 20, 23, 26, 29], [], [], f"faulty_13 {iidString} {experimentString}"),
+            #([1,2, 4,5, 7,8, 10,11, 14, 17, 20, 23, 26, 29], [], [], f"faulty_14 {iidString} {experimentString}"),
+            #([1,2, 4,5, 7,8, 10,11, 13,14, 17, 20, 23, 26, 29], [], [], f"faulty_15 {iidString} {experimentString}"),
+            #([1,2, 4,5, 7,8, 10,11, 13,14, 16,17, 20, 23, 26, 29], [], [], f"faulty_16 {iidString} {experimentString}"),
+            #([1,2, 4,5, 7,8, 10,11, 13,14, 16,17, 19,20, 23, 26, 29], [], [], f"faulty_17 {iidString} {experimentString}"),
+            #([1,2, 4,5, 7,8, 10,11, 13,14, 16,17, 19,20, 22,23, 26, 29], [], [], f"faulty_18 {iidString} {experimentString}"),
+            #([1,2, 4,5, 7,8, 10,11, 13,14, 16,17, 19,20, 22,23, 25,26, 29], [], [], f"faulty_19 {iidString} {experimentString}"),
+            #([1,2, 4,5, 7,8, 10,11, 13,14, 16,17, 19,20, 22,23, 25,26, 28,29], [], [], f"faulty_20 {iidString} {experimentString}"),
+            #([], [2, ], [], f"mal_1 {iidString} {experimentString}"),
             #([], [2, 5], [], f"mal_2 {iidString} {experimentString}"),
             #([], [2, 5, 8], [], f"mal_3 {iidString} {experimentString}"),
             #([], [2, 5, 8, 11], [], f"mal_4 {iidString} {experimentString}"),
-            ([], [2, 5, 8, 11, 14], [], f"mal_5 {iidString} {experimentString}"),
+            #([], [2, 5, 8, 11, 14], [], f"mal_5 {iidString} {experimentString}"),
             #([], [2, 5, 8, 11, 14, 17], [], f"mal_6 {iidString} {experimentString}"),
             #([], [2, 5, 8, 11, 14, 17, 20], [], f"mal_7 {iidString} {experimentString}"),
             #([], [2, 5, 8, 11, 14, 17, 20, 23], [], f"mal_8 {iidString} {experimentString}"),
-            #([], [2, 5, 8, 11, 14, 17, 20, 23, 26], [], f"mal_2 {iidString} {experimentString}"),
-            ([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [], f"mal_10 {iidString} {experimentString}"),
+            #([], [2, 5, 8, 11, 14, 17, 20, 23, 26], [], f"mal_9 {iidString} {experimentString}"),
+            #([], [2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [], f"mal_10 {iidString} {experimentString}"),
             #([], [1,2, 5, 8, 11, 14, 17, 20, 23, 26, 29], [], f"mal_11 {iidString} {experimentString}"),
             #([], [1,2, 4,5, 8, 11, 14, 17, 20, 23, 26, 29], [], f"mal_12 {iidString} {experimentString}"),
             #([], [1,2, 4,5, 7,8, 11, 14, 17, 20, 23, 26, 29], [], f"mal_13 {iidString} {experimentString}"),
             #([], [1,2, 4,5, 7,8, 10,11, 14, 17, 20, 23, 26, 29], [], f"mal_14 {iidString} {experimentString}"),
-            #([], [1,2, 4,5, 7,8, 11, 13,14, 16,17, 20, 23, 26, 29], [], f"mal_15 {iidString} {experimentString}"),
-            #([], [1,2, 4,5, 7,8, 10,11, 13,14, 16,17, 19,20, 22,23, 25,26, 28,29], [], f"mal_15 {iidString} {experimentString}"),
-            ([2, 5, ], [17, 20, ], [], f"dual_faulty2_mal2 {iidString} {experimentString}"),
-            ([1, 4, 7, 10, 13], [17, 20, 23, 26, 29], [], f"dual_faulty5_mal5 {iidString} {experimentString}"),
+            #([], [1,2, 4,5, 7,8, 10,11, 13,14, 17, 20, 23, 26, 29], [], f"mal_15 {iidString} {experimentString}"),
+            #([], [1,2, 4,5, 7,8, 10,11, 13,14, 16,17, 20, 23, 26, 29], [], f"mal_16 {iidString} {experimentString}"),
+            #([], [1,2, 4,5, 7,8, 10,11, 13,14, 16,17, 19,20, 23, 26, 29], [], f"mal_17 {iidString} {experimentString}"),
+            #([], [1,2, 4,5, 7,8, 10,11, 13,14, 16,17, 19,20, 22,23, 26, 29], [], f"mal_18 {iidString} {experimentString}"),
+            #([], [1,2, 4,5, 7,8, 10,11, 13,14, 16,17, 19,20, 22,23, 25,26, 29], [], f"mal_19 {iidString} {experimentString}"),
+            #([], [1,2, 4,5, 7,8, 10,11, 13,14, 16,17, 19,20, 22,23, 25,26, 28,29], [], f"mal_20 {iidString} {experimentString}"),
+            #([2, ], [17, ], [], f"dual_faulty1_mal1 {iidString} {experimentString}"),
+            #([2, 5, ], [17, 20, ], [], f"dual_faulty2_mal2 {iidString} {experimentString}"),
+            #([2, 5, 8, ], [17, 20, 23, ], [], f"dual_faulty3_mal3 {iidString} {experimentString}"),
+            #([2, 5, 8, 11, ], [17, 20, 23, 26], [], f"dual_faulty4_mal4 {iidString} {experimentString}"),
+            #([2, 5, 8, 11, 14, ], [17, 20, 23, 26, 29], [], f"dual_faulty5_mal5 {iidString} {experimentString}"),
+            #([1,2, 5, 8, 11, 14, ], [16,17, 20, 23, 26, 29], [], f"dual_faulty6_mal6 {iidString} {experimentString}"),
+            #([1,2, 4,5, 8, 11, 14, ], [16,17, 19,20, 23, 26, 29], [], f"dual_faulty7_mal7 {iidString} {experimentString}"),
+            #([1,2, 4,5, 7,8, 11, 14, ], [16,17, 19,20, 22,23, 26, 29], [], f"dual_faulty8_mal8 {iidString} {experimentString}"),
+            #([1,2, 4,5, 7,8, 10,11, 14, ], [16,17, 19,20, 22,23, 25,26, 29], [], f"dual_faulty9_mal9 {iidString} {experimentString}"),
+            #([1,2, 4,5, 7,8, 10,11, 13,14, ], [16,17, 19,20, 22,23, 25,26, 28,29], [], f"dual_faulty10_mal10 {iidString} {experimentString}"),
         ]
             
         self.percUsers = torch.tensor(PERC_USERS, device=self.aggregatorConfig.device)
 
-        #self.aggregators = [FedRADAggregator, FedABEDAggregator, ]
-        self.aggregators = [FAAggregator, COMEDAggregator, MKRUMAggregator, AFAAggregator, FedMGDAPlusPlusAggregator, 
-                            FedDFAggregator, FedDFmedAggregator, FedADFAggregator, FedMGDAPlusDFAggregator, 
-                            FedBEAggregator, 
-                            FedRADAggregator, FedABEDAggregator]
+        self.aggregatorConfig.rounds = 4
+        
+        self.aggregators = [FAAggregator, ]
+#       self.aggregators = [FAAggregator, COMEDAggregator, MKRUMAggregator, AFAAggregator, FedMGDAPlusPlusAggregator, 
+#                           FedDFAggregator, FedDFmedAggregator, FedADFAggregator, FedMGDAPlusDFAggregator, 
+#                           FedBEAggregator, 
+#                           FedRADAggregator, FedABEDAggregator]
         
 
     def scenario_conversion(self):
