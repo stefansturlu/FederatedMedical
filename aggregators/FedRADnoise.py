@@ -2,7 +2,7 @@ from utils.typings import Errors
 from experiment.AggregatorConfig import AggregatorConfig
 from torch import nn
 import  torch.nn.functional as F
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 import torch.optim as optim
 from torch.optim.swa_utils import AveragedModel, SWALR
 from torch.optim.lr_scheduler import CosineAnnealingLR
@@ -14,14 +14,16 @@ from torch.distributions.dirichlet import Dirichlet
 from torch.distributions.normal import Normal
 from aggregators.Aggregator import Aggregator
 from datasetLoaders.DatasetInterface import DatasetInterface
-from torch.utils.data import DataLoader
 from copy import deepcopy
 from sklearn.metrics import confusion_matrix
 from utils.KnowledgeDistiller import KnowledgeDistiller
+from pandas import DataFrame
+from datasetLoaders.DatasetInterface import DatasetInterface
 
-class FedRADAggregator(Aggregator):
+class FedRADnoiseAggregator(Aggregator):
     """
-    Federated Robust Adaptive Distillation aggregator (FedRAD), which uses Knowledge Distillation using medians for pseudolabels and median-based weighted average to combine the client models into a global model.
+    Federated Robust Adaptive Distillation aggregator using noise (FedRADnoise), which uses Knowledge Distillation using medians for pseudolabels and median-based weighted average to combine the client models into a global model.
+    The server requires no data and only uses noise
     """
     
     def __init__(
@@ -33,9 +35,9 @@ class FedRADAggregator(Aggregator):
     ):
         super().__init__(clients, model, config, useAsyncClients)
         
-        logPrint("INITIALISING FedRAD Aggregator!")
+        logPrint("INITIALISING FedRADnoise Aggregator!")
         # Unlabelled data which will be used in Knowledge Distillation
-        self.distillationData = None # data is loaded in __runExperiment function
+        #self.distillationData = None # data is loaded in __runExperiment function
         self.sampleSize = config.sampleSize
         self.true_labels = None
         self.pseudolabelMethod = 'medlogits'
@@ -57,22 +59,31 @@ class FedRADAggregator(Aggregator):
     
     def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
         
-        if self.true_labels is None:
-            self.true_labels = self.distillationData.labels
+        class DataObject: # Quick and dirty solution to make a data-like object with random noise
+            def __init__(self, data, labels):
+                self.data = data
+                self.labels = labels
+            def __len__(self):
+                return len(self.data)
+            def __getitem__(self, index):
+                return self.data[index], self.labels[index]
             
-        kd = KnowledgeDistiller(self.distillationData, method=self.pseudolabelMethod, malClients = [i for i,c in enumerate(clients) if c.flip or c.byz])
+        # Random noise data. Labels are replaced by pseudolabels during knowledge distillation
+        distillationData = DataObject(torch.rand(size=[10000,28*28]), torch.zeros(10000)) 
+            
+        kd = KnowledgeDistiller(distillationData, method=self.pseudolabelMethod, malClients = [i for i,c in enumerate(clients) if c.flip or c.byz])
         
-        logPrint(f"FedRAD: Distilling knowledge (ensemble error: {100*(1-self.ensembleAccuracy(kd._pseudolabelsFromEnsemble(models))):.2f} %)")
+        #logPrint(f"FedBRAD: Distilling knowledge (ensemble error: {100*(1-self.ensembleAccuracy(kd._pseudolabelsFromEnsemble(models))):.2f} %)")
         
         #client_p = torch.tensor([c.p for c in clients])
         weights = kd.medianBasedScores(models, clients)
         # Taking number of datapoints for clients into consideration
         #weights = weights*client_p
         #weights /= weights.sum()
-        logPrint("Median scores:", ", ".join([f"{w*100:.1f}%" for w in weights]))
+        print("Median based scores:", ", ".join([f"{w*100:.1f}%" for w in weights]))
         avg_model = self._weightedAverageModel(models, weights)
-        #avg_model = self._averageModel(models, clients)
-        #avg_model = self._medianModel(models)
+        
+        # We skip knowledge distillation on the random noise.
         avg_model = kd.distillKnowledge(models, avg_model)
         
         return avg_model
@@ -83,12 +94,12 @@ class FedRADAggregator(Aggregator):
         return 1.0 * mconf.diagonal().sum() / len(self.distillationData)
         
         
-    @staticmethod
-    def requiresData():
-        """
-        Returns boolean value depending on whether the aggregation method requires server data or not.
-        """
-        return True
+    #@staticmethod
+    #def requiresData():
+        #"""
+        #Returns boolean value depending on whether the aggregation method requires server data or not.
+        #"""
+        #return False
         
     
 

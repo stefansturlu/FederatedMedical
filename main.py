@@ -37,6 +37,7 @@ from aggregators.FedBE import FedBEAggregator
 from aggregators.FedDF import FedDFAggregator
 from aggregators.FedABE import FedABEAggregator
 
+SEED = 0
 
 # Colours used for graphing, add more if necessary
 COLOURS: List[str] = [
@@ -183,7 +184,7 @@ def __experimentSetup(
         os.mkdir(f"{folder}/graphs")
     with open(f"{folder}/json/{filename} blocked.json", "w+") as outfile:
         json.dump(blocked, outfile)
-    with open(f"{folder}/json/{filename} errors.json", "w+") as outfile:
+    with open(f"{folder}/json/{filename} errors (Seed: {SEED}).json", "w+") as outfile:
         json.dump(errorsDict, outfile)
 
     # Plots the individual aggregator errors
@@ -229,8 +230,9 @@ def __runExperiment(
     trainDatasets, testDataset, serverDataset = datasetLoader(config.percUsers, config.labels, config.datasetSize, config.nonIID, config.alphaDirichlet, serverDataSize)
     # TODO: Print client data partition, i.e. how many of each class they have. Plot it and put it in report.
     clientPartitions = torch.stack([torch.bincount(t.labels, minlength=10) for t in trainDatasets])
-    logPrint(f"Client partition (shape {clientPartitions.shape})")
-    logPrint(f"Data per client: {clientPartitions.sum(dim=1)}")
+    logPrint(f"Client data partition (alpha={config.alphaDirichlet}, percentage on server: {100*serverDataSize:.2f}%)")
+    #logPrint(f"Data per client: {clientPartitions.sum(dim=1)}")
+    logPrint(f"Number of samples per class for each client: \n{clientPartitions}")
     clients = __initClients(config, trainDatasets, useDifferentialPrivacy)
     # Requires model input size update due to dataset generalisation and categorisation
     if config.requireDatasetAnonymization:
@@ -363,12 +365,13 @@ def __initClients(
     return clients
 
 
-def __setRandomSeeds(seed=0) -> None:
+def __setRandomSeeds(seed=SEED) -> None:
     """
     Sets random seeds for all of the relevant modules.
 
     Ensures consistent and deterministic results from experiments.
     """
+    print(f"Setting seeds to {seed}")
     os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
