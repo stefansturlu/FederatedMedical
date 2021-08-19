@@ -28,7 +28,7 @@ class CustomConfig(DefaultExperimentConfiguration):
         super().__init__()
         
         #self.aggregatorConfig.rounds = 100
-        self.nonIID = True
+        self.nonIID = False
         self.alphaDirichlet = 0.1 # For sampling
         self.serverData = 1.0/6
         

@@ -10,6 +10,7 @@ from loguru import logger
 from experiment.DefaultExperimentConfiguration import DefaultExperimentConfiguration
 from datasetLoaders.MNIST import DatasetLoaderMNIST
 from datasetLoaders.COVIDx import DatasetLoaderCOVIDx
+from datasetLoaders.COVID19 import DatasetLoaderCOVID19
 from datasetLoaders.Pneumonia import DatasetLoaderPneumonia
 
 
@@ -84,6 +85,15 @@ def __experimentOnMNIST(
     classifier = MNIST.Classifier
     return __experimentSetup(config, dataLoader, classifier, title, filename, folder)
 
+def __experimentOnCOVID19(
+    config: DefaultExperimentConfiguration, title="", filename="", folder="DEFAULT"
+) -> Dict[str, Errors]:
+    """
+    COVID19 Experiment with default settings
+    """
+    dataLoader = DatasetLoaderCOVID19().getDatasets
+    classifier = CovidNet.Classifier
+    return __experimentSetup(config, dataLoader, classifier, title, filename, folder)
 
 def __experimentOnCOVIDx(
     config: DefaultExperimentConfiguration,
@@ -418,7 +428,7 @@ def program() -> None:
     errorsDict = {}
 
     for attackName in config.scenario_conversion():
-        errors = __experimentOnMNIST(
+        errors = __experimentOnCOVID19(
             config,
             title=f"Basic CustomConfig Test \n Attack: {attackName}",
             filename=f"{attackName}",
