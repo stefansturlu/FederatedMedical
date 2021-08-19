@@ -159,7 +159,7 @@ class Client:
             self.__manipulateModel()
 
         if self.useDifferentialPrivacy:
-            self.__privacyPreserve()
+            self.__privacyPreserve(self.epsilon1, self.epsilon3, self.clipValue, self.releaseProportion, self.needClip, self.needNormalization)
 
         return self.model
 
@@ -181,11 +181,12 @@ class Client:
         needNormalization: bool = False,
     ):
         """
-        Implements differential privacy and applies it to the model
+        Implements differential privacy and applies it to the model. NOTE: Bug in implementation. Currently only does partial weight sharing.
         """
         gamma = clipValue  # gradient clipping value
         s = 2 * gamma  # sensitivity
         Q = releaseProportion  # proportion to release
+        #print("Parameters:", eps1, eps3, clipValue, releaseProportion, needClip, needNormalization)
 
         # The gradients of the model parameters
         paramArr = nn.utils.parameters_to_vector(self.model.parameters())
@@ -218,7 +219,9 @@ class Client:
         queryNoise = torch.tensor(queryNoise).to(self.device)
 
         releaseIndex = torch.empty(0).to(self.device)
-        while torch.sum(releaseIndex) < shareParamsNo:
+        num_iter = 0
+        while torch.sum(releaseIndex) < shareParamsNo and num_iter < 100:
+            num_iter+=1
             if needClip:
                 noisyQuery = abs(clip(paramChanges, -gamma, gamma)) + queryNoise
             else:
@@ -226,6 +229,8 @@ class Client:
             noisyQuery = noisyQuery.to(self.device)
             releaseIndex = (noisyQuery >= noisyThreshold).to(self.device)
 
+        #print("Sum of release index", torch.sum(releaseIndex))
+        
         filteredChanges = paramChanges[releaseIndex]
 
         answerNoise = laplace.rvs(
@@ -254,5 +259,14 @@ class Client:
         #                    noisyFilteredChanges[0]))
         # sys.stdout.flush()
 
+        #print("shareParamsNo:", shareParamsNo)
         paramArr = untrainedParamArr
-        paramArr[releaseIndex][:shareParamsNo] += noisyFilteredChanges[:shareParamsNo]
+        
+        # Noisy updates aren't performing as expected. Instead, we just use partial weight sharing.
+        #paramArr[releaseIndex.nonzero(as_tuple=True)[0][:shareParamsNo]] += noisyFilteredChanges[:shareParamsNo]
+        paramArr[releaseIndex.nonzero(as_tuple=True)[0][:shareParamsNo]] += paramChanges[releaseIndex][:shareParamsNo]
+        
+        # Unshuffle param array and load to model
+        idx = torch.argsort(r)
+        paramArr = paramArr[idx]
+        torch.nn.utils.vector_to_parameters(paramArr, self.model.parameters())
