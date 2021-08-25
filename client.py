@@ -13,6 +13,7 @@ from scipy.stats import laplace
 
 from logger import logPrint
 
+import gc
 
 class Client:
     """ An internal representation of a client """
@@ -126,6 +127,7 @@ class Client:
                 y = y.to(self.device)
                 err, pred = self._trainClassifier(x, y)
 
+        gc.collect()
         cuda.empty_cache()
         self.model = self.model
         return err, pred

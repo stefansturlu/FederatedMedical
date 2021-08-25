@@ -8,7 +8,7 @@ import torch
 from aggregators.Aggregator import Aggregator
 from datasetLoaders.DatasetInterface import DatasetInterface
 from copy import deepcopy
-
+import gc
 
 class FAAggregator(Aggregator):
     """
@@ -27,6 +27,8 @@ class FAAggregator(Aggregator):
     def trainAndTest(self, testDataset: DatasetInterface) -> Errors:
         roundsError = Errors(torch.zeros(self.rounds))
         for r in range(self.rounds):
+            gc.collect()
+            torch.cuda.empty_cache()
             logPrint("Round... ", r)
             self._shareModelAndTrainOnClients()
             models = self._retrieveClientModelsDict()

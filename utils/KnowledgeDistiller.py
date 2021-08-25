@@ -7,12 +7,13 @@ from torch.optim.swa_utils import AveragedModel, SWALR
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from logger import logPrint
 from typing import List
+import gc
 
 class KnowledgeDistiller:
     """
     A class for Knowledge Distillation using ensembles.
     """
-    def __init__(self, dataset, epochs=2, batch_size = 16, temperature=1, method='avglogits', malClients=[]):
+    def __init__(self, dataset, epochs=2, batch_size = 16, temperature=1, method='avglogits', malClients=[], device='cuda:0'):
         self.dataset = dataset
         self.batch_size = batch_size
         self.T = temperature
@@ -21,6 +22,7 @@ class KnowledgeDistiller:
         self.momentum = 0.5
         self.swa_lr = 0.005
         self.method = method
+        self.device=device
         #self.Optim = optim.SGD
         #self.Loss = nn.KLDivLoss
         self.malClients = malClients
@@ -34,6 +36,8 @@ class KnowledgeDistiller:
             student_model is models that will be trained
         """
             
+        gc.collect()
+        torch.cuda.empty_cache()
         # Set labels as soft ensemble prediction
         self.dataset.labels = self._pseudolabelsFromEnsemble(teacher_ensemble, self.method)
         
@@ -68,6 +72,8 @@ class KnowledgeDistiller:
             
             torch.optim.swa_utils.update_bn(dataLoader, swa_model)
         
+        gc.collect()
+        torch.cuda.empty_cache()
         return swa_model.module
     
     
@@ -87,8 +93,15 @@ class KnowledgeDistiller:
             method = self.method
             
         with torch.no_grad():
-            pseudolabels = torch.zeros_like(ensemble[0](self.dataset.data))
-            preds = torch.stack([m(self.dataset.data)/self.T for m in ensemble])
+            dataLoader = DataLoader(self.dataset, batch_size=self.batch_size)
+            preds = []
+            for i, (x,y) in enumerate(dataLoader):
+                predsBatch = torch.stack([m(x)/self.T for m in ensemble])
+                preds.append(predsBatch)
+            preds = torch.cat(preds, dim=1)
+            print(f"Final preds shape: {preds.shape}")
+
+            #preds = torch.stack([m(self.dataset.data)/self.T for m in ensemble])
             
             if method == 'avglogits':
                 pseudolabels = preds.mean(dim=0)
@@ -114,25 +127,35 @@ class KnowledgeDistiller:
         """
         logPrint(f"Calculating model scores based on frequency of median logits")
             
+        gc.collect()
+        torch.cuda.empty_cache()
         with torch.no_grad():
-            preds = torch.stack([m(self.dataset.data)/self.T for m in ensemble])
+            dataLoader = DataLoader(self.dataset, batch_size=self.batch_size)
+            preds = []
+            for i, (x,y) in enumerate(dataLoader):
+                predsBatch = torch.stack([m(x)/self.T for m in ensemble])
+                preds.append(predsBatch)
+            preds = torch.cat(preds, dim=1)
             pseudolabels, idx = preds.median(dim=0)
             
-            counts = torch.bincount(idx.view(-1), minlength=preds.size(0)) #
+            counts = torch.bincount(idx.view(-1), minlength=preds.size(0)).to(self.device) #
             counts_p = counts/counts.sum()
             
             #logPrint(", ".join([f"{c*100:.1f}%" for c in counts_p]))
             logPrint("Counts:",counts)
             mask = torch.ones(counts.shape, dtype=bool)
             mask[self.malClients] = False
+            mask = mask.to(self.device)
             print(f"Mean of attackers: {counts_p[~mask].mean()*100:.2f}%, healthy: {counts_p[mask].mean()*100:.2f}%")
             
             # If list of clients is provided, scale according to client.p
             if len(clients) > 0:
-                client_p = torch.tensor([c.p for c in clients])
+                client_p = torch.tensor([c.p for c in clients]).to(self.device)
                 counts_p *= client_p
                 counts_p /= counts_p.sum()
             
+            gc.collect()
+            torch.cuda.empty_cache()
             return counts_p
 
             

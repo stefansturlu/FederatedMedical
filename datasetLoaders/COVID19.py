@@ -101,12 +101,6 @@ class DatasetLoaderCOVID19(DatasetLoader):
             self.data = torch.stack(
                 [torch.from_numpy(data).view(-1,224,224) for data in dataframe["data"].values], dim=0
             )
-            #dataframe["labels"].values = dataframe["labels"].values.astype(int)
-            print(dataframe["labels"].values)
-            print(type(dataframe["labels"].values))
-            print(dataframe["labels"].values[0])
-            print(type(dataframe["labels"].values[0]))
-
             super().__init__(dataframe["labels"].values.astype(int))
 
         def __len__(self):

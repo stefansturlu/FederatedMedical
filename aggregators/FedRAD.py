@@ -60,7 +60,7 @@ class FedRADAggregator(Aggregator):
         if self.true_labels is None:
             self.true_labels = self.distillationData.labels
             
-        kd = KnowledgeDistiller(self.distillationData, method=self.pseudolabelMethod, malClients = [i for i,c in enumerate(clients) if c.flip or c.byz])
+        kd = KnowledgeDistiller(self.distillationData, method=self.pseudolabelMethod, malClients = [i for i,c in enumerate(clients) if c.flip or c.byz], device=self.device)
         
         logPrint(f"FedRAD: Distilling knowledge (ensemble error: {100*(1-self.ensembleAccuracy(kd._pseudolabelsFromEnsemble(models))):.2f} %)")
         

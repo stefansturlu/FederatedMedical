@@ -92,7 +92,7 @@ def __experimentOnCOVID19(
     COVID19 Experiment with default settings
     """
     dataLoader = DatasetLoaderCOVID19().getDatasets
-    classifier = CovidNet.Classifier
+    classifier = CNN.Classifier
     return __experimentSetup(config, dataLoader, classifier, title, filename, folder)
 
 def __experimentOnCOVIDx(

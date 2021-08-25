@@ -14,6 +14,7 @@ from typing import List, Optional, Type
 import torch
 from random import uniform
 from copy import deepcopy
+import gc
 
 
 class Aggregator:
@@ -110,6 +111,8 @@ class Aggregator:
                 thread.join()
         else:
             for client in chosen_clients:
+                gc.collect()
+                torch.cuda.empty_cache()
                 model = models[labels[client.id]]
                 self.__shareModelAndTrainOnClient(client, model)
 
@@ -148,17 +151,17 @@ class Aggregator:
         with torch.no_grad():
             predLabels, testLabels = zip(*[(self.predict(self.model, x), y) for x, y in dataLoader])
 
-        predLabels = torch.tensor(predLabels, dtype=torch.long)
-        testLabels = torch.tensor(testLabels, dtype=torch.long)
+            predLabels = torch.tensor(predLabels, dtype=torch.long)
+            testLabels = torch.tensor(testLabels, dtype=torch.long)
 
-        # Confusion matrix and normalized confusion matrix
-        mconf = confusion_matrix(testLabels, predLabels)
-        accPerClass = (mconf/(mconf.sum(axis=0)+0.00001)[:,np.newaxis]).diagonal()
-        logPrint(f"Accuracy per class:\n\t{accPerClass}")
-        errors: float = 1 - 1.0 * mconf.diagonal().sum() / len(testDataset)
-        logPrint("Error Rate: ", round(100.0 * errors, 3), "%")
+            # Confusion matrix and normalized confusion matrix
+            mconf = confusion_matrix(testLabels, predLabels)
+            accPerClass = (mconf/(mconf.sum(axis=0)+0.00001)[:,np.newaxis]).diagonal()
+            logPrint(f"Accuracy per class:\n\t{accPerClass}")
+            errors: float = 1 - 1.0 * mconf.diagonal().sum() / len(testDataset)
+            logPrint("Error Rate: ", round(100.0 * errors, 3), "%")
 
-        return errors
+            return errors
 
     def predict(self, net: nn.Module, x):
         """
