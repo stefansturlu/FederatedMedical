@@ -40,7 +40,7 @@ class FedBEAggregator(Aggregator):
         self.method = config.samplingMethod
         self.samplingAlpha = config.samplingDirichletAlpha
         self.true_labels = None
-        self.pseudolabelMethod = 'medlogits'
+        self.pseudolabelMethod = 'avgprob'
         
     def trainAndTest(self, testDataset: DatasetInterface) -> Errors:
         roundsError = Errors(torch.zeros(self.rounds))

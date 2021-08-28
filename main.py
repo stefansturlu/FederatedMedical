@@ -428,7 +428,7 @@ def program() -> None:
     errorsDict = {}
 
     for attackName in config.scenario_conversion():
-        errors = __experimentOnCOVID19(
+        errors = __experimentOnMNIST(
             config,
             title=f"Basic CustomConfig Test \n Attack: {attackName}",
             filename=f"{attackName}",

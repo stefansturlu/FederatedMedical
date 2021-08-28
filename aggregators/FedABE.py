@@ -21,8 +21,7 @@ from utils.KnowledgeDistiller import KnowledgeDistiller
 
 class FedABEAggregator(Aggregator):
     """
-    A novel aggregator called Federated Adaptive Bayesian Ensemble (FedABE), which fits a Dirichlet distribution to the models based on an alpha score, samples weighted combinations of models from the distribution and uses Knowledge Distillation to combine the ensemble into a global model.
-    Target: An aggregator that is more robust to attacks.
+    A novel aggregator called Federated Adaptive Bayesian Ensembling (FedABE), which fits a Dirichlet distribution to the models based on an alpha score, samples weighted combinations of models from the distribution and uses Knowledge Distillation to combine the ensemble into a global model.
     """
     
     def __init__(
@@ -45,6 +44,7 @@ class FedABEAggregator(Aggregator):
         self.xi: float = config.xi
         self.deltaXi: float = config.deltaXi
         self.pseudolabelMethod = 'medlogits'
+        self.threshold = 0.0 # For median-counting blocker
         
     def trainAndTest(self, testDataset: DatasetInterface) -> Errors:
         roundsError = Errors(torch.zeros(self.rounds))
@@ -62,136 +62,39 @@ class FedABEAggregator(Aggregator):
         return roundsError
     
     def aggregate(self, clients: List[Client], models: List[nn.Module]) -> nn.Module:
-
-        logPrint(f"Step 1 of FedABE: Calculating client scores based on models.")
-        # IDEA: Use server set predictions to compare similarities, instead of model weights. Maybe even both?
-        self._updateClientScores(clients, models)
-        
-        # STEP 2: Construct distribution of models from which to sample, and sample M models
-        logPrint(f"Step 2 of FedABE: Constructing distribution from {len(models)} models and sampling {self.sampleSize} models.")
-        ensemble = self._sampleModels(clients, models, self.method)
-                
         if self.true_labels is None:
             self.true_labels = self.distillationData.labels
         
-        kd = KnowledgeDistiller(self.distillationData, method=self.pseudolabelMethod)
+        kd = KnowledgeDistiller(self.distillationData, method=self.pseudolabelMethod,
+                                malClients = [i for i,c in enumerate(clients) if c.flip or c.byz], device=self.device)
         
-        ensembleError = 100*(1-self.ensembleAccuracy(kd._pseudolabelsFromEnsemble(ensemble)))
-        modelsError = 100*(1-self.ensembleAccuracy(kd._pseudolabelsFromEnsemble(models)))
-        logPrint(f"Step 2 of FedBE: Distilling knowledge (ensemble error: {ensembleError:.2f} %, models error: {modelsError:.2f})")
+        logPrint("FedABED Step 1: Calculating scores")
+        # Get weights for Dirichlet sampling. Make boolean mask for zero-values
+        weights = kd.medianBasedScores(models, clients)
         
-        avg_model = self._averageModel(models, clients)
+        # Filter out clients below threshold
+        mask = ~(weights<=self.threshold)
+        weights = weights[mask] / weights[mask].sum() # Filtered and normalised
+        good_models = [models[i] for i, b in enumerate(mask) if b]
+        
+        logPrint(f"FedABED Step 2: Sampling ensemble of size {self.sampleSize} from {len(good_models)} models.")
+        # STEP 1: Construct distribution of models from which to sample, and sample M models
+        ensemble = self._sampleModels(good_models, weights, self.method) 
+        
+        err_e = 100*(1-self.ensembleAccuracy(kd._pseudolabelsFromEnsemble(ensemble)))
+        err_m = 100*(1-self.ensembleAccuracy(kd._pseudolabelsFromEnsemble(models)))
+        
+        logPrint(f"FedABED Step 3: Distilling knowledge (Errors - models: {err_m:.1f}%, ensemble: {err_e:.1f}%)")
+        avg_model = self._weightedAverageModel(good_models, weights)
         #avg_model = self._medianModel(models)
         #avg_model = self._averageModel(ensemble)
         avg_model = kd.distillKnowledge(ensemble, avg_model)
         
         return avg_model
     
-    def _updateClientScores(self, clients: List[Client], models: List[nn.Module]) -> None:
-        """
-        # Client scores can be kept in either .score, .pEpoch, or in .alpha & .beta
-        # Might be wise to figure out what to use for probability weighing. Probably .score
-        # In AFA.py:
-            .p = proportion of data
-            .pEpoch = p_{k_t} * n_k / N, N = sum(p_{k_t}*n_k)
-            .score = p_{k_t}, i.e. alpha / (alpha+beta)
-            .alpha, .beta
-        """
-        empty_model = deepcopy(self.model)
-        self.renormalise_weights(clients)
-        
-        badCount = 1
-        slack = self.xi
-        
-        # This while loop calculates number of bad updates
-        while badCount != 0:
-            pT_epoch = 0.0
-            
-            # Recalculate pEpoch
-            for client in clients:
-                if not (client.blocked | client.badUpdate):
-                    client.pEpoch = client.n*client.score
-                    pT_epoch += client.pEpoch
-                else:
-                    client.pEpoch = 0 # To prevent it affecting aggregated models
-            # normalise pEpoch
-            for client in clients:
-                if not (client.blocked | client.badUpdate):
-                    client.pEpoch /= pT_epoch
-                    
-            # Combine good models using pEpoch as weights
-            weights = [c.pEpoch for c in clients]
-            empty_model = self._weightedAverageModel(models, weights)
-            
-            # Calculate similarities
-            sim = torch.zeros(len(clients)).to(self.device)
-            for i, client in enumerate(clients):
-                if not (client.blocked | client.badUpdate):
-                    client.sim = self.__modelSimilarity(empty_model, models[i])
-                    sim[i] = client.sim
-            
-            # Calculate mean, median and std dev
-            meanS = torch.mean(sim)
-            medianS = torch.median(sim)
-            stdevS = torch.std(sim)
-            
-            if meanS < medianS:
-                th = medianS - slack * stdevS
-            else:
-                th = medianS + slack * stdevS
-            slack += self.deltaXi
-
-            badCount = 0
-            for client in clients:
-                if not client.badUpdate:
-                    # Malicious clients are below the threshold
-                    if meanS < medianS:
-                        if client.sim < th:
-                            client.badUpdate = True
-                            badCount += 1
-                    # Malicious clients are above the threshold
-                    else:
-                        if client.sim > th:
-                            client.badUpdate = True
-                            badCount += 1
-                            
-        # Update scores for clients. For now: No blocking.
-        pT = 0.0
-        for client in clients:
-            # update user score (alpha and beta)
-            if client.badUpdate:
-                client.beta += 1
-            else:
-                client.alpha += 1
-            client.score = client.alpha / client.beta
-            
-            # no blocking for now
-            client.p = client.n * client.score
-            pT = pT + client.p
-            
-        # Normalise client's actual weighting
-        for client in clients:
-            client.p /= pT
-            
-        # Update model's epoch weights with the updated scores
-        pT_epoch = 0.0 
-        for client in clients:
-            if not (client.blocked | client.badUpdate):
-                client.pEpoch = client.n * client.score
-                pT_epoch += client.pEpoch
-        
-        for client in clients:
-            if not (client.blocked | client.badUpdate):
-                client.pEpoch /= pT_epoch
-        
-
-        print("Client scores:",[c.score for c in clients])
-        # Now all the client weights (alphas, betas, p, pEpoch) have been updated and can be used for sampling
-        return None
-
     
     
-    def _sampleModels(self, clients: List[Client], models: List[nn.Module], method='dirichlet') -> List[nn.Module]:
+    def _sampleModels(self, models: List[nn.Module], weights: torch.Tensor, method='dirichlet') -> List[nn.Module]:
         """
         Sampling models using Gaussian or Dirichlet distributiton. Dirichlet distribution can be used client-wise or elementwise
         
@@ -200,10 +103,9 @@ class FedABEAggregator(Aggregator):
         models: List of the clients' models.
         """
         
-        self.renormalise_weights(clients)
         M = self.sampleSize
         sampled_models = [deepcopy(self.model) for _ in range(M)]
-        client_p = torch.tensor([c.p for c in clients])
+        client_p = weights
         
         if method == 'dirichlet_elementwise':
             logPrint("Sampling using Dirichlet method elementwise")

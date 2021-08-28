@@ -16,9 +16,10 @@ from aggregators.FedPADRC import FedPADRCAggregator
 from aggregators.FedBE import FedBEAggregator
 from aggregators.FedDF import FedDFAggregator
 from aggregators.FedABE import FedABEAggregator
-from aggregators.FedABED import FedABEDAggregator
+from aggregators.FedAFABE import FedAFABEAggregator
 from aggregators.FedADF import FedADFAggregator
 from aggregators.FedDFmed import FedDFmedAggregator
+from aggregators.FedBEmed import FedBEmedAggregator
 from aggregators.FedRAD import FedRADAggregator
 from aggregators.FedRADnoise import FedRADnoiseAggregator
 
@@ -27,10 +28,10 @@ class CustomConfig(DefaultExperimentConfiguration):
     def __init__(self):
         super().__init__()
         
-        self.aggregatorConfig.rounds = 50
         self.nonIID = False
-        self.alphaDirichlet = 0.1 # For sampling
+        self.alphaDirichlet = 0.5 # For sampling
         self.serverData = 1.0/6
+        #self.aggregatorConfig.rounds = 10
         
         if self.nonIID:
             iidString = f'non-IID alpha={self.alphaDirichlet}'
@@ -51,12 +52,13 @@ class CustomConfig(DefaultExperimentConfiguration):
         #self.amplificationP = 0.33
 
         
-        self.epochs = 10
-        self.momentum = 0.8
-        self.lr = 0.00001
-        self.batchSize = 32
+        #self.aggregatorConfig.rounds = 30
+        #self.epochs = 10
+        #self.momentum = 0.8
+        #self.lr = 0.00001
+        #self.batchSize = 32
 
-        experimentString = f'COVID-19 ({len(PERC_USERS)} clients, {self.epochs} epoch, lr: {self.lr}, batchSize: {self.batchSize})'
+        experimentString = f'everything attacks'
         
         self.scenarios: AttacksType = [
             ([], [], [], f"no_attack {iidString} {experimentString}"),
@@ -113,12 +115,15 @@ class CustomConfig(DefaultExperimentConfiguration):
         ]
             
         self.percUsers = torch.tensor(PERC_USERS, device=self.aggregatorConfig.device)
-
-        self.aggregators = [FedRADAggregator, FAAggregator]
-        #self.aggregators = [FAAggregator, COMEDAggregator, MKRUMAggregator, AFAAggregator, FedMGDAPlusPlusAggregator, 
-                            #FedDFAggregator, FedDFmedAggregator, FedADFAggregator, FedMGDAPlusDFAggregator, 
-                            #FedBEAggregator, 
-                            #FedRADAggregator, FedABEDAggregator]
+        #FedAvg, COMED, MKRUM, FedMGDA+, AFA
+        #self.aggregators = [FAAggregator, FedDFAggregator, FedDFmedAggregator, FedBEAggregator, FedBEmedAggregator]
+        self.aggregators = [FAAggregator, COMEDAggregator, MKRUMAggregator, AFAAggregator, FedMGDAPlusPlusAggregator, 
+                            FedDFAggregator, FedDFmedAggregator, 
+                            FedBEAggregator, FedBEmedAggregator,
+                            FedADFAggregator, FedMGDAPlusDFAggregator, 
+                            FedRADAggregator, FedABEAggregator,
+                            FedRADnoiseAggregator, 
+        ]
         
 
     def scenario_conversion(self):
@@ -139,7 +144,13 @@ class CustomConfig(DefaultExperimentConfiguration):
             
 # Determines how much data each client gets (normalised)
 PERC_USERS: List[float] = [
-    0.1, 0.15, 0.2, 0.2, 0.1, 0.15, 0.1, 0.15, 0.2, 0.2,
-    #0.1, 0.15, 0.2, 0.2, 0.1, 0.15, 0.1, 0.15, 0.2, 0.2,
-    #0.1, 0.15, 0.2, 0.2, 0.1, 0.15, 0.1, 0.15, 0.2, 0.2,
+    0.1, 0.15, 0.2, 0.2, 
+    0.1, 0.15, 
+    0.1, 0.15, 0.2, 0.2,
+    0.1, 0.15, 0.2, 0.2,
+    0.1, 0.15, 
+    0.1, 0.15, 0.2, 0.2,
+    0.1, 0.15, 0.2, 0.2, 
+    0.1, 0.15, 
+    0.1, 0.15, 0.2, 0.2,
 ]

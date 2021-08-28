@@ -44,6 +44,6 @@ class AggregatorConfig:
             
         # FedBE Parameters
         self.sampleSize = 15 # Number of models sampled
-        self.samplingMethod = 'dirichlet_elementwise' # gaussian, dirichlet, dirichlet_elementwise
+        self.samplingMethod = 'dirichlet' # gaussian, dirichlet, dirichlet_elementwise
         self.samplingDirichletAlpha = 0.1 # 
 

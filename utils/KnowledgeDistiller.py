@@ -13,7 +13,7 @@ class KnowledgeDistiller:
     """
     A class for Knowledge Distillation using ensembles.
     """
-    def __init__(self, dataset, epochs=2, batch_size = 16, temperature=1, method='avglogits', malClients=[], device='cuda:0'):
+    def __init__(self, dataset, epochs=2, batch_size = 16, temperature=1, method='avglogits', malClients=[], device='cpu'):
         self.dataset = dataset
         self.batch_size = batch_size
         self.T = temperature
