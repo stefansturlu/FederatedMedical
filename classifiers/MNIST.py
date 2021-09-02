@@ -15,7 +15,7 @@ class Classifier(nn.Module):
         self.relu2 = nn.LeakyReLU(negative_slope=0.1)
         self.drop2 = nn.Dropout(p=0.5)
         self.out = nn.Linear(256, 10)
-        #self.out_act = nn.Softmax(dim=1)
+        # self.out_act = nn.Softmax(dim=1)
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.fc1(x)
@@ -25,5 +25,5 @@ class Classifier(nn.Module):
         x = self.relu2(x)
         x = self.drop2(x)
         x = self.out(x)
-        #x = self.out_act(x)
+        # x = self.out_act(x)
         return x

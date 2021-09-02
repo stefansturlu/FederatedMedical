@@ -44,11 +44,11 @@ class FedMGDAPlusDFAggregator(Aggregator):
         self.delta = copy.deepcopy(model) if model else None
 
         self.std_multiplier = 1.5
-        
+
         # For knowledge distillation
         self.distillationData = None
         self.true_labels = None
-        self.pseudolabelMethod = 'medlogits'
+        self.pseudolabelMethod = "medlogits"
 
     # Needed for when we set the config innerLR
     def reinitialise(self, lr: float) -> None:
@@ -188,7 +188,7 @@ class FedMGDAPlusDFAggregator(Aggregator):
             )
 
             comb = 1.0
-            
+
         # Knowledge distillation
         kd = KnowledgeDistiller(self.distillationData, method=self.pseudolabelMethod)
         empty_model = kd.distillKnowledge(models, empty_model)

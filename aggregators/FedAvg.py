@@ -10,6 +10,7 @@ from datasetLoaders.DatasetInterface import DatasetInterface
 from copy import deepcopy
 import gc
 
+
 class FAAggregator(Aggregator):
     """
     Federated Averaging Aggregator that just aggregates each client based on the size of data it holds.

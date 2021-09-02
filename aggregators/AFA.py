@@ -53,9 +53,9 @@ class AFAAggregator(Aggregator):
             models = self._retrieveClientModelsDict()
 
             self.model = self.aggregate(chosen_clients, models)
-            #print([c.n for c in chosen_clients])
-            #print([c.pEpoch for c in chosen_clients])
-            #print([c.p for c in chosen_clients])
+            # print([c.n for c in chosen_clients])
+            # print([c.pEpoch for c in chosen_clients])
+            # print([c.p for c in chosen_clients])
             self.round = r
 
             roundsError[r] = self.test(testDataset)
@@ -82,7 +82,7 @@ class AFAAggregator(Aggregator):
                 d2 = torch.cat((d2, param1.data.view(-1)))
 
         sim: Tensor = cos(d1, d2)
-        
+
         return sim
 
     @staticmethod
@@ -151,14 +151,14 @@ class AFAAggregator(Aggregator):
             # Calculate similarity between temporary global model and each "good" model
             # "Bad" models will receive worst score of 0 by default # Note: I changed this for FedADF, leaving bad models out of the equations.
             sim = torch.zeros(len(clients)).to(self.device)
-            #sim = []
+            # sim = []
             for i, client in enumerate(clients):
                 if self.notBlockedNorBadUpdate(client):
                     client.sim = self.__modelSimilarity(empty_model, models[i])
-                    #print(f"client {i} sim: {client.sim}")
+                    # print(f"client {i} sim: {client.sim}")
                     sim[i] = client.sim
-                    #sim.append(client.sim)
-            #sim = torch.tensor(sim)
+                    # sim.append(client.sim)
+            # sim = torch.tensor(sim)
 
             meanS = torch.mean(sim)
             medianS = torch.median(sim)
@@ -170,7 +170,7 @@ class AFAAggregator(Aggregator):
                 th = medianS + slack * desvS
 
             slack += self.deltaXi
-            
+
             logPrint(f"meanS = {meanS}, medianS = {medianS}, desvS = {desvS}, th = {th}")
 
             badCount = 0
@@ -229,9 +229,13 @@ class AFAAggregator(Aggregator):
                     comb,
                 )
                 comb = 1.0
-        
-        logPrint(f"AFA: Number of models aggregated is {len([c for c in clients if self.notBlockedNorBadUpdate(c)])}")
-        logPrint(f"AFA: These were left out: {[i for i, c in enumerate(clients) if not self.notBlockedNorBadUpdate(c)]}")
+
+        logPrint(
+            f"AFA: Number of models aggregated is {len([c for c in clients if self.notBlockedNorBadUpdate(c)])}"
+        )
+        logPrint(
+            f"AFA: These were left out: {[i for i, c in enumerate(clients) if not self.notBlockedNorBadUpdate(c)]}"
+        )
         logPrint(f"AFA: similarites {[c.sim for c in clients]}")
 
         # Reset badUpdate variable

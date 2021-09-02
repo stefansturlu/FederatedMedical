@@ -14,9 +14,17 @@ from pandas import DataFrame
 
 
 class DatasetLoader:
-    """Parent class used for specifying the data loading workflow """
+    """Parent class used for specifying the data loading workflow"""
 
-    def getDatasets(self, percUsers: Tensor, labels: Tensor, size=(None, None), nonIID=False, alpha=0.1, percServerData=0):
+    def getDatasets(
+        self,
+        percUsers: Tensor,
+        labels: Tensor,
+        size=(None, None),
+        nonIID=False,
+        alpha=0.1,
+        percServerData=0,
+    ):
         raise Exception(
             "LoadData method should be override by child class, "
             "specific to the loaded dataset strategy."
@@ -35,7 +43,11 @@ class DatasetLoader:
 
     @staticmethod
     def _splitTrainDataIntoClientDatasets(
-        percUsers: Tensor, trainDataframe: DataFrame, DatasetType: Type[DatasetInterface], nonIID, alpha
+        percUsers: Tensor,
+        trainDataframe: DataFrame,
+        DatasetType: Type[DatasetInterface],
+        nonIID,
+        alpha,
     ) -> List[DatasetInterface]:
         """
         Splits train dataset into individual datasets for each client.
@@ -53,7 +65,8 @@ class DatasetLoader:
 
             # Sample and reset_index shuffles the dataset in-place and resets the index
             trainDataframes: List[DataFrame] = np.split(
-                trainDataframe.sample(frac=1).reset_index(drop=True), indices_or_sections=dataSplitIndex
+                trainDataframe.sample(frac=1).reset_index(drop=True),
+                indices_or_sections=dataSplitIndex,
             )
 
             clientDatasets: List[DatasetInterface] = [
@@ -62,10 +75,12 @@ class DatasetLoader:
             ]
 
         else:
-            #print(f"SPLITTING THE DATA IN A NON-IID MANNER USING ALPHA={alpha}")
+            # print(f"SPLITTING THE DATA IN A NON-IID MANNER USING ALPHA={alpha}")
 
             # Split dataframe by label
-            gb = trainDataframe.groupby(by='labels') # NOTE: What if the labels aren't called labels? Might need it as input
+            gb = trainDataframe.groupby(
+                by="labels"
+            )  # NOTE: What if the labels aren't called labels? Might need it as input
             label_groups = [gb.get_group(x) for x in gb.groups]
 
             num_classes = len(label_groups)
@@ -84,7 +99,8 @@ class DatasetLoader:
 
                 # Sample and reset_index shuffles the dataset in-place and resets the index
                 trainDataframes: List[DataFrame] = np.split(
-                    label_groups[i].sample(frac=1).reset_index(drop=True), indices_or_sections=dataSplitIndex
+                    label_groups[i].sample(frac=1).reset_index(drop=True),
+                    indices_or_sections=dataSplitIndex,
                 )
 
                 clientsData.append(trainDataframes)
@@ -96,9 +112,9 @@ class DatasetLoader:
                     tmp.append(clientsData[i][j])
                 clientsDataMerged.append(pd.concat(tmp, ignore_index=True))
 
-            #for cliData in clientsDataMerged:
-                #print(cliData['labels'].value_counts().sort_index())
-                #print("length of cliData", len(cliData))
+            # for cliData in clientsDataMerged:
+            # print(cliData['labels'].value_counts().sort_index())
+            # print("length of cliData", len(cliData))
 
             clientDatasets: List[DatasetInterface] = [
                 DatasetType(clientDataframe.reset_index(drop=True))

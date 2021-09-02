@@ -30,7 +30,7 @@ class FedADFAggregator(Aggregator):
         self.deltaXi: float = config.deltaXi
         self.distillationData = None
         self.true_labels = None
-        self.pseudolabelMethod = 'medlogits'
+        self.pseudolabelMethod = "medlogits"
 
     def trainAndTest(self, testDataset: DatasetInterface) -> Errors:
         roundsError = Errors(torch.zeros(self.rounds))
@@ -57,9 +57,9 @@ class FedADFAggregator(Aggregator):
             models = self._retrieveClientModelsDict()
 
             self.model = self.aggregate(chosen_clients, models)
-            #print([c.n for c in chosen_clients])
-            #print([c.pEpoch for c in chosen_clients])
-            #print([c.p for c in chosen_clients])
+            # print([c.n for c in chosen_clients])
+            # print([c.pEpoch for c in chosen_clients])
+            # print([c.p for c in chosen_clients])
             self.round = r
 
             roundsError[r] = self.test(testDataset)
@@ -86,7 +86,7 @@ class FedADFAggregator(Aggregator):
                 d2 = torch.cat((d2, param1.data.view(-1)))
 
         sim: Tensor = cos(d1, d2)
-        
+
         return sim
 
     @staticmethod
@@ -154,12 +154,12 @@ class FedADFAggregator(Aggregator):
 
             # Calculate similarity between temporary global model and each "good" model
             # "Bad" models will receive worst score of 0 by default # NOTE: This is not true any more!
-            sim = [] #torch.zeros(len(clients)).to(self.device)
+            sim = []  # torch.zeros(len(clients)).to(self.device)
             for i, client in enumerate(clients):
                 if self.notBlockedNorBadUpdate(client):
                     client.sim = self.__modelSimilarity(empty_model, models[i])
-                    #print(f"client {i} sim: {client.sim}")
-                    #sim[i] = client.sim
+                    # print(f"client {i} sim: {client.sim}")
+                    # sim[i] = client.sim
                     sim.append(client.sim)
             sim = torch.tensor(sim)
 
@@ -229,11 +229,16 @@ class FedADFAggregator(Aggregator):
                 )
                 comb = 1.0
 
-                
         # Distill knowledge using median pseudolabels
-        notBlockedModels = [models[i] for i, c in enumerate(clients) if self.notBlockedNorBadUpdate(c)]
-        logPrint(f"FedADF: Distilling knowledge using median {len(notBlockedModels)} client model pseudolabels")
-        logPrint(f"FedADF: These were left out: {[i for i, c in enumerate(clients) if not self.notBlockedNorBadUpdate(c)]}")
+        notBlockedModels = [
+            models[i] for i, c in enumerate(clients) if self.notBlockedNorBadUpdate(c)
+        ]
+        logPrint(
+            f"FedADF: Distilling knowledge using median {len(notBlockedModels)} client model pseudolabels"
+        )
+        logPrint(
+            f"FedADF: These were left out: {[i for i, c in enumerate(clients) if not self.notBlockedNorBadUpdate(c)]}"
+        )
         kd = KnowledgeDistiller(self.distillationData, method=self.pseudolabelMethod)
         empty_model = kd.distillKnowledge(notBlockedModels, empty_model)
 
@@ -241,10 +246,9 @@ class FedADFAggregator(Aggregator):
         for client in clients:
             if not client.blocked:
                 client.badUpdate = False
-                
+
         return empty_model
-    
-    
+
     @staticmethod
     def requiresData():
         """

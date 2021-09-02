@@ -12,14 +12,20 @@ import torch
 
 class DatasetLoaderMNIST(DatasetLoader):
     def getDatasets(
-        self, percUsers: Tensor, labels: Tensor, size: Optional[Tuple[int, int]] = None, nonIID = False, alpha = 0.1, percServerData = 0
+        self,
+        percUsers: Tensor,
+        labels: Tensor,
+        size: Optional[Tuple[int, int]] = None,
+        nonIID=False,
+        alpha=0.1,
+        percServerData=0,
     ) -> Tuple[List[DatasetInterface], DatasetInterface]:
         logPrint("Loading MNIST...")
         self._setRandomSeeds()
         data = self.__loadMNISTData()
         trainDataframe, testDataframe = self._filterDataByLabel(labels, *data)
         serverDataset = []
-        if percServerData>0:
+        if percServerData > 0:
             # Knowledge distillation requires server data
             msk = np.random.rand(len(trainDataframe)) < percServerData
             serverDataframe, trainDataframe = trainDataframe[msk], trainDataframe[~msk]

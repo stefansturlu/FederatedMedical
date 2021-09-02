@@ -85,6 +85,7 @@ def __experimentOnMNIST(
     classifier = MNIST.Classifier
     return __experimentSetup(config, dataLoader, classifier, title, filename, folder)
 
+
 def __experimentOnCOVID19(
     config: DefaultExperimentConfiguration, title="", filename="", folder="DEFAULT"
 ) -> Dict[str, Errors]:
@@ -94,6 +95,7 @@ def __experimentOnCOVID19(
     dataLoader = DatasetLoaderCOVID19().getDatasets
     classifier = CNN.Classifier
     return __experimentSetup(config, dataLoader, classifier, title, filename, folder)
+
 
 def __experimentOnCOVIDx(
     config: DefaultExperimentConfiguration,
@@ -185,7 +187,7 @@ def __experimentSetup(
         errorsDict[name] = errors.tolist()
         blocked[name] = block
 
-    # Writing the blocked lists and errors to json files for later inspection. 
+    # Writing the blocked lists and errors to json files for later inspection.
     if not os.path.isdir(folder):
         os.makedirs(folder)
     if not os.path.isdir(f"{folder}/json"):
@@ -202,7 +204,7 @@ def __experimentSetup(
         plt.figure()
         i = 0
         for name, err in errorsDict.items():
-            #plt.plot(err.numpy(), color=COLOURS[i])
+            # plt.plot(err.numpy(), color=COLOURS[i])
             plt.plot(err, color=COLOURS[i])
             i += 1
         plt.legend(errorsDict.keys())
@@ -231,17 +233,26 @@ def __runExperiment(
     Initialises each aggregator appropriately
     """
     serverDataSize = config.serverData
-    #if not (agg is FedBEAggregator or agg is FedDFAggregator or agg is FedABEAggregator):
+    # if not (agg is FedBEAggregator or agg is FedDFAggregator or agg is FedABEAggregator):
     if not agg.requiresData():
         print("Type of agg:", type(agg))
         print("agg:", agg)
         serverDataSize = 0
 
-    trainDatasets, testDataset, serverDataset = datasetLoader(config.percUsers, config.labels, config.datasetSize, config.nonIID, config.alphaDirichlet, serverDataSize)
+    trainDatasets, testDataset, serverDataset = datasetLoader(
+        config.percUsers,
+        config.labels,
+        config.datasetSize,
+        config.nonIID,
+        config.alphaDirichlet,
+        serverDataSize,
+    )
     # TODO: Print client data partition, i.e. how many of each class they have. Plot it and put it in report.
     clientPartitions = torch.stack([torch.bincount(t.labels, minlength=10) for t in trainDatasets])
-    logPrint(f"Client data partition (alpha={config.alphaDirichlet}, percentage on server: {100*serverDataSize:.2f}%)")
-    #logPrint(f"Data per client: {clientPartitions.sum(dim=1)}")
+    logPrint(
+        f"Client data partition (alpha={config.alphaDirichlet}, percentage on server: {100*serverDataSize:.2f}%)"
+    )
+    # logPrint(f"Data per client: {clientPartitions.sum(dim=1)}")
     logPrint(f"Number of samples per class for each client: \n{clientPartitions}")
     clients = __initClients(config, trainDatasets, useDifferentialPrivacy)
     # Requires model input size update due to dataset generalisation and categorisation
@@ -259,7 +270,7 @@ def __runExperiment(
         aggregator.reinitialise(config.aggregatorConfig.innerLR)
     elif isinstance(aggregator, FedPADRCAggregator) or isinstance(aggregator, ClusteringAggregator):
         aggregator._init_aggregators(config.internalAggregator, config.externalAggregator)
-    #elif isinstance(aggregator, FedBEAggregator) or isinstance(aggregator, FedDFAggregator) or isinstance(aggregator, FedABEAggregator):
+    # elif isinstance(aggregator, FedBEAggregator) or isinstance(aggregator, FedDFAggregator) or isinstance(aggregator, FedABEAggregator):
     elif aggregator.requiresData():
         serverDataset.data = serverDataset.data.to(aggregator.config.device)
         serverDataset.labels = serverDataset.labels.to(aggregator.config.device)
