@@ -17,7 +17,7 @@ At the current stage, the project tackles several aspects of FL in adversarial s
 
 ## Relevant Paper
 
-*Stefán Páll Sturluson (2021). Robust Federated Averaging and Adversary Detection using Knowledge Distillation
+*Stefán Páll Sturluson (2021). Robust Federated Averaging and Adversary Detection using Knowledge Distillation*
 
 ---
 
