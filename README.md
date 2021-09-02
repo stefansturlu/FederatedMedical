@@ -1,21 +1,23 @@
-# Federated Learning: Robust Aggregation Techniques on Healthcare Data
+# Robust Federated Learning and Adversary Detection using Knowledge Distillation
 
 This project constitutes a simulation environment for FL tasks that facilitates evaluating the performance of the different robust and privacy preserving FL techniques against different attack scenarios.
 At the current stage, the project tackles several aspects of FL in adversarial settings.
 
-- **Robust Aggregation FL**: currently there are 7 main aggregation schemes implemented: Federated Averaging (not robust), MKRUM, COMED, Adaptive Federated Averaging, FedMGDA+, Clustering and FedPADRC.
+- **Robust Aggregation FL**: currently there are 11 main aggregation schemes implemented: Federated Averaging (not robust), MKRUM, COMED, Adaptive Federated Averaging, FedMGDA+, Clustering, FedPADRC, FedDF, FedBE, FedRAD and FedABE.
 
 - **Privacy preserving FL**: we have experimented with client level differential privacy and the syntactic approch for FL, that makes use of Information loss to perform generalisation over the training and testing datasets.
 
-- **FL Adversial stragegies**: We have simulated 3 different strategies attackers can have: label-flipping attacks, faulty attacks that send noisy parameter updates and free-riding attacks.
+- **FL Adversial strategies**: We have simulated 3 different strategies attackers can have: label-flipping attacks, faulty attacks that send noisy parameter updates and free-riding attacks.
 
 ## Work built upon
 
+*Samuel Trew - MEng Computing - Computation in Medicine and Biology: Enhancing Robust Aggregation in Federated Learning (2021)*
+
 *Grama, M., Musat, M., Muñoz-González, L., Passerat-Palmbach, J., Rueckert, D., & Alansary, A. (2020). Robust Aggregation for Adaptive Privacy Preserving Federated Learning in Healthcare. arXiv preprint arXiv:2009.08294.*
 
-## Relevent Paper
+## Relevant Paper
 
-*Samuel Trew MEng Computing - Computation in Medicine and Biology: Enhancing Robust Aggregation in Federated Learning*
+*Stefán Páll Sturluson (2021). Robust Federated Averaging and Adversary Detection using Knowledge Distillation
 
 ---
 
